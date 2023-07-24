@@ -4,10 +4,10 @@ from gunfolds.conversions import graph2adj, adjs2graph
 from gunfolds.utils import graphkit as gk
 import numpy as np
 from progressbar import ProgressBar, Percentage
-import scipy
 from scipy import linalg, optimize
 from statsmodels.tsa.api import VAR
 from sympy.matrices import SparseMatrix
+
 
 def symchol(M):  # symbolic Cholesky
     """
@@ -247,6 +247,7 @@ def listplace(l, a, b):
 # data generation
 # -------------------------------------------------------------------
 
+
 def randweights(n, c=0.1, factor=9):
     """
     :param n:
@@ -261,10 +262,10 @@ def randweights(n, c=0.1, factor=9):
     :returns:
     :rtype:
     """
-    rw = scipy.random.randn(n)
-    idx = scipy.where(abs(rw) < factor * c)
+    rw = np.random.randn(n)
+    idx = np.where(abs(rw) < factor * c)
     if idx:
-        rw[idx] = rw[idx] + scipy.sign(rw[idx]) * c * factor
+        rw[idx] = rw[idx] + np.sign(rw[idx]) * c * factor
     return rw
 
 
@@ -280,12 +281,12 @@ def transitionMatrix(cg, minstrength=0.1):
     :rtype:
     """
     A = graph2adj(cg)
-    edges = scipy.where(A == 1)
+    edges = np.where(A == 1)
     A[edges] = randweights(edges[0].shape[0], c=minstrength)
     l = linalg.eig(A)[0]
     c = 0
     pbar = ProgressBar(widgets=['Searching for weights: ', Percentage(), ' '], maxval=10000).start()
-    while max(l * scipy.conj(l)) > 1:
+    while max(l * np.conj(l)) > 1:
         A[edges] = randweights(edges[0].shape[0], c=c)
         c += 1
         l = linalg.eig(A)[0]
@@ -305,7 +306,7 @@ def sampleWeights(n, minstrength=0.1):
     :returns:
     :rtype:
     """
-    r = scipy.randn(n)
+    r = np.randn(n)
     s = minstrength / np.min(np.abs(r))
     r = s * r
     return r
@@ -323,12 +324,12 @@ def transitionMatrix2(cg, minstrength=0.1):
     :rtype:
     """
     A = graph2adj(cg)
-    edges = scipy.where(A == 1)
+    edges = np.where(A == 1)
     A[edges] = sampleWeights(edges[0].shape[0], minstrength=minstrength)
     l = linalg.eig(A)[0]
     c = 0
     pbar = ProgressBar(widgets=['Searching for weights: ', Percentage(), ' '], maxval=10000).start()
-    while max(l * scipy.conj(l)) > 1:
+    while max(l * np.conj(l)) > 1:
         A[edges] = sampleWeights(edges[0].shape[0], minstrength=minstrength)
         c += 1
         l = linalg.eig(A)[0]
@@ -354,10 +355,9 @@ def transitionMatrix3(cg, x0=None, minstrength=0.1):
     :rtype:
     """
     A = graph2adj(cg)
-    edges = scipy.where(A == 1)
+    edges = np.where(A == 1)
 
     try:
-        s = x0.shape
         x = x0
     except AttributeError:
         A = initRandomMatrix(A, edges)
@@ -366,7 +366,7 @@ def transitionMatrix3(cg, x0=None, minstrength=0.1):
     def objective(x):
         A[edges] = np.real(x)
         l = linalg.eig(A)[0]
-        m = np.max(np.real(l * scipy.conj(l))) - 0.99
+        m = np.max(np.real(l * np.conj(l))) - 0.99
         n = np.min(np.min(np.abs(x)), minstrength) - minstrength
         return m * m + 0.1 * n * n
 
@@ -381,19 +381,19 @@ def transitionMatrix3(cg, x0=None, minstrength=0.1):
                                            disp=False, full_output=True)
                     A[edges] = np.real(o[0])
                     l = linalg.eig(A)[0]
-                    if np.max(np.real(l * scipy.conj(l))) < 1:
+                    if np.max(np.real(l * np.conj(l))) < 1:
                         rpt = False
 
                 except:
                     rpt = True
             except Warning:
-                x = scipy.randn(len(edges[0]))
+                x = np.randn(len(edges[0]))
                 rpt = True
     A[edges] = np.real(o[0])
     return A
 
 
-def initRandomMatrix(A, edges, maxtries=100, distribution='beta', stable=True):
+def initRandomMatrix(A, edges, distribution='beta'):
     """
     possible distributions:
     flat
@@ -408,39 +408,32 @@ def initRandomMatrix(A, edges, maxtries=100, distribution='beta', stable=True):
     :param edges:
     :type edges:
 
-    :param maxtries:
-    :type maxtries: (guess)integer
-
     :param distribution: (GUESS)distribution from which to sample the weights. Available
      options are flat, flatsigned, beta, normal, uniform
     :type distribution: string
 
-    :param stable:
-    :type stable: boolean
-
     :returns:
     :rtype:
     """
-    s = 2.0
 
     def init():
         if distribution == 'flat':
             x = np.ones(len(edges[0]))
         elif distribution == 'flatsigned':
-            x = np.sign(scipy.randn(len(edges[0]))) * scipy.ones(len(edges[0]))
+            x = np.sign(np.randn(len(edges[0]))) * np.ones(len(edges[0]))
         elif distribution == 'beta':
             x = np.random.beta(0.5, 0.5, len(edges[0])) * 3 - 1.5
         elif distribution == 'normal':
-            x = scipy.randn(len(edges[0]))
+            x = np.randn(len(edges[0]))
         elif distribution == 'uniform':
-            x = np.sign(scipy.randn(len(edges[0]))) * scipy.rand(len(edges[0]))
+            x = np.sign(np.randn(len(edges[0]))) * np.rand(len(edges[0]))
         else:
             raise ValueError('Wrong option!')
         return x
 
     def eigenvalue(A):
         l = linalg.eig(A)[0]
-        s = np.max(np.real(l * scipy.conj(l)))
+        s = np.max(np.real(l * np.conj(l)))
         return s
 
     x = init()
@@ -448,8 +441,6 @@ def initRandomMatrix(A, edges, maxtries=100, distribution='beta', stable=True):
     s = eigenvalue(A)
     alpha = np.random.rand() * (0.99 - 0.8) + 0.8
     A = A / (alpha * s)
-    s = eigenvalue(A)
-
     return A
 
 
@@ -571,7 +562,7 @@ def getAgraph(n, mp=2, st=0.5, verbose=True):
     while keeptrying:
         G = gk.rnd_CG(n, maxindegree=mp, force_connected=True)
         try:
-            A = transitionMarix2(G, minstrength=st)
+            A = transitionMatrix2(G, minstrength=st)
             keeptrying = False
         except ValueError as e:
             if verbose:
@@ -641,18 +632,18 @@ def scoreAGraph(G, data, x0=None):
     :rtype:
     """
     A, B = npG2SVAR(G)
-    K = scipy.sum(abs(A) + abs(B))
+    K = np.sum(abs(A) + abs(B))
     a_idx = np.where(A != 0)
     b_idx = np.where(B != 0)
     if x0:
         o = optimize.fmin_bfgs(nllf, x0, args=(A, B, data, a_idx, b_idx),
                                disp=False, full_output=True)
     else:
-        o = optimize.fmin_bfgs(nllf, scipy.randn(K),
+        o = optimize.fmin_bfgs(nllf, np.randn(K),
                                args=(np.double(A), np.double(B),
                                      data, a_idx, b_idx),
                                disp=False, full_output=True)
-    return 2 * o(1) + K * np.log(T)  # VARbic(o[1],K,data.shape[1])
+    VARbic(o[1], K, data.shape[1])
 
 
 def estimateG(G, YY, XX, YX, T, x0=None):
@@ -679,14 +670,14 @@ def estimateG(G, YY, XX, YX, T, x0=None):
     :rtype:
     """
     A, B = npG2SVAR(G)
-    K = scipy.sum(abs(A) + abs(B))
+    K = np.sum(abs(A) + abs(B))
     a_idx = np.where(A != 0)
     b_idx = np.where(B != 0)
     try:
         s = x0.shape
         x = x0
     except AttributeError:
-        x = scipy.randn(K)
+        x = np.randn(K)
     o = optimize.fmin_bfgs(nllf2, x,
                            args=(np.double(A), np.double(B),
                                  YY, XX, YX, T, a_idx, b_idx),
@@ -720,7 +711,7 @@ def data2AB(data, x0=None):
     B = np.ones((n, n))
     np.fill_diagonal(B, 0)
     B[np.triu_indices(n)] = 0
-    K = int(scipy.sum(abs(B)))  # abs(A)+abs(B)))
+    K = np.sum(abs(B)).astype(int)  # abs(A)+abs(B)))
 
     a_idx = np.where(A != 0)
     b_idx = np.where(B != 0)
@@ -730,7 +721,7 @@ def data2AB(data, x0=None):
         s = x0.shape
         x = x0
     except AttributeError:
-        x = np.r_[A.flatten(), 0.1 * scipy.randn(K)]
+        x = np.r_[A.flatten(), 0.1 * np.random.randn(K)]
     o = optimize.fmin_bfgs(nllf2, x,
                            args=(np.double(A), np.double(B),
                                  YY, XX, YX, T, a_idx, b_idx),
@@ -817,7 +808,6 @@ def data2VARgraph(data, pval=0.05):
         for j in range(n):
             if np.abs(A[j, i]) > pval:
                 g[i + 1][j + 1] = 1
-
     return g
 
 
@@ -840,7 +830,7 @@ def stableVAR(n, density=0.1, dist='beta'):
     :returns:
     :rtype:
     """
-    scipy.random.seed()
+    np.random.seed()
     sst = 0.9
     r = None
     while not r:
