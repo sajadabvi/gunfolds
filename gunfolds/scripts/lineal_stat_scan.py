@@ -383,7 +383,7 @@ r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,
                     dm=[DD],
                     bdm=[BD],
                     scc_members=members,
-                    edge_weights=(1, 1))
+                    edge_weights=(1, 1), pnum=args.PNUM)
 # else:
 #     r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,
 #                         urate=args.MAXU, edge_weights=(1, 1))
