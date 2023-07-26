@@ -13,7 +13,10 @@ from gunfolds.utils.calc_procs import get_process_count
 from gunfolds.estimation import linear_model as lm
 from gunfolds import conversions as cv
 from progressbar import ProgressBar, Percentage
-from numpy import linalg as LA
+from numpy import linalg as la
+import networkx as nx
+from math import log
+from gunfolds.viz import gtool as gt
 
 CLINGO_LIMIT = 64
 PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
@@ -31,6 +34,8 @@ parser.add_argument("-d", "--DEN", default=0.15, help="density of graph", type=s
 parser.add_argument("-g", "--GTYPE", default="f", help="true for ringmore graph, false for random graph", type=str)
 parser.add_argument("-t", "--TIMEOUT", default=120, help="timeout in hours", type=int)
 parser.add_argument("-r", "--THRESHOLD", default=5, help="threshold for SVAR", type=int)
+parser.add_argument("-m", "--SCCMEMBERS", default="t", help="true for using g_estimate SCC members, false for using "
+                                                            "GT SCC members", type=str)
 parser.add_argument("-u", "--UNDERSAMPLING", default=2, help="sampling rate in generated data", type=int)
 parser.add_argument("-x", "--MAXU", default=15, help="maximum number of undersampling to look for solution.", type=int)
 args = parser.parse_args()
@@ -38,6 +43,7 @@ TIMEOUT = args.TIMEOUT * 60 * 60
 GRAPHTYPE = bool(distutils.util.strtobool(args.GTYPE))
 DENSITY = float(args.DEN)
 graphType = 'ringmore' if GRAPHTYPE else 'bp_mean'
+SCC_members = bool(distutils.util.strtobool(args.SCCMEMBERS))
 u_rate = args.UNDERSAMPLING
 k_threshold = args.THRESHOLD
 EDGE_CUTOFF = 0.01
@@ -54,6 +60,71 @@ g_dir_errors_comm = []
 Gu_opt_dir_errors_omm = []
 Gu_opt_dir_errors_comm = []
 error_normalization = True
+
+def round_tuple_elements(input_tuple, decimal_points=3):
+    return tuple(round(elem, decimal_points) if isinstance(elem, (int, float)) else elem for elem in input_tuple)
+
+
+def partition_distance(G1, G2):
+    # Get strongly connected components of the graphs
+    scc1 = list(nx.strongly_connected_components(G1))
+    scc2 = list(nx.strongly_connected_components(G2))
+
+    # Calculate variation of information
+    vi = 0
+    for s1 in scc1:
+        for s2 in scc2:
+            intersection = len(s1.intersection(s2))
+            if intersection > 0:
+                vi += intersection * (log(intersection) - log(len(s1)) - log(len(s2)))
+
+    # Multiply by 2 because we considered each pair twice
+    vi *= 2
+
+    # Normalize by log of the total number of nodes (assuming the graphs have the same nodes)
+    vi /= log(len(G1.nodes))
+
+    # Return partition distance as the variation of information
+    return vi
+
+
+def get_strongly_connected_components(graph):
+    return [c for c in nx.strongly_connected_components(graph)]
+
+
+def calculate_jaccard_similarity(set1, set2):
+    intersection = len(set1.intersection(set2))
+    union = len(set1.union(set2))
+    return intersection / union if union > 0 else 0
+
+
+def quantify_graph_difference(graph1, graph2):
+    # Step 1: Find the strongly connected components in both graphs
+    scc1 = get_strongly_connected_components(graph1)
+    scc2 = get_strongly_connected_components(graph2)
+
+    # Step 2: Represent SCCs as sets of vertices
+    scc_sets1 = set([frozenset(component) for component in scc1])
+    scc_sets2 = set([frozenset(component) for component in scc2])
+
+    # Step 3: Calculate Jaccard similarity between SCC sets
+    intersection = len(scc_sets1.intersection(scc_sets2))
+    union = len(scc_sets1.union(scc_sets2))
+    jaccard_similarity = intersection / union if union > 0 else 0
+
+    return jaccard_similarity
+
+
+def makeConnected(G):
+    # Get weakly connected components of the graph
+    weakly_connected_components = list(nx.weakly_connected_components(G))
+
+    # Connect weakly connected components
+    for i in range(len(weakly_connected_components) - 1):
+        # Add edge between first nodes of consecutive components
+        G.add_edge(list(weakly_connected_components[i])[0], list(weakly_connected_components[i + 1])[0])
+
+    return G
 
 
 def rmBidirected(gu):
@@ -253,19 +324,23 @@ if graphType == 'ringmore':
 else:
     deg = (((args.NODE ** 2) + args.NODE) * DENSITY) / args.NODE
     GT = gk.bp_mean_degree_graph(args.NODE, deg)
+    GG = GG = gk.graph2nx(GT)
+    if not nx.is_weakly_connected(GG):
+        GGC = makeConnected(GG)
+        GT = gk.nx2graph(GGC)
     mask = cv.graph2adj(GT)
     print('density {0:} in {1:} nodes is average degree {2:}'.format(DENSITY, args.NODE, deg))
 
 G = np.clip(np.random.randn(*mask.shape) * 0.2 + 0.5, 0.3, 0.7)
 Con_mat = G * mask
 
-w, v = LA.eig(Con_mat)
+w, v = la.eig(Con_mat)
 res = all(ele <= 1 for ele in abs(w))
 
 while not res:
     G = np.clip(np.random.randn(*mask.shape) * 0.2 + 0.5, 0.3, 0.7)
     Con_mat = G * mask
-    w, v = LA.eig(Con_mat)
+    w, v = la.eig(Con_mat)
     res = all(ele <= 1 for ele in abs(w))
 
 '''SVAR'''
@@ -282,31 +357,38 @@ BD[np.where(BD == 0)] = BD.max()
 #     g_estimated = gc.gc(dd.T, pval=0.005)
 
 GT_at_actual_U = bfutils.undersample(GT, u_rate)
+# g = {1: {2: 1}, 2: {3: 1}, 3: {4: 1, 1: 1}, 4: {5: 1}, 5: {6: 1, 1: 1}, 6: {1: 1, 5: 1}, 7: {8: 1}, 8: {9: 1, 12: 1}, 9: {10: 1, 8: 1}, 10: {11: 1}, 11: {12: 1}, 12: {7: 1, 12: 1}, 13: {14: 1, 17: 1}, 14: {15: 1, 18: 1}, 15: {16: 1, 17: 1}, 16: {17: 1}, 17: {18: 1}, 18: {13: 1}, 19: {20: 1}, 20: {21: 1, 8: 1}, 21: {22: 1, 23: 1, 40: 1}, 22: {23: 1}, 23: {24: 1, 22: 1, 20: 1, 39: 1}, 24: {19: 1}, 25: {26: 1}, 26: {27: 1}, 27: {28: 1, 25: 1}, 28: {29: 1}, 29: {30: 1, 25: 1, 28: 1}, 30: {25: 1}, 31: {32: 1}, 32: {33: 1, 36: 1}, 33: {34: 1, 1: 1, 30: 1}, 34: {35: 1, 28: 1}, 35: {36: 1, 31: 1}, 36: {31: 1, 35: 1}, 37: {38: 1, 41: 1}, 38: {39: 1, 42: 1}, 39: {40: 1, 38: 1}, 40: {41: 1}, 41: {42: 1}, 42: {37: 1}, 43: {44: 1}, 44: {45: 1, 48: 1, 13: 1, 37: 1}, 45: {46: 1, 47: 1}, 46: {47: 1, 17: 1, 34: 1}, 47: {48: 1, 46: 1, 36: 1, 42: 1}, 48: {43: 1}, 49: {50: 1}, 50: {51: 1, 49: 1}, 51: {52: 1}, 52: {53: 1, 54: 1}, 53: {54: 1, 50: 1, 28: 1}, 54: {49: 1, 25: 1}}
+# XX = gk.graph2nx(g)
+# partition_distance(XX, XX)
+jaccard_similarity = quantify_graph_difference(gk.graph2nx(g_estimated), gk.graph2nx(GT_at_actual_U))
 g_estimated_errors_GT_at_actual_U = \
     gk.OCE(g_estimated, GT_at_actual_U, undirected=False, normalized=error_normalization)['total']
 
 print("Gtype : {0:}, intended sampling rate : {1:} Num nodes  "
-      ": {2:}, dens : {3:}\n Batch : {4:}\n "
-      "g_estimated error with GT at intended U: {5:}".format(graphType,
-                                                             u_rate,
-                                                             args.NODE,
-                                                             DENSITY,
-                                                             args.BATCH,
-                                                             g_estimated_errors_GT_at_actual_U))
+      ": {2:}, dens : {3:}\nBatch : {4:}\n"
+      "g_estimated error with GT at intended U: {5:}\n"
+      "using estimated SCC: {6:}".format(graphType, u_rate, args.NODE, DENSITY, args.BATCH,
+                                         round_tuple_elements(g_estimated_errors_GT_at_actual_U), SCC_members))
 
+print('jaccard similarity is: ' +str(jaccard_similarity))
 '''task optimization'''
+if SCC_members:
+    members = nx.strongly_connected_components(gk.graph2nx(g_estimated))
+else:
+    members = nx.strongly_connected_components(gk.graph2nx(GT_at_actual_U))
 startTime = int(round(time.time() * 1000))
 # if Using_SVAR:
 r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,
                     urate=min(args.MAXU, (3 * len(g_estimated) + 1)),
                     dm=[DD],
                     bdm=[BD],
+                    scc_members=members,
                     edge_weights=(1, 1))
 # else:
 #     r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,
 #                         urate=args.MAXU, edge_weights=(1, 1))
 endTime = int(round(time.time() * 1000))
-
+sat_time = endTime - startTime
 '''G1_opt - the solution of optimization problem (r_estimated from g_estimated) in causal time scale'''
 G1_opt = bfutils.num2CG(r_estimated[0][0], len(g_estimated))
 
@@ -322,12 +404,12 @@ Gu_opt_errors_g_estimated = gk.OCE(Gu_opt, g_estimated, undirected=False, normal
 G1_opt_error_GT = gk.OCE(G1_opt, GT, undirected=False, normalized=error_normalization)['total']
 
 print('U rate found to be:' + str(r_estimated[0][1][0]))
-print('Gu_opt_errors_network_GT_U = ', Gu_opt_errors_network_GT_U)
-print('Gu_opt_errors_g_estimated', Gu_opt_errors_g_estimated)
-print('G1_opt_error_GT', G1_opt_error_GT)
+print('Gu_opt_errors_network_GT_U = ', round_tuple_elements(Gu_opt_errors_network_GT_U))
+print('Gu_opt_errors_g_estimated', round_tuple_elements(Gu_opt_errors_g_estimated))
+print('G1_opt_error_GT', round_tuple_elements(G1_opt_error_GT))
 
 '''task optimization then sRASL to find min error'''
-print('###########')
+print('*******************************************')
 startTime2 = int(round(time.time() * 1000))
 c = drasl(glist=[Gu_opt], capsize=args.CAPSIZE, weighted=False, urate=min(args.MAXU, (3 * len(g_estimated) + 1)),
           timeout=TIMEOUT, scc=False)
@@ -350,7 +432,8 @@ for answer in c:
         min_val = 0.5 * (curr_errors['total'][0] + curr_errors['total'][1])
         min_error_graph = answer
 
-print('min err after opt + sRASL = ', min_norm_err['total'])
+print('min G1_err_GT after opt + sRASL = ', round_tuple_elements(min_norm_err['total']))
+print('took ' + str(round(((sat_time + sat_time2)/60000), 3)) + ' mins to solve')
 
 '''saving results'''
 F = 2 * (gk.density(GT) * len(GT) * len(GT) - min_norm_err['total'][0]) / (
@@ -369,6 +452,7 @@ results = {'method': PreFix,
            'graphType': graphType,
            'intended_u_rate': u_rate,
            'noise_svar': noise_svar,
+           'jaccard_similarity': jaccard_similarity,
            'g_estimated_errors_GT_at_actual_U': g_estimated_errors_GT_at_actual_U,
            'Gu_opt_errors_network_GT_U': Gu_opt_errors_network_GT_U,
            'Gu_opt_errors_g_estimated': Gu_opt_errors_g_estimated,
@@ -382,7 +466,7 @@ results = {'method': PreFix,
 filename = 'nodes_' + str(args.NODE) + '_density_' + str(DENSITY) + '_undersampling_' + str(args.UNDERSAMPLING) + \
            '_' + PreFix + '_' + POSTFIX + '_' + graphType + '_CAPSIZE_' + str(args.CAPSIZE) + '_batch_' + \
            str(args.BATCH) + '_pnum_' + str(args.PNUM) + '_timeout_' + str(args.TIMEOUT) + '_threshold_' + \
-           str(args.THRESHOLD) + '_maxu_' + str(args.MAXU)
+           str(args.THRESHOLD) + '_maxu_' + str(args.MAXU) + '_sccMember_' + str(SCC_members)
 folder = 'res_simulation'
 if not os.path.exists(folder):
     os.makedirs(folder)
