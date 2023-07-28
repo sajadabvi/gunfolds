@@ -29,11 +29,12 @@ parser.add_argument("-c", "--CAPSIZE", default=0,
                     help="stop traversing after growing equivalence class to this size.", type=int)
 parser.add_argument("-b", "--BATCH", default=1, help="slurm batch.", type=int)
 parser.add_argument("-p", "--PNUM", default=PNUM, help="number of CPUs in machine.", type=int)
-parser.add_argument("-n", "--NODE", default=5, help="number of nodes in graph", type=int)
+parser.add_argument("-n", "--NODE", default=6, help="number of nodes in graph", type=int)
 parser.add_argument("-d", "--DEN", default=0.15, help="density of graph", type=str)
 parser.add_argument("-g", "--GTYPE", default="f", help="true for ringmore graph, false for random graph", type=str)
 parser.add_argument("-t", "--TIMEOUT", default=120, help="timeout in hours", type=int)
 parser.add_argument("-r", "--THRESHOLD", default=5, help="threshold for SVAR", type=int)
+parser.add_argument("-s", "--SCC", default="t", help="true to use SCC structure, false to not", type=str)
 parser.add_argument("-m", "--SCCMEMBERS", default="t", help="true for using g_estimate SCC members, false for using "
                                                             "GT SCC members", type=str)
 parser.add_argument("-u", "--UNDERSAMPLING", default=2, help="sampling rate in generated data", type=int)
@@ -43,7 +44,9 @@ TIMEOUT = args.TIMEOUT * 60 * 60
 GRAPHTYPE = bool(distutils.util.strtobool(args.GTYPE))
 DENSITY = float(args.DEN)
 graphType = 'ringmore' if GRAPHTYPE else 'bp_mean'
+SCC = bool(distutils.util.strtobool(args.SCC))
 SCC_members = bool(distutils.util.strtobool(args.SCCMEMBERS))
+SCC = True if SCC_members else SCC
 u_rate = args.UNDERSAMPLING
 k_threshold = args.THRESHOLD
 EDGE_CUTOFF = 0.01
@@ -382,6 +385,7 @@ r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,
                     urate=min(args.MAXU, (3 * len(g_estimated) + 1)),
                     dm=[DD],
                     bdm=[BD],
+                    scc=SCC,
                     scc_members=members,
                     edge_weights=(1, 1), pnum=args.PNUM)
 # else:
@@ -410,9 +414,14 @@ print('G1_opt_error_GT', round_tuple_elements(G1_opt_error_GT))
 
 '''task optimization then sRASL to find min error'''
 print('*******************************************')
+
+if SCC_members:
+    members2 = nx.strongly_connected_components(gk.graph2nx(G1_opt))
+else:
+    members2 = nx.strongly_connected_components(gk.graph2nx(GT))
 startTime2 = int(round(time.time() * 1000))
 c = drasl(glist=[Gu_opt], capsize=args.CAPSIZE, weighted=False, urate=min(args.MAXU, (3 * len(g_estimated) + 1)),
-          timeout=TIMEOUT, scc=False)
+          timeout=TIMEOUT, scc=SCC, scc_members=members2)
 endTime2 = int(round(time.time() * 1000))
 sat_time2 = endTime2 - startTime2
 min_err = {'total': (0, 0)}
