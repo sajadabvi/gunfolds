@@ -475,7 +475,7 @@ results = {'method': PreFix,
 filename = 'nodes_' + str(args.NODE) + '_density_' + str(DENSITY) + '_undersampling_' + str(args.UNDERSAMPLING) + \
            '_' + PreFix + '_' + POSTFIX + '_' + graphType + '_CAPSIZE_' + str(args.CAPSIZE) + '_batch_' + \
            str(args.BATCH) + '_pnum_' + str(args.PNUM) + '_timeout_' + str(args.TIMEOUT) + '_threshold_' + \
-           str(args.THRESHOLD) + '_maxu_' + str(args.MAXU) + '_sccMember_' + str(SCC_members)
+           str(args.THRESHOLD) + '_maxu_' + str(args.MAXU) + '_sccMember_' + str(SCC_members) + '_SCC+' + str(SCC)
 folder = 'res_simulation'
 if not os.path.exists(folder):
     os.makedirs(folder)
