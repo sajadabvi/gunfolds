@@ -16,7 +16,7 @@ from progressbar import ProgressBar, Percentage
 from numpy import linalg as la
 import networkx as nx
 from math import log
-from gunfolds.viz import gtool as gt
+
 
 CLINGO_LIMIT = 64
 PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
