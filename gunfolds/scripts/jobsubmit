@@ -1,11 +1,11 @@
 #!/bin/bash
 #SBATCH -N 1
 #SBATCH -n 1
-#SBATCH -c 7
-#SBATCH --mem=120g
+#SBATCH -c 1
+#SBATCH --mem=20g
 #SBATCH -p qTRDGPU
 #SBATCH -t 7600
-#SBATCH -J F7U3D14
+#SBATCH -J Test6p4
 #SBATCH -e ./err/error%A-%a.err
 #SBATCH -o ./out/out%A-%a.out
 #SBATCH -A psy53c17
@@ -21,6 +21,6 @@ echo $HOSTNAME >&2
 
 source /home/users/mabavisani/anaconda3/bin/activate
 conda activate mygit
-python lineal_stat_scan.py -d=1.4 -m=f -s=t -u=3  -b=$SLURM_ARRAY_TASK_ID  -n=7 -p=7
+python lineal_stat_scan.py -d=1.5 -m=t -s=t -u=2  -b=$SLURM_ARRAY_TASK_ID  -n=6 -p=4
 
 sleep 3s
