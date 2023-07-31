@@ -326,7 +326,8 @@ if graphType == 'ringmore':
     mask = cv.graph2adj(GT)
 else:
     deg = (((args.NODE ** 2) + args.NODE) * DENSITY) / args.NODE
-    GT = gk.bp_mean_degree_graph(args.NODE, deg)
+    # GT = gk.bp_mean_degree_graph(args.NODE, deg)
+    GT = {1: {3: 1, 2: 1}, 3: {}, 2: {2: 1}, 4: {}, 5: {5: 1, 6: 1}, 6: {3: 1, 4: 1}}
     GG = GG = gk.graph2nx(GT)
     if not nx.is_weakly_connected(GG):
         GGC = makeConnected(GG)
