@@ -21,6 +21,6 @@ echo $HOSTNAME >&2
 
 source /home/users/mabavisani/anaconda3/bin/activate
 conda activate mygit
-python lineal_stat_scan.py -d=1.4 -m=f -s=t -u=3  -b=$SLURM_ARRAY_TASK_ID  -n=7 -p=7
+python lineal_stat_scan.py -d=0.14 -m=f -s=t -u=3  -b=$SLURM_ARRAY_TASK_ID  -n=7 -p=7
 
 sleep 3s
