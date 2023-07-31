@@ -1,0 +1,27 @@
+#!/bin/bash
+#SBATCH -N 1
+#SBATCH -n 1
+#SBATCH -c 7
+#SBATCH --mem=120g
+#SBATCH -p qTRDGPU
+#SBATCH -t 7600
+#SBATCH -J F7U3D14
+#SBATCH -e ./err/error%A-%a.err
+#SBATCH -o ./out/out%A-%a.out
+#SBATCH -A psy53c17
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=mabavisani@gsu.edu
+#SBATCH --oversubscribe
+
+sleep 1s
+
+export OMP_NUM_THREADS=1
+export MODULEPATH=/apps/Compilers/modules-3.2.10/Debug-Build/Modules/3.2.10/modulefiles/
+echo $HOSTNAME >&2
+
+source /home/users/mabavisani/anaconda3/bin/activate
+conda activate mygit
+python lineal_stat_scan.py -d=0.14 -m=f -s=t -u=3  -b=$SLURM_ARRAY_TASK_ID  -n=7 -p=7
+
+sleep 3s
+
