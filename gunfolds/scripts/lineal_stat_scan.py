@@ -318,7 +318,20 @@ def amap(f, a):
     v = np.vectorize(f)
     return v(a)
 
-
+'''
+if you get a graph G_1 that is a DAG (directed acyclic graph), i.e. all SCCs are singletons (each node is its own SCC)
+ then this is a very non-biological case and you need to discard it and try to generate another/better graph
+there are a few things to consider though
+the case you describe: if any of these singleton nodes have a self-loop, we can use this graph OK. Not ideal,
+but better than a simple DAG. Also, in this case you do not risk getting a Gu with no directed edges
+2. since you are using scc=true  it is worth making sure all sccs are gcd=1 . I suspect there is already 
+a function to ensure this in graphkit
+New
+https://neuroneural.github.io/gunfolds/utils/graphkit.html#ensure-gcd1
+3:44
+but this function will be bad for singleton nodes - it will add a self loop to all of them, which is not a good idea
+ :slightly_smiling_face: Please do not apply it to singleton SCCs
+'''
 print('_____________________________________________')
 if graphType == 'ringmore':
     e = bfutils.dens2edgenum(DENSITY, n=args.NODE)
