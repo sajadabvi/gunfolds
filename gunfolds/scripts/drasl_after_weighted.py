@@ -100,7 +100,8 @@ for nodes in [args.NODE]:
                 min_error_graph = answer
                 if min_val < 0.001:
                     break
-        new_results ={'solutions': eqclasses['solutions'],
+        new_results ={'len_eq': len(eqclasses['solutions']['eq']),
+                      'total_time': res['ms'] + eqclasses['solutions']['ms'],
                       'min_norm_err': min_norm_err,
                       'min_error_graph': min_error_graph}
         filename = 'res_drasl_after_optim/'+str(args.NODE) + '/' + \
