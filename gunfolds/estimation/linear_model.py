@@ -721,7 +721,7 @@ def data2AB(data, x0=None):
         s = x0.shape
         x = x0
     except AttributeError:
-        x = np.r_[A.flatten(), 0.1 * np.random.randn(K)]
+        x = np.r_[A.flatten(), 0.1*np.random.randn(K)]
     o = optimize.fmin_bfgs(nllf2, x,
                            args=(np.double(A), np.double(B),
                                  YY, XX, YX, T, a_idx, b_idx),

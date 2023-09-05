@@ -3,6 +3,10 @@ gunfolds
 
 Tools to explore dynamic causal graphs in the case of  undersampled data helping to unfold the apparent structure into the underlying truth.
 
+Documentation
+===================
+Please refer to the [Documentation](https://neuroneural.github.io/gunfolds/) for more information.
+
 Installation
 ============
 
@@ -12,7 +16,7 @@ Install the gunfolds package
    pip install gunfolds
 ```
 
-Install these additional packages to use gunfolds
+Additionally, install these packages to use gunfolds
 
 clingo installation
 -------------------

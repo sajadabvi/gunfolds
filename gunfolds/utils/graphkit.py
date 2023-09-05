@@ -392,11 +392,11 @@ def _normed_OCE(g1, g2):
     DEN = n*n                          # all posible directed edges
     BEN = n*(n-1)/2                    # all possible bidirected edges
     err = OCE(g1, g2)
-    nerr = {'directed': (sdiv(err['directed'][0],gt_DEN),
+    nerr = {'directed': (sdiv(err['directed'][0], gt_DEN),
                          sdiv(err['directed'][1], (DEN - gt_DEN))),
             'bidirected': (sdiv(err['bidirected'][0], gt_BEN),
                            sdiv(err['bidirected'][1], (BEN - gt_BEN))),
-            'total': (sdiv((err['directed'][0]+err['bidirected'][0]),(gt_DEN+gt_BEN)),
+            'total': (sdiv((err['directed'][0]+err['bidirected'][0]), (gt_DEN+gt_BEN)),
                       sdiv((err['directed'][1]+err['bidirected'][1]),
                            (DEN+BEN - gt_BEN - gt_DEN)))
             }
@@ -799,7 +799,7 @@ def bp_mean_degree_graph(node_num, degree, seed=None):
     :type node_num: integer
     
     :param degree: degree
-    :type degree: integer
+    :type degree: float
     
     :param seed: random seed
     :type seed: integer
@@ -1087,19 +1087,25 @@ def merge_graphs(glist):
     return g
 
 
-def ensure_graph_gcd1(g):
+def ensure_graph_gcd1(g, ignore_singletons=True):
     """
     This function takes any graph, breaks it into SCCs and make sure each SCC has a gcd of 1
 
     :param g: ``gunfolds`` graph
     :type g: dictionary (``gunfolds`` graph)
-    
+
+    :param ignore_singletons: ignores singleton SCCs when adding a self-loop to make gcd=1
+    :type ignore_singletons: boolean
+
     :returns: a graph with ``gcd=1``
     :rtype: dictionary (``gunfolds`` graph)
     """
     G = graph2nx(g)
-    x = [ensure_gcd1(subgraph(g, c)) for c in nx.strongly_connected_components(G)]
-    return merge_graphs([g]+x)
+    if ignore_singletons:
+        x = [ensure_gcd1(subgraph(g, c)) for c in nx.strongly_connected_components(G) if len(c) > 1]
+    else:
+        x = [ensure_gcd1(subgraph(g, c)) for c in nx.strongly_connected_components(G)]
+    return merge_graphs([g] + x)
 
 
 def gcd1_bp_mean_degree_graph(node_num, degree, seed=None):
@@ -1110,7 +1116,7 @@ def gcd1_bp_mean_degree_graph(node_num, degree, seed=None):
     :type node_num: integer
     
     :param degree: degree
-    :type degree: integer
+    :type degree: float
     
     :param seed: random seed
     :type seed: integer
