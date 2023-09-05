@@ -15,7 +15,7 @@ from os import listdir
 from matplotlib.patheffects import withStroke
 from matplotlib.ticker import MultipleLocator
 
-undersampling = 4
+undersampling = 3
 deg_list = [1.5,2,2.5]
 node_directories = ['6 nodes', '7 nodes', '8 nodes', '9 nodes']
 list_of_lists = []
@@ -84,7 +84,7 @@ if __name__ == '__main__':
     #             u.extend([item['u'], item['u']])
     #             deg.extend([item['density'], item['density']])
     #             node.extend([str(index)] * 2)
-
+    #
     # for index, item_list in enumerate(list_of_lists, start=6):
     #     for item in item_list:
     #         if item['u'] == undersampling and item['density'] in deg_list:
@@ -149,5 +149,5 @@ if __name__ == '__main__':
                     annotation_x = node_value_all.tolist().index(node_value) + (0.05 if k == 0 else -0.4)
                     annotation_y = 0
                     ax.text(annotation_x, annotation_y, str(counts), color=pal[method_value], fontsize=18, path_effects=[outline_effect,outline_effect])
-    plt.savefig("figs/testall14.svg")
+    plt.savefig("figs/undersampling3v2.svg")
 

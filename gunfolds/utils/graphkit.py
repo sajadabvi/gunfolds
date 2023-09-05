@@ -775,7 +775,7 @@ def pow_degree_graph(node_num, degree):
     :type node_num: integer
     
     :param degree: degree
-    :type degree: integer
+    :type degree: float
     
     :returns: a graph constructed using the Havel-Hakimi algorithm.
     :rtype: dictionary(``gunfolds`` graph)
