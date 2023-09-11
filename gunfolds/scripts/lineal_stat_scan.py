@@ -482,7 +482,8 @@ results = {'method': PreFix,
            'min_error_graph': min_error_graph,
            'min_norm_err': min_norm_err,
            'num_edges': gk.density(GT) * len(GT) * len(GT),
-           'F_score': F}
+           'F_score': F,
+           'total_time': round(((sat_time + sat_time2)/60000), 3)}
 
 '''saving files'''
 filename = 'nodes_' + str(args.NODE) + '_density_' + str(DENSITY) + '_undersampling_' + str(args.UNDERSAMPLING) + \
