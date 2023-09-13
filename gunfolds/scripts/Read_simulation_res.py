@@ -67,8 +67,9 @@ axes[1].set_ylim(0, 1)
 
 for ax in axes:
     ax.xaxis.grid(True, "minor", linewidth=.75)
-    ax.xaxis.grid(True, "major", linewidth=3)
+    ax.xaxis.grid(True, "major", linewidth=5)
     ax.xaxis.set_minor_locator(MultipleLocator(1))
     ax.xaxis.set_major_locator(MultipleLocator(10))
 
 plt.show()
+# plt.savefig("simulation_results_7nodes.svg")
