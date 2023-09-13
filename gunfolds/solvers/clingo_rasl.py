@@ -413,7 +413,6 @@ def rasl(g, capsize, timeout=0, urate=0, pnum=None, configuration="tweety"):
         trendy: Use defaults geared towards industrial problems
     :type configuration: string
 
-
     :returns: results of parsed equivalent class
     :rtype: dictionary
     """

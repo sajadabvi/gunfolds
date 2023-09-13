@@ -52,9 +52,7 @@ def run_clingo(command,
     """
     if pnum is None:
         pnum = PNUM
-    ctrl = clngo.Control(
-        ["--warn=no-atom-undefined", "--configuration=", str(configuration), "-t",
-         str(int(pnum)) + ",split", "-n", str(capsize)])
+    ctrl = clngo.Control(["--warn=no-atom-undefined","--configuration=", configuration, "-t", str(int(pnum)) + ",split", "-n", str(capsize)])
     if not exact:
         ctrl.configuration.solve.opt_mode = "opt"
     ctrl.add("base", [], command.decode())
