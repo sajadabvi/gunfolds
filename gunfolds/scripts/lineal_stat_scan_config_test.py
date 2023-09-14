@@ -31,6 +31,7 @@ parser.add_argument("-b", "--BATCH", default=1, help="slurm batch.", type=int)
 parser.add_argument("-p", "--PNUM", default=PNUM, help="number of CPUs in machine.", type=int)
 parser.add_argument("-n", "--NODE", default=6, help="number of nodes in graph", type=int)
 parser.add_argument("-d", "--DEN", default=0.15, help="density of graph", type=str)
+parser.add_argument("-o", "--CONFIG", default="auto", help="configuration for solving", type=str)
 parser.add_argument("-g", "--GTYPE", default="f", help="true for ringmore graph, false for random graph", type=str)
 parser.add_argument("-t", "--TIMEOUT", default=120, help="timeout in hours", type=int)
 parser.add_argument("-r", "--THRESHOLD", default=5, help="threshold for SVAR", type=int)
@@ -318,75 +319,64 @@ def amap(f, a):
     v = np.vectorize(f)
     return v(a)
 
-'''
-if you get a graph G_1 that is a DAG (directed acyclic graph), i.e. all SCCs are singletons (each node is its own SCC)
- then this is a very non-biological case and you need to discard it and try to generate another/better graph
-there are a few things to consider though
-the case you describe: if any of these singleton nodes have a self-loop, we can use this graph OK. Not ideal,
-but better than a simple DAG. Also, in this case you do not risk getting a Gu with no directed edges
-2. since you are using scc=true  it is worth making sure all sccs are gcd=1 . I suspect there is already 
-a function to ensure this in graphkit
-New
-https://neuroneural.github.io/gunfolds/utils/graphkit.html#ensure-gcd1
-3:44
-but this function will be bad for singleton nodes - it will add a self loop to all of them, which is not a good idea
- :slightly_smiling_face: Please do not apply it to singleton SCCs
-'''
+
 print('_____________________________________________')
-if graphType == 'ringmore':
-    e = bfutils.dens2edgenum(DENSITY, n=args.NODE)
-    GT = gk.ringmore(args.NODE, e)
-    mask = cv.graph2adj(GT)
-else:
-    deg = (((args.NODE ** 2) + args.NODE) * DENSITY) / args.NODE
-    GT = gk.bp_mean_degree_graph(args.NODE, deg)
-    GG = gk.graph2nx(GT)
-    if not nx.is_weakly_connected(GG):
-        GGC = makeConnected(GG)
-        GT = gk.nx2graph(GGC)
-    mask = cv.graph2adj(GT)
-    print('density {0:} in {1:} nodes is average degree {2:}'.format(DENSITY, args.NODE, deg))
 
-G = np.clip(np.random.randn(*mask.shape) * 0.2 + 0.5, 0.3, 0.7)
-Con_mat = G * mask
 
-w, v = la.eig(Con_mat)
-res = all(ele <= 1 for ele in abs(w))
 
-while not res:
-    G = np.clip(np.random.randn(*mask.shape) * 0.2 + 0.5, 0.3, 0.7)
-    Con_mat = G * mask
-    w, v = la.eig(Con_mat)
-    res = all(ele <= 1 for ele in abs(w))
+G_test_set = \
+    [{1: {3: 1, 7: 1, 8: 1},3: {},7: {6: 1}, 2: {7: 1}, 4: {1: 1, 2: 1}, 5: {5: 1, 8: 1}, 8: {}, 6: {}},
+              {1: {2: 1}, 2: {6: 1}, 3: {2: 1}, 4: {}, 5: {3: 1}, 6: {}, 7: {4: 1}, 8: {3: 1, 5: 1, 7: 1}},
+              {1: {4: 1, 7: 1, 2: 1}, 4: {}, 7: {}, 2: {3: 1}, 3: {8: 1}, 5: {2: 1}, 6: {1: 1, 4: 1}, 8: {}},
+              {1: {3: 1, 4: 1}, 3: {5: 1}, 2: {}, 5: {2: 1}, 4: {6: 1}, 6: {7: 1}, 7: {}, 8: {2: 1}},
+              {1: {2: 1}, 2: {4: 1}, 3: {6: 1, 8: 1}, 6: {6: 1, 7: 1}, 8: {3: 1, 8: 1}, 4: {}, 5: {4: 1}, 7: {1: 1, 7: 1}},
+              {1: {4: 1}, 2: {5: 1, 8: 1}, 3: {2: 1, 7: 1}, 4: {5: 1}, 5: {}, 6: {1: 1}, 7: {3: 1, 7: 1}, 8: {5: 1}},
+              {1: {4: 1, 7: 1}, 2: {3: 1}, 3: {4: 1}, 4: {}, 5: {5: 1},6: {}, 7: {1: 1, 5: 1, 6: 1}, 8: {1: 1, 5: 1}}]
 
-'''SVAR'''
-dd = genData(Con_mat, rate=u_rate, ssize=2000, noise=noise_svar)  # data.values
+# mask = [cv.graph2adj(GT) for GT in G_test_set]
+#
+#
+# G = [np.clip(np.random.randn(*maski.shape) * 0.2 + 0.5, 0.3, 0.7) for maski in mask]
+#
+# Con_mat = [Gi * maski for Gi, maski in zip(G, mask)]
+#
+# for i in range(len(Con_mat)):
+#     w, v = la.eig(Con_mat[i])
+#     res = all(ele <= 1 for ele in abs(w))
+#
+#     while not res:
+#         G = np.clip(np.random.randn(*mask[i].shape) * 0.2 + 0.5, 0.3, 0.7)
+#         Con_mat[i] = G * mask
+#         w, v = la.eig(Con_mat[i])
+#         res = all(ele <= 1 for ele in abs(w))
+#
+# '''SVAR'''
+# dd = [genData(Con_mati, rate=u_rate, ssize=2000, noise=noise_svar)  for Con_mati in Con_mat]
+#
+#
+# esimations = [(lm.data2graph(ddi, th=EDGE_CUTOFF * k_threshold)) for ddi in dd]
+# DDs = []
+# BDs = []
+# for element in esimations:
+#     DD = (np.abs(cv.graph2adj(element[0]) * element[1]) * 10000).astype(int)
+#     DD[np.where(DD == 0)] = DD.max()
+#     DDs.append(DD)
+#     BD = (np.abs(cv.graph2badj(element[0]) * element[2]) * 10000).astype(int)
+#     BD[np.where(BD == 0)] = BD.max()
+#     BDs.append(BD)
+# g_estimateds = [item[0] for item in esimations]
+#
+# test_set = {'g_estimateds':g_estimateds,
+#             'DDs':DDs,
+#             'BDs':BDs}
 
-# if Using_SVAR:
-
-g_estimated, A, B = lm.data2graph(dd, th=EDGE_CUTOFF * k_threshold)
-DD = (np.abs(cv.graph2adj(g_estimated) * A) * 10000).astype(int)
-DD[np.where(DD == 0)] = DD.max()
-BD = (np.abs(cv.graph2badj(g_estimated) * B) * 10000).astype(int)
-BD[np.where(BD == 0)] = BD.max()
-# else:
-#     g_estimated = gc.gc(dd.T, pval=0.005)
-
+dataset = zkl.load('datasets/test_set.zkl')
+GT = G_test_set[args.BATCH-1]
 GT_at_actual_U = bfutils.undersample(GT, u_rate)
-# g = {1: {2: 1}, 2: {3: 1}, 3: {4: 1, 1: 1}, 4: {5: 1}, 5: {6: 1, 1: 1}, 6: {1: 1, 5: 1}, 7: {8: 1}, 8: {9: 1, 12: 1}, 9: {10: 1, 8: 1}, 10: {11: 1}, 11: {12: 1}, 12: {7: 1, 12: 1}, 13: {14: 1, 17: 1}, 14: {15: 1, 18: 1}, 15: {16: 1, 17: 1}, 16: {17: 1}, 17: {18: 1}, 18: {13: 1}, 19: {20: 1}, 20: {21: 1, 8: 1}, 21: {22: 1, 23: 1, 40: 1}, 22: {23: 1}, 23: {24: 1, 22: 1, 20: 1, 39: 1}, 24: {19: 1}, 25: {26: 1}, 26: {27: 1}, 27: {28: 1, 25: 1}, 28: {29: 1}, 29: {30: 1, 25: 1, 28: 1}, 30: {25: 1}, 31: {32: 1}, 32: {33: 1, 36: 1}, 33: {34: 1, 1: 1, 30: 1}, 34: {35: 1, 28: 1}, 35: {36: 1, 31: 1}, 36: {31: 1, 35: 1}, 37: {38: 1, 41: 1}, 38: {39: 1, 42: 1}, 39: {40: 1, 38: 1}, 40: {41: 1}, 41: {42: 1}, 42: {37: 1}, 43: {44: 1}, 44: {45: 1, 48: 1, 13: 1, 37: 1}, 45: {46: 1, 47: 1}, 46: {47: 1, 17: 1, 34: 1}, 47: {48: 1, 46: 1, 36: 1, 42: 1}, 48: {43: 1}, 49: {50: 1}, 50: {51: 1, 49: 1}, 51: {52: 1}, 52: {53: 1, 54: 1}, 53: {54: 1, 50: 1, 28: 1}, 54: {49: 1, 25: 1}}
-# XX = gk.graph2nx(g)
-# partition_distance(XX, XX)
-jaccard_similarity = quantify_graph_difference(gk.graph2nx(g_estimated), gk.graph2nx(GT_at_actual_U))
-g_estimated_errors_GT_at_actual_U = \
-    gk.OCE(g_estimated, GT_at_actual_U, undirected=False, normalized=error_normalization)['total']
+g_estimated = dataset['g_estimateds'][args.BATCH-1]
+DD = dataset['DDs'][args.BATCH-1]
+BD = dataset['BDs'][args.BATCH-1]
 
-print("Gtype : {0:}, intended sampling rate : {1:} Num nodes  "
-      ": {2:}, dens : {3:}\nBatch : {4:}\n"
-      "g_estimated error with GT at intended U: {5:}\n"
-      "using estimated SCC: {6:}".format(graphType, u_rate, args.NODE, DENSITY, args.BATCH,
-                                         round_tuple_elements(g_estimated_errors_GT_at_actual_U), SCC_members))
-
-print('jaccard similarity is: ' +str(jaccard_similarity))
 '''task optimization'''
 if SCC_members:
     members = nx.strongly_connected_components(gk.graph2nx(g_estimated))
@@ -400,10 +390,10 @@ r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,
                     bdm=[BD],
                     scc=SCC,
                     scc_members=members,
-                    edge_weights=(1, 1), pnum=args.PNUM)
-# else:
-#     r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,
-#                         urate=args.MAXU, edge_weights=(1, 1))
+                    edge_weights=(1, 1),
+                    pnum=args.PNUM,
+                    configuration=args.CONFIG)
+
 endTime = int(round(time.time() * 1000))
 sat_time = endTime - startTime
 '''G1_opt - the solution of optimization problem (r_estimated from g_estimated) in causal time scale'''
@@ -420,6 +410,8 @@ Gu_opt_errors_g_estimated = gk.OCE(Gu_opt, g_estimated, undirected=False, normal
 
 G1_opt_error_GT = gk.OCE(G1_opt, GT, undirected=False, normalized=error_normalization)['total']
 
+print('batch: ' + str(args.BATCH))
+print('configuration: ' + args.CONFIG)
 print('U rate found to be:' + str(r_estimated[0][1][0]))
 print('Gu_opt_errors_network_GT_U = ', round_tuple_elements(Gu_opt_errors_network_GT_U))
 print('Gu_opt_errors_g_estimated', round_tuple_elements(Gu_opt_errors_g_estimated))
@@ -476,8 +468,6 @@ results = {'method': PreFix,
            'graphType': graphType,
            'intended_u_rate': u_rate,
            'noise_svar': noise_svar,
-           'jaccard_similarity': jaccard_similarity,
-           'g_estimated_errors_GT_at_actual_U': g_estimated_errors_GT_at_actual_U,
            'Gu_opt_errors_network_GT_U': Gu_opt_errors_network_GT_U,
            'Gu_opt_errors_g_estimated': Gu_opt_errors_g_estimated,
            'G1_opt_error_GT': G1_opt_error_GT,
@@ -485,14 +475,16 @@ results = {'method': PreFix,
            'min_norm_err': min_norm_err,
            'num_edges': gk.density(GT) * len(GT) * len(GT),
            'F_score': F,
-           'total_time': round(((sat_time + sat_time2)/60000), 3)}
+           'total_time': round(((sat_time + sat_time2)/60000), 3),
+           'config':args.CONFIG}
 
 '''saving files'''
 filename = 'nodes_' + str(args.NODE) + '_density_' + str(DENSITY) + '_undersampling_' + str(args.UNDERSAMPLING) + \
            '_' + PreFix + '_' + POSTFIX + '_' + graphType + '_CAPSIZE_' + str(args.CAPSIZE) + '_batch_' + \
            str(args.BATCH) + '_pnum_' + str(args.PNUM) + '_timeout_' + str(args.TIMEOUT) + '_threshold_' + \
-           str(args.THRESHOLD) + '_maxu_' + str(args.MAXU) + '_sccMember_' + str(SCC_members) + '_SCC_' + str(SCC)
-folder = 'res_simulation'
+           str(args.THRESHOLD) + '_maxu_' + str(args.MAXU) + '_sccMember_' + str(SCC_members) + '_SCC_' + str(SCC) + \
+           "_config_" + str(args.CONFIG)
+folder = 'res_config_test'
 if not os.path.exists(folder):
     os.makedirs(folder)
 zkl.save(results, folder + '/' + filename + '.zkl')
