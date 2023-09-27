@@ -71,5 +71,5 @@ plt.yscale('log')  # Set the y-axis scale to log
 plt.legend(title='Config', loc='upper right')
 
 # Show the
-plt.savefig("only7_cor.svg")
-# plt.show()
+# plt.savefig("only7_cor.svg")
+plt.show()
