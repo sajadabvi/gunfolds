@@ -54,7 +54,7 @@ def run_clingo(command,
         pnum = PNUM
     ctrl = clngo.Control(["--warn=no-atom-undefined","--configuration=", configuration, "-t", str(int(pnum)) + ",split", "-n", str(capsize)])
     if not exact:
-        ctrl.configuration.solve.opt_mode = "opt"
+        ctrl.configuration.solve.opt_mode = "optN"
     ctrl.add("base", [], command.decode())
     ctrl.ground([("base", [])])
     models = []
