@@ -54,13 +54,13 @@ def run_clingo(command,
         pnum = PNUM
     ctrl = clngo.Control(["--warn=no-atom-undefined","--configuration=", configuration, "-t", str(int(pnum)) + ",split", "-n", str(capsize)])
     if not exact:
-        ctrl.configuration.solve.opt_mode = "optN"
+        ctrl.configuration.solve.opt_mode = "optN,2"
     ctrl.add("base", [], command.decode())
     ctrl.ground([("base", [])])
     models = []
     with ctrl.solve(yield_=True, async_=True) as handle:
         for model in handle:
-            models.append([str(atom) for atom in model.symbols(shown=True)])
+            models.append(([str(atom) for atom in model.symbols(shown=True)], model.cost))
     cost = ctrl.statistics["summary"]["costs"]
     num_opt = ctrl.statistics["summary"]["models"]["optimal"]
     if not exact:
@@ -124,7 +124,7 @@ def clingo(command, exact=True,
         return {}
     else:
         if not exact:
-            r = (convert(result[0][-1]), result[1])
+            r = {(convert(value[0]), value[1][0]) for value in result[0]}
         else:
             r = {convert(value) for value in result[0]}
     return r
