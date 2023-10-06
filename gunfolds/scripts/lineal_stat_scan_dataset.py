@@ -333,11 +333,7 @@ but this function will be bad for singleton nodes - it will add a self loop to a
  :slightly_smiling_face: Please do not apply it to singleton SCCs
 '''
 print('_____________________________________________')
-if SCC_members:
-    dataset = zkl.load('datasets/graphs_not_in_n8stmt14.zkl')
-else:
-    dataset = zkl.load('datasets/graphs_not_in_n8stmf14.zkl')
-
+dataset = zkl.load('datasets/all_samples_n8d14.zkl')
 GT = dataset[args.BATCH-1]
 mask = cv.graph2adj(GT)
 
@@ -388,7 +384,7 @@ else:
     members = nx.strongly_connected_components(gk.graph2nx(GT_at_actual_U))
 startTime = int(round(time.time() * 1000))
 # if Using_SVAR:
-r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,
+r_estimated = drasl([g_estimated], weighted=True, timeout=TIMEOUT,
                     urate=min(args.MAXU, (3 * len(g_estimated) + 1)),
                     dm=[DD],
                     bdm=[BD],
