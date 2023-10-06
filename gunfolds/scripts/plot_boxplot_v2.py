@@ -5,30 +5,34 @@ from gunfolds.utils import zickle as zkl
 from os import listdir
 from matplotlib.ticker import MultipleLocator
 
-undersampling = 4
-deg_list = [1.5,2,2.5]
-node_directories = ['6 nodes', '7 nodes', '8 nodes', '9 nodes']
+undersampling = 2
+deg_list = [1.5,float(2),2.5]
+node_directories = ['6 nodes', '7 nodes', '8 nodes']
 list_of_lists = []
 list_of_lists3 = []
 list_of_lists4 = []
-node_directories2 = ['6', '7', '8', '9']
+node_directories2 = ['6', '7', '8']
 list_of_lists2 = []
 
 for directory in node_directories:
-    file_list = listdir(f'./results/weighted_zero_cap/{directory}')
+    file_list = listdir(f'./results/edge_breaking_optN/res_CAP_0_/{directory}')
     file_list.sort()
     if file_list[0].startswith('.'):
         file_list.pop(0)
-    item_list = [zkl.load(f'./results/weighted_zero_cap/{directory}/{name}') for name in file_list]
+    # for name in file_list:
+    #     item = zkl.load(f'./results/edge_breaking_optN/res_CAP_0_/{directory}/{name}')
+    #     item['results'] = len(item['results'])
+    #     zkl.save(item, f'./results/edge_breaking_optN/res_CAP_0_/{directory}/{name}')
+    item_list = [zkl.load(f'./results/edge_breaking_optN/res_CAP_0_/{directory}/{name}') for name in file_list]
     list_of_lists.append(item_list)
 
-for directory in node_directories:
-    file_list = listdir(f'./res/optimization_then_drasl/{directory}')
-    file_list.sort()
-    if file_list[0].startswith('.'):
-        file_list.pop(0)
-    item_list = [zkl.load(f'./res/optimization_then_drasl/{directory}/{name}') for name in file_list]
-    list_of_lists3.append(item_list)
+# for directory in node_directories:
+#     file_list = listdir(f'./res/optimization_then_drasl/{directory}')
+#     file_list.sort()
+#     if file_list[0].startswith('.'):
+#         file_list.pop(0)
+#     item_list = [zkl.load(f'./res/optimization_then_drasl/{directory}/{name}') for name in file_list]
+#     list_of_lists3.append(item_list)
 
 for directory in node_directories:
     file_list = listdir(f'./res/weighted_experiment_capped/{directory}')
@@ -37,14 +41,14 @@ for directory in node_directories:
         file_list.pop(0)
     item_list = [zkl.load(f'./res/weighted_experiment_capped/{directory}/{name}') for name in file_list]
     list_of_lists4.append(item_list)
-
-for directory in node_directories2:
-    file_list = listdir(f'./res_drasl_after_optim/{directory}')
-    file_list.sort()
-    if file_list[0].startswith('.'):
-        file_list.pop(0)
-    item_list2 = [zkl.load(f'./res_drasl_after_optim/{directory}/{name}') for name in file_list]
-    list_of_lists2.append(item_list2)
+#
+# for directory in node_directories2:
+#     file_list = listdir(f'./res_drasl_after_optim/{directory}')
+#     file_list.sort()
+#     if file_list[0].startswith('.'):
+#         file_list.pop(0)
+#     item_list2 = [zkl.load(f'./res_drasl_after_optim/{directory}/{name}') for name in file_list]
+#     list_of_lists2.append(item_list2)
 
 if __name__ == '__main__':
     df = pd.DataFrame()
@@ -55,22 +59,22 @@ if __name__ == '__main__':
     deg = []
     node = []
 
-    for index, item_list in enumerate(list_of_lists3, start=6):
-        for item in item_list:
-            if item['u'] == undersampling and item['density'] in deg_list:
-                Err.extend([item['normed_errors']['total'][0], item['normed_errors']['total'][1]])
-                ErrType.extend(['omm', 'comm'])
-                method.extend(['Capped_optim_the_sRASL'] * 2)
-                u.extend([item['u'], item['u']])
-                deg.extend([item['density'], item['density']])
-                node.extend([str(index)] * 2)
+    # for index, item_list in enumerate(list_of_lists3, start=6):
+    #     for item in item_list:
+    #         if item['u'] == undersampling and item['density'] in deg_list:
+    #             Err.extend([item['normed_errors']['total'][0], item['normed_errors']['total'][1]])
+    #             ErrType.extend(['omm', 'comm'])
+    #             method.extend(['Capped_optim_the_sRASL'] * 2)
+    #             u.extend([item['u'], item['u']])
+    #             deg.extend([item['density'], item['density']])
+    #             node.extend([str(index)] * 2)
 
     for index, item_list in enumerate(list_of_lists4, start=6):
         for item in item_list:
             if item['u'] == undersampling and item['density'] in deg_list:
                 Err.extend([item['normed_errors']['total'][0], item['normed_errors']['total'][1]])
                 ErrType.extend(['omm', 'comm'])
-                method.extend(['Capped_optim'] * 2)
+                method.extend(['old_opt'] * 2)
                 u.extend([item['u'], item['u']])
                 deg.extend([item['density'], item['density']])
                 node.extend([str(index)] * 2)
@@ -80,20 +84,20 @@ if __name__ == '__main__':
             if item['u'] == undersampling and item['density'] in deg_list:
                 Err.extend([item['normed_errors']['total'][0], item['normed_errors']['total'][1]])
                 ErrType.extend(['omm', 'comm'])
-                method.extend(['optim'] * 2)
+                method.extend(['new_optN'] * 2)
                 u.extend([item['u'], item['u']])
                 deg.extend([item['density'], item['density']])
                 node.extend([str(index)] * 2)
 
-    for index, item_list2 in enumerate(list_of_lists2, start=6):
-        for item in item_list2:
-            if item[0]['u'] == undersampling:
-                Err.extend([item[1]['min_norm_err'][0], item[1]['min_norm_err'][1]])
-                ErrType.extend(['omm', 'comm'])
-                method.extend(['optim_then_sRASL'] * 2)
-                u.extend([item[0]['u'], item[0]['u']])
-                deg.extend([item[0]['density'], item[0]['density']])
-                node.extend([str(index)] * 2)
+    # for index, item_list2 in enumerate(list_of_lists2, start=6):
+    #     for item in item_list2:
+    #         if item[0]['u'] == undersampling:
+    #             Err.extend([item[1]['min_norm_err'][0], item[1]['min_norm_err'][1]])
+    #             ErrType.extend(['omm', 'comm'])
+    #             method.extend(['optim_then_sRASL'] * 2)
+    #             u.extend([item[0]['u'], item[0]['u']])
+    #             deg.extend([item[0]['density'], item[0]['density']])
+    #             node.extend([str(index)] * 2)
 
     df['Err'] = Err
     df['method'] = method
@@ -103,8 +107,8 @@ if __name__ == '__main__':
     df['u'] = u
 
     sns.set({"xtick.minor.size": 0.2})
-    pal = dict(Capped_optim="gold", Capped_optim_the_sRASL="maroon",
-               optim="blue", optim_then_sRASL="green")
+    pal = dict(old_opt="gold", Capped_optim_the_sRASL="maroon",
+               new_optN="blue", optim_then_sRASL="green")
     g = sns.FacetGrid(df, col="deg", row="ErrType", height=4, aspect=0.5, margin_titles=True)
 
 

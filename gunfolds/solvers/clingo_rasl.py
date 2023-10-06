@@ -313,7 +313,7 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
 
 
 def drasl(glist, capsize, timeout=0, urate=0, weighted=False, scc=False, scc_members=None,  dm=None,
-          bdm=None, pnum=None, edge_weights=(1, 1), configuration="tweety"):
+          bdm=None, pnum=None, edge_weights=(1, 1), configuration="crafty"):
     """
     Compute all candidate causal time-scale graphs that could have
     generated all undersampled graphs at all possible undersampling

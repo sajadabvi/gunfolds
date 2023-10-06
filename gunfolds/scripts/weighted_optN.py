@@ -66,6 +66,7 @@ if args.UNDERSAMPLING <= len(x):
             min_err = curr_errors
             min_norm_err = curr_normed_errors
             min_val = 0.5*(curr_errors['total'][0]+curr_errors['total'][1])
+            min_graphs = answer
 
 
 # compute the absolute error and save it
@@ -82,7 +83,8 @@ if args.UNDERSAMPLING <= len(x):
                'u': args.UNDERSAMPLING,
                'g_broken': g_broken,
                'ms': sat_time,
-               'results': r}
+               'min_graph': min_graphs,
+               'results_len': len(r)}
 
     filename = 'res_CAP_' + str(args.CAPSIZE) + '_/' + 'optimization_nodes_' + str(args.NODE) + '_u_'\
                + str(args.UNDERSAMPLING) + '_degree_' + str(args.DEG) \

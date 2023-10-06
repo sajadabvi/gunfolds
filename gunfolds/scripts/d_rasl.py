@@ -45,7 +45,7 @@ SCCMODE = bool(distutils.util.strtobool(args.SCC))
 def clingo_caller(g):
     startTime = int(round(time.time() * 1000))
     c = drasl(g, capsize=args.CAPSIZE, urate=min(30, (3 * len(g[0]) + 1)), timeout=TIMEOUT, scc=SCCMODE, pnum=args.PNUM,
-              weighted=False, configuration="jumpy")
+              weighted=False, configuration="crafty")
     endTime = int(round(time.time() * 1000))
     sat_time = endTime - startTime
     return c, sat_time

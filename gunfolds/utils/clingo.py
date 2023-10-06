@@ -75,7 +75,7 @@ def clingo(command, exact=True,
            convert=msl_jclingo2g,
            timeout=0,
            capsize=CAPSIZE,
-           configuration="tweety",
+           configuration="crafty",
            pnum=None):
     """
     Runs ``run_clingo`` and returns parsed equivalent class
