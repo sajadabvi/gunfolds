@@ -261,7 +261,6 @@
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">from</span> <span class="nn">gunfolds.utils.calc_procs</span> <span class="kn">import</span> <span class="n">get_process_count</span>
 
-<span class="n">CAPSIZE</span> <span class="o">=</span> <span class="mi">1000</span>
 <span class="n">CLINGO_LIMIT</span> <span class="o">=</span> <span class="mi">64</span>
 <span class="n">PNUM</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">CLINGO_LIMIT</span><span class="p">,</span> <span class="n">get_process_count</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
 
@@ -271,7 +270,7 @@
 <span class="k">def</span> <span class="nf">run_clingo</span><span class="p">(</span><span class="n">command</span><span class="p">,</span>
                <span class="n">exact</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                <span class="n">timeout</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-               <span class="n">capsize</span><span class="o">=</span><span class="n">CAPSIZE</span><span class="p">,</span>
+               <span class="n">capsize</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                <span class="n">configuration</span><span class="o">=</span><span class="s2">&quot;tweety&quot;</span><span class="p">,</span>
                <span class="n">pnum</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                <span class="n">optim</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -300,8 +299,6 @@
 <span class="sd">        trendy: Use defaults geared towards industrial problems</span>
 <span class="sd">    :type configuration: string</span>
 
-<span class="sd">    :param cpath: clingo path</span>
-<span class="sd">    :type cpath: string</span>
 
 <span class="sd">    :param pnum: number of parallel threads to run clingo on</span>
 <span class="sd">    :type pnum: integer</span>
@@ -329,7 +326,10 @@
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The &#39;optim&#39; list must have either one or two elements.&quot;</span><span class="p">)</span>
 
-    <span class="n">ctrl</span> <span class="o">=</span> <span class="n">clngo</span><span class="o">.</span><span class="n">Control</span><span class="p">([</span><span class="s2">&quot;--warn=no-atom-undefined&quot;</span><span class="p">,</span><span class="s2">&quot;--configuration=&quot;</span><span class="p">,</span> <span class="n">configuration</span><span class="p">,</span> <span class="s2">&quot;-t&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">pnum</span><span class="p">))</span> <span class="o">+</span> <span class="s2">&quot;,split&quot;</span><span class="p">,</span> <span class="s2">&quot;-n&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">capsize</span><span class="p">)])</span>
+    <span class="n">clingo_control</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;--warn=no-atom-undefined&quot;</span><span class="p">,</span> <span class="s2">&quot;--configuration=&quot;</span><span class="p">,</span> <span class="n">configuration</span><span class="p">,</span> <span class="s2">&quot;-t&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">pnum</span><span class="p">))</span> <span class="o">+</span> <span class="s2">&quot;,split&quot;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">capsize</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">clingo_control</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;-n&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">capsize</span><span class="p">)]</span>
+    <span class="n">ctrl</span> <span class="o">=</span> <span class="n">clngo</span><span class="o">.</span><span class="n">Control</span><span class="p">(</span><span class="n">clingo_control</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">exact</span><span class="p">:</span>
         <span class="n">ctrl</span><span class="o">.</span><span class="n">configuration</span><span class="o">.</span><span class="n">solve</span><span class="o">.</span><span class="n">opt_mode</span> <span class="o">=</span> <span class="n">optim_option</span>
     <span class="n">ctrl</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;base&quot;</span><span class="p">,</span> <span class="p">[],</span> <span class="n">command</span><span class="o">.</span><span class="n">decode</span><span class="p">())</span>
@@ -354,7 +354,7 @@
 <span class="k">def</span> <span class="nf">clingo</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
            <span class="n">convert</span><span class="o">=</span><span class="n">msl_jclingo2g</span><span class="p">,</span>
            <span class="n">timeout</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-           <span class="n">capsize</span><span class="o">=</span><span class="n">CAPSIZE</span><span class="p">,</span>
+           <span class="n">capsize</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
            <span class="n">configuration</span><span class="o">=</span><span class="s2">&quot;crafty&quot;</span><span class="p">,</span>
            <span class="n">optim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
            <span class="n">pnum</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -395,9 +395,6 @@
 <span class="sd">        &lt;bound&gt; : Set initial bound for objective function(s)</span>
 <span class="sd">    :type optim: list</span>
 
-<span class="sd">    :param cpath: clingo path</span>
-<span class="sd">    :type cpath: string</span>
-
 <span class="sd">    :param pnum: number of parallel threads to run clingo on</span>
 <span class="sd">    :type pnum: integer</span>
 
@@ -413,7 +410,7 @@
                         <span class="n">configuration</span><span class="o">=</span><span class="n">configuration</span><span class="p">,</span>
                         <span class="n">pnum</span><span class="o">=</span><span class="n">pnum</span><span class="p">,</span>
                         <span class="n">optim</span><span class="o">=</span><span class="n">optim</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">==</span><span class="p">{}</span> <span class="ow">or</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">==</span><span class="p">[]:</span>
+    <span class="k">if</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="p">{}</span> <span class="ow">or</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="p">[]:</span>
         <span class="k">return</span> <span class="p">{}</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">exact</span><span class="p">:</span>
