@@ -384,10 +384,13 @@ else:
     members = nx.strongly_connected_components(gk.graph2nx(GT_at_actual_U))
 startTime = int(round(time.time() * 1000))
 # if Using_SVAR:
-r_estimated = drasl([g_estimated], weighted=True, timeout=TIMEOUT,
+g =  {1: {2: 1}, 2: {3: 1}, 3: {4: 1}, 4: {5: 1, 2: 1}, 5: {6: 1, 5: 1, 1: 1}, 6: {1: 1}}
+g3 = bfutils.undersample(g,3)
+members = nx.strongly_connected_components(gk.graph2nx(g3))
+r_estimated = drasl([g3], weighted=True, timeout=TIMEOUT,
                     urate=min(args.MAXU, (3 * len(g_estimated) + 1)),
-                    dm=[DD],
-                    bdm=[BD],
+                    # dm=[DD],
+                    # bdm=[BD],
                     scc=SCC,
                     scc_members=members,
                     edge_weights=(1, 1), pnum=args.PNUM)
@@ -396,6 +399,21 @@ r_estimated = drasl([g_estimated], weighted=True, timeout=TIMEOUT,
 #                         urate=args.MAXU, edge_weights=(1, 1))
 endTime = int(round(time.time() * 1000))
 sat_time = endTime - startTime
+
+"""
+for tomorrow, compute min error in loop based on GT Vs. G1_opt and for the same answer, compute Gu_opt Vs. GT_at_U
+and vise versa and see which error is the better one to compute. also do the same for Gu_opt Vs. g_estimate. this
+last one is the most important IMO
+"""
+for answer in r_estimated:  # compute the absolute error and save it
+    curr_errors = gk.OCE(bfu.num2CG(answer[0][0], args.NODE), GT)
+    # compute the normalized/relative error and save it
+    curr_normed_errors = gk.OCE(bfu.num2CG(answer[0][0], len(g_estimated)), GT, normalized=True)
+    if 0.5 * (curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
+        min_err = curr_errors
+        min_norm_err = curr_normed_errors
+        min_val = 0.5 * (curr_errors['total'][0] + curr_errors['total'][1])
+        min_graphs = answer
 '''G1_opt - the solution of optimization problem (r_estimated from g_estimated) in causal time scale'''
 G1_opt = bfutils.num2CG(r_estimated[0][0], len(g_estimated))
 

@@ -29,7 +29,7 @@ parser.add_argument("-c", "--CAPSIZE", default=0,
                     help="stop traversing after growing equivalence class to this size.", type=int)
 parser.add_argument("-b", "--BATCH", default=1, help="slurm batch.", type=int)
 parser.add_argument("-p", "--PNUM", default=PNUM, help="number of CPUs in machine.", type=int)
-parser.add_argument("-n", "--NODE", default=6, help="number of nodes in graph", type=int)
+parser.add_argument("-n", "--NODE", default=5, help="number of nodes in graph", type=int)
 parser.add_argument("-d", "--DEN", default=0.15, help="density of graph", type=str)
 parser.add_argument("-g", "--GTYPE", default="f", help="true for ringmore graph, false for random graph", type=str)
 parser.add_argument("-t", "--TIMEOUT", default=120, help="timeout in hours", type=int)
@@ -400,62 +400,111 @@ r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,
                     bdm=[BD],
                     scc=SCC,
                     scc_members=members,
-                    edge_weights=(1, 1), pnum=args.PNUM)
+                    edge_weights=(1, 1), pnum=args.PNUM, optim=['optN'])
 # else:
 #     r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,
 #                         urate=args.MAXU, edge_weights=(1, 1))
 endTime = int(round(time.time() * 1000))
 sat_time = endTime - startTime
-'''G1_opt - the solution of optimization problem (r_estimated from g_estimated) in causal time scale'''
-G1_opt = bfutils.num2CG(r_estimated[0][0], len(g_estimated))
 
-'''Gu_opt - the solution of optimization problem (r_estimated from g_estimated) in measured time scale'''
-Gu_opt = bfutils.undersample(G1_opt, r_estimated[0][1][0])
-'''network_GT_U - the GT  in measured time scale'''
-network_GT_U = bfutils.undersample(GT, r_estimated[0][1][0])
+print('number of optimal solutions is', len(r_estimated))
 
-Gu_opt_errors_network_GT_U = gk.OCE(Gu_opt, network_GT_U, undirected=False, normalized=error_normalization)['total']
-
-Gu_opt_errors_g_estimated = gk.OCE(Gu_opt, g_estimated, undirected=False, normalized=error_normalization)['total']
-
-G1_opt_error_GT = gk.OCE(G1_opt, GT, undirected=False, normalized=error_normalization)['total']
-
-print('U rate found to be:' + str(r_estimated[0][1][0]))
-print('Gu_opt_errors_network_GT_U = ', round_tuple_elements(Gu_opt_errors_network_GT_U))
-print('Gu_opt_errors_g_estimated', round_tuple_elements(Gu_opt_errors_g_estimated))
-print('G1_opt_error_GT', round_tuple_elements(G1_opt_error_GT))
-
-'''task optimization then sRASL to find min error'''
-print('*******************************************')
-
-if SCC_members:
-    members2 = nx.strongly_connected_components(gk.graph2nx(G1_opt))
-else:
-    members2 = nx.strongly_connected_components(gk.graph2nx(GT))
-startTime2 = int(round(time.time() * 1000))
-c = drasl(glist=[Gu_opt], capsize=args.CAPSIZE, weighted=False, urate=min(args.MAXU, (3 * len(g_estimated) + 1)),
-          timeout=TIMEOUT, scc=SCC, scc_members=members2)
-endTime2 = int(round(time.time() * 1000))
-sat_time2 = endTime2 - startTime2
-min_err = {'total': (0, 0)}
-min_norm_err = {'total': (0, 0)}
+### minimizing with respect to Gu_opt Vs. G_estimate
+min_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
+min_norm_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
 min_val = 1000000
-min_error_graph = {}
-print('cap size is', len(c))
-for answer in c:
-    curr_errors = gk.OCE(bfutils.num2CG(answer[0], len(g_estimated)), GT, undirected=False, normalized=False)
-    '''compute the normalized/relative error and save it'''
-    curr_normed_errors = gk.OCE(bfutils.num2CG(answer[0], len(g_estimated)), GT,
-                                normalized=error_normalization,
-                                undirected=False)
-    if 0.5 * (curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
+for answer in r_estimated:
+    curr_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(GT)),answer[0][1][0]), g_estimated)
+    curr_normed_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(GT)),answer[0][1][0]), g_estimated, normalized=True)
+    if  (curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
         min_err = curr_errors
         min_norm_err = curr_normed_errors
-        min_val = 0.5 * (curr_errors['total'][0] + curr_errors['total'][1])
-        min_error_graph = answer
+        min_val =  (curr_errors['total'][0] + curr_errors['total'][1])
+        min_answer_WRT_GuOptVsGest = answer
 
-print('min G1_err_GT after opt + sRASL = ', round_tuple_elements(min_norm_err['total']))
-print('took ' + str(round(((sat_time + sat_time2)/60000), 3)) + ' mins to solve')
+'''G1_opt - the solution of optimization problem (r_estimated from g_estimated) in causal time scale'''
+G1_opt_WRT_GuOptVsGest = bfutils.num2CG(min_answer_WRT_GuOptVsGest[0][0], len(g_estimated))
+
+'''Gu_opt - the solution of optimization problem (r_estimated from g_estimated) in measured time scale'''
+Gu_opt_WRT_GuOptVsGest = bfutils.undersample(G1_opt_WRT_GuOptVsGest, min_answer_WRT_GuOptVsGest[0][1][0])
+'''network_GT_U - the GT  in measured time scale'''
+network_GT_U_WRT_GuOptVsGest = bfutils.undersample(GT, min_answer_WRT_GuOptVsGest[0][1][0])
+
+Gu_opt_errors_network_GT_U_WRT_GuOptVsGest = gk.OCE(Gu_opt_WRT_GuOptVsGest, network_GT_U_WRT_GuOptVsGest, undirected=False, normalized=error_normalization)['total']
+Gu_opt_errors_g_estimated_WRT_GuOptVsGest = gk.OCE(Gu_opt_WRT_GuOptVsGest, g_estimated, undirected=False, normalized=error_normalization)['total']
+G1_opt_error_GT_WRT_GuOptVsGest = gk.OCE(G1_opt_WRT_GuOptVsGest, GT, undirected=False, normalized=error_normalization)['total']
+print('*******************************************')
+print('results with respect to Gu_opt Vs. G_estimate ')
+print('U rate found to be:' + str(min_answer_WRT_GuOptVsGest[0][1][0]))
+print('Gu_opt_errors_network_GT_U = ', round_tuple_elements(Gu_opt_errors_network_GT_U_WRT_GuOptVsGest))
+print('Gu_opt_errors_g_estimated', round_tuple_elements(Gu_opt_errors_g_estimated_WRT_GuOptVsGest))
+print('G1_opt_error_GT', round_tuple_elements(G1_opt_error_GT_WRT_GuOptVsGest))
+
+
+### minimizing with respect to Gu_opt Vs. GTu
+min_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
+min_norm_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
+min_val = 1000000
+for answer in r_estimated:
+    curr_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(GT)),answer[0][1][0]), bfutils.undersample(GT, answer[0][1][0]))
+    curr_normed_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(GT)),answer[0][1][0]), bfutils.undersample(GT, answer[0][1][0]), normalized=True)
+
+    if  (curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
+        min_err = curr_errors
+        min_norm_err = curr_normed_errors
+        min_val =  (curr_errors['total'][0] + curr_errors['total'][1])
+        min_answer_WRT_GuOptVsGTu = answer
+
+'''G1_opt - the solution of optimization problem (r_estimated from g_estimated) in causal time scale'''
+G1_opt_WRT_GuOptVsGTu = bfutils.num2CG(min_answer_WRT_GuOptVsGTu[0][0], len(g_estimated))
+
+'''Gu_opt - the solution of optimization problem (r_estimated from g_estimated) in measured time scale'''
+Gu_opt_WRT_GuOptVsGTu = bfutils.undersample(G1_opt_WRT_GuOptVsGTu, min_answer_WRT_GuOptVsGTu[0][1][0])
+'''network_GT_U - the GT  in measured time scale'''
+network_GT_U_WRT_GuOptVsGTu = bfutils.undersample(GT, min_answer_WRT_GuOptVsGTu[0][1][0])
+
+Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu = gk.OCE(Gu_opt_WRT_GuOptVsGTu, network_GT_U_WRT_GuOptVsGTu, undirected=False, normalized=error_normalization)['total']
+Gu_opt_errors_g_estimated_WRT_GuOptVsGTu = gk.OCE(Gu_opt_WRT_GuOptVsGTu, g_estimated, undirected=False, normalized=error_normalization)['total']
+G1_opt_error_GT_WRT_GuOptVsGTu = gk.OCE(G1_opt_WRT_GuOptVsGTu, GT, undirected=False, normalized=error_normalization)['total']
+print('*******************************************')
+print('results with respect to Gu_opt Vs. G_estimate ')
+print('U rate found to be:' + str(min_answer_WRT_GuOptVsGTu[0][1][0]))
+print('Gu_opt_errors_network_GT_U = ', round_tuple_elements(Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu))
+print('Gu_opt_errors_g_estimated', round_tuple_elements(Gu_opt_errors_g_estimated_WRT_GuOptVsGTu))
+print('G1_opt_error_GT', round_tuple_elements(G1_opt_error_GT_WRT_GuOptVsGTu))
+
+### minimizing with respect to G1_opt Vs. GT
+min_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
+min_norm_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
+min_val = 1000000
+for answer in r_estimated:
+    curr_errors = gk.OCE(bfutils.num2CG(answer[0][0], len(GT)),GT)
+    curr_normed_errors = gk.OCE(bfutils.num2CG(answer[0][0], len(GT)), GT, normalized=True)
+
+    if (curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
+        min_err = curr_errors
+        min_norm_err = curr_normed_errors
+        min_val = (curr_errors['total'][0] + curr_errors['total'][1])
+        min_answer_WRT_G1OptVsGT = answer
+
+'''G1_opt - the solution of optimization problem (r_estimated from g_estimated) in causal time scale'''
+G1_opt_WRT_G1OptVsGT = bfutils.num2CG(min_answer_WRT_G1OptVsGT[0][0], len(g_estimated))
+
+'''Gu_opt - the solution of optimization problem (r_estimated from g_estimated) in measured time scale'''
+Gu_opt_WRT_G1OptVsGT = bfutils.undersample(G1_opt_WRT_G1OptVsGT, min_answer_WRT_G1OptVsGT[0][1][0])
+'''network_GT_U - the GT  in measured time scale'''
+network_GT_U_WRT_G1OptVsGT = bfutils.undersample(GT, min_answer_WRT_G1OptVsGT[0][1][0])
+
+Gu_opt_errors_network_GT_U_WRT_G1OptVsGT = gk.OCE(Gu_opt_WRT_G1OptVsGT, network_GT_U_WRT_G1OptVsGT, undirected=False, normalized=error_normalization)['total']
+Gu_opt_errors_g_estimated_WRT_G1OptVsGT = gk.OCE(Gu_opt_WRT_G1OptVsGT, g_estimated, undirected=False, normalized=error_normalization)['total']
+G1_opt_error_GT_WRT_G1OptVsGT = gk.OCE(G1_opt_WRT_G1OptVsGT, GT, undirected=False, normalized=error_normalization)['total']
+print('*******************************************')
+print('results with respect to Gu_opt Vs. G_estimate ')
+print('U rate found to be:' + str(min_answer_WRT_G1OptVsGT[0][1][0]))
+print('Gu_opt_errors_network_GT_U = ', round_tuple_elements(Gu_opt_errors_network_GT_U_WRT_G1OptVsGT))
+print('Gu_opt_errors_g_estimated', round_tuple_elements(Gu_opt_errors_g_estimated_WRT_G1OptVsGT))
+print('G1_opt_error_GT', round_tuple_elements(G1_opt_error_GT_WRT_G1OptVsGT))
+
 
 '''saving results'''
 F = 2 * (gk.density(GT) * len(GT) * len(GT) - min_norm_err['total'][0]) / (

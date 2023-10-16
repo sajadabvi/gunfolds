@@ -7,11 +7,11 @@ from matplotlib.ticker import MultipleLocator
 
 undersampling = 2
 deg_list = [1.5,float(2),2.5]
-node_directories = ['6 nodes', '7 nodes', '8 nodes']
+node_directories = ['6 nodes', '7 nodes', '8 nodes', '9 nodes']
 list_of_lists = []
 list_of_lists3 = []
 list_of_lists4 = []
-node_directories2 = ['6', '7', '8']
+node_directories2 = ['6', '7', '8', '9']
 list_of_lists2 = []
 
 for directory in node_directories:
@@ -128,5 +128,5 @@ if __name__ == '__main__':
             # ax.xaxis.set_major_locator(MultipleLocator(1))
             ax.set_ylim(0, 1)
 
-    plt.show()
-    # plt.savefig("figs/weighted_experiment_all_four_ways_undersampling4.svg")
+    # plt.show()
+    plt.savefig("figs/weighted_experiment_optN_all_four_ways_undersampling2.svg")
