@@ -20,7 +20,7 @@ from math import log
 
 CLINGO_LIMIT = 64
 PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
-POSTFIX = 'linear_simu'
+POSTFIX = 'linear_VAR_simu'
 Using_SVAR = True
 Using_VAR = False
 PreFix = 'SVAR' if Using_SVAR else 'GC'
@@ -467,7 +467,7 @@ Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu = gk.OCE(Gu_opt_WRT_GuOptVsGTu, networ
 Gu_opt_errors_g_estimated_WRT_GuOptVsGTu = gk.OCE(Gu_opt_WRT_GuOptVsGTu, g_estimated, undirected=False, normalized=error_normalization)['total']
 G1_opt_error_GT_WRT_GuOptVsGTu = gk.OCE(G1_opt_WRT_GuOptVsGTu, GT, undirected=False, normalized=error_normalization)['total']
 print('*******************************************')
-print('results with respect to Gu_opt Vs. G_estimate ')
+print('results of minimizing with respect to Gu_opt Vs. GTu')
 print('U rate found to be:' + str(min_answer_WRT_GuOptVsGTu[0][1][0]))
 print('Gu_opt_errors_network_GT_U = ', round_tuple_elements(Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu))
 print('Gu_opt_errors_g_estimated', round_tuple_elements(Gu_opt_errors_g_estimated_WRT_GuOptVsGTu))
@@ -499,7 +499,7 @@ Gu_opt_errors_network_GT_U_WRT_G1OptVsGT = gk.OCE(Gu_opt_WRT_G1OptVsGT, network_
 Gu_opt_errors_g_estimated_WRT_G1OptVsGT = gk.OCE(Gu_opt_WRT_G1OptVsGT, g_estimated, undirected=False, normalized=error_normalization)['total']
 G1_opt_error_GT_WRT_G1OptVsGT = gk.OCE(G1_opt_WRT_G1OptVsGT, GT, undirected=False, normalized=error_normalization)['total']
 print('*******************************************')
-print('results with respect to Gu_opt Vs. G_estimate ')
+print('results of minimizing with respect to G1_opt Vs. GT')
 print('U rate found to be:' + str(min_answer_WRT_G1OptVsGT[0][1][0]))
 print('Gu_opt_errors_network_GT_U = ', round_tuple_elements(Gu_opt_errors_network_GT_U_WRT_G1OptVsGT))
 print('Gu_opt_errors_g_estimated', round_tuple_elements(Gu_opt_errors_g_estimated_WRT_G1OptVsGT))
@@ -507,19 +507,17 @@ print('G1_opt_error_GT', round_tuple_elements(G1_opt_error_GT_WRT_G1OptVsGT))
 
 
 '''saving results'''
+sorted_data = sorted(r_estimated, key=lambda x: x[1], reverse=True)
 F = 2 * (gk.density(GT) * len(GT) * len(GT) - min_norm_err['total'][0]) / (
         2 * gk.density(GT) * len(GT) * len(GT) - min_norm_err['total'][0] + min_norm_err['total'][1])
-results = {'method': PreFix,
+results = {'general':{'method': PreFix,
            'g_estimated': g_estimated,
            'dm': DD,
            'bdm': BD,
-           'after_optim': G1_opt,
-           'U_found': r_estimated[0][1][0],
-           'optim_cost': r_estimated[1][0],
-           'GU_optimized': Gu_opt,
-           'network_GT_U': network_GT_U,
+           'optim_cost': sorted_data[-1][1],
+           'min_cost_sol': sorted_data[-1],
            'GT': GT,
-           'eq_class': c,
+           'GT_at_actual_U': GT_at_actual_U,
            'threshold': EDGE_CUTOFF * k_threshold,
            'timeout': TIMEOUT,
            'graphType': graphType,
@@ -527,18 +525,40 @@ results = {'method': PreFix,
            'noise_svar': noise_svar,
            'jaccard_similarity': jaccard_similarity,
            'g_estimated_errors_GT_at_actual_U': g_estimated_errors_GT_at_actual_U,
-           'Gu_opt_errors_network_GT_U': Gu_opt_errors_network_GT_U,
-           'Gu_opt_errors_g_estimated': Gu_opt_errors_g_estimated,
-           'G1_opt_error_GT': G1_opt_error_GT,
-           'min_error_graph': min_error_graph,
-           'min_norm_err': min_norm_err,
            'num_edges': gk.density(GT) * len(GT) * len(GT),
            'F_score': F,
-           'total_time': round(((sat_time + sat_time2)/60000), 3)}
+           'total_time': round(((sat_time)/60000), 3)},
+           'GuOptVsGest':{
+               'min_answer_WRT_GuOptVsGest':min_answer_WRT_GuOptVsGest,
+               'G1_opt_WRT_GuOptVsGest':G1_opt_WRT_GuOptVsGest,
+               'Gu_opt_WRT_GuOptVsGest':Gu_opt_WRT_GuOptVsGest,
+               'network_GT_U_WRT_GuOptVsGest':network_GT_U_WRT_GuOptVsGest,
+               'Gu_opt_errors_network_GT_U_WRT_GuOptVsGest':Gu_opt_errors_network_GT_U_WRT_GuOptVsGest,
+               'Gu_opt_errors_g_estimated_WRT_GuOptVsGest':Gu_opt_errors_g_estimated_WRT_GuOptVsGest,
+               'G1_opt_error_GT_WRT_GuOptVsGest':G1_opt_error_GT_WRT_GuOptVsGest
+           },
+           'GuOptVsGTu':{
+               'min_answer_WRT_GuOptVsGTu':min_answer_WRT_GuOptVsGTu,
+               'G1_opt_WRT_GuOptVsGTu':G1_opt_WRT_GuOptVsGTu,
+               'Gu_opt_WRT_GuOptVsGTu':Gu_opt_WRT_GuOptVsGTu,
+               'network_GT_U_WRT_GuOptVsGTu':network_GT_U_WRT_GuOptVsGTu,
+               'Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu':Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu,
+               'Gu_opt_errors_g_estimated_WRT_GuOptVsGTu':Gu_opt_errors_g_estimated_WRT_GuOptVsGTu,
+               'G1_opt_error_GT_WRT_GuOptVsGTu':G1_opt_error_GT_WRT_GuOptVsGTu
+           },
+           'G1OptVsGT':{
+               'min_answer_WRT_G1OptVsGT':min_answer_WRT_G1OptVsGT,
+               'G1_opt_WRT_G1OptVsGT':G1_opt_WRT_G1OptVsGT,
+               'Gu_opt_WRT_G1OptVsGT':Gu_opt_WRT_G1OptVsGT,
+               'network_GT_U_WRT_G1OptVsGT':network_GT_U_WRT_G1OptVsGT,
+               'Gu_opt_errors_network_GT_U_WRT_G1OptVsGT':Gu_opt_errors_network_GT_U_WRT_G1OptVsGT,
+               'Gu_opt_errors_g_estimated_WRT_G1OptVsGT':Gu_opt_errors_g_estimated_WRT_G1OptVsGT,
+               'G1_opt_error_GT_WRT_G1OptVsGT':G1_opt_error_GT_WRT_G1OptVsGT
+           }}
 
 '''saving files'''
 filename = 'nodes_' + str(args.NODE) + '_density_' + str(DENSITY) + '_undersampling_' + str(args.UNDERSAMPLING) + \
-           '_' + PreFix + '_' + POSTFIX + '_' + graphType + '_CAPSIZE_' + str(args.CAPSIZE) + '_batch_' + \
+           '_' + PreFix + '_optN_' + POSTFIX + '_' + graphType + '_CAPSIZE_' + str(args.CAPSIZE) + '_batch_' + \
            str(args.BATCH) + '_pnum_' + str(args.PNUM) + '_timeout_' + str(args.TIMEOUT) + '_threshold_' + \
            str(args.THRESHOLD) + '_maxu_' + str(args.MAXU) + '_sccMember_' + str(SCC_members) + '_SCC_' + str(SCC)
 folder = 'res_simulation'
