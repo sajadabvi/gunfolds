@@ -1,21 +1,20 @@
 """ This module contains clingo interaction functions """
 from __future__ import print_function
-from gunfolds.conversions import msl_jclingo2g
+from gunfolds.conversions import drasl_jclingo2g
 import clingo as clngo
-import json
 from gunfolds.utils.calc_procs import get_process_count
 
 CLINGO_LIMIT = 64
 PNUM = min(CLINGO_LIMIT, get_process_count(1))
-
+CAPSIZE = 1
 
 def run_clingo(command,
                exact=True,
                timeout=0,
-               capsize=None,
+               capsize=CAPSIZE,
                configuration="tweety",
-               pnum=None,
-               optim=None):
+               pnum=PNUM,
+               optim='optN'):
     """
     Open sub-process and run clingo
 
@@ -33,47 +32,38 @@ def run_clingo(command,
     :type capsize: integer
 
     :param configuration: Select configuration based on problem type
-        frumpy: Use conservative defaults
-        jumpy : Use aggressive defaults
-        tweety: Use defaults geared towards asp problems
-        handy : Use defaults geared towards large problems
-        crafty: Use defaults geared towards crafted problems
-        trendy: Use defaults geared towards industrial problems
+
+        - ``frumpy`` : Use conservative defaults
+        - ``jumpy`` : Use aggressive defaults
+        - ``tweety`` : Use defaults geared towards asp problems
+        - ``handy`` : Use defaults geared towards large problems
+        - ``crafty`` : Use defaults geared towards crafted problems
+        - ``trendy`` : Use defaults geared towards industrial problems
     :type configuration: string
 
 
     :param pnum: number of parallel threads to run clingo on
     :type pnum: integer
 
-    :param optim: a list containing configuration for optimization algorithm and optionally a bound  [<arg>, <bound>]
-        <arg>: <mode {opt|enum|optN|ignore}>[,<bound>...]
-        opt   : Find optimal model
-        enum  : Find models with costs <= <bound>
-        optN  : Find optimum, then enumerate optimal models
-        ignore: Ignore optimize statements
-        <bound> : Set initial bound for objective function(s)
-    :type optim: list
+    :param optim: a comma separated string containing configuration for optimization algorithm and optionally a bound [<arg>[, <bound>]]
+        
+        - <arg> : <mode {opt|enum|optN|ignore}>
+            - ``opt`` : Find optimal model
+            - ``enum`` : Find models with costs <= <bound>
+            - ``optN`` : Find optimum, then enumerate optimal models
+            - ``ignore`` : Ignore optimize statements
+        - <bound> : Set initial bound for objective function(s)
+    :type optim: string
 
     :returns: results of equivalent class
     :rtype: dictionary
     """
-    if optim is None:
-        optim = ['optN']
-    if pnum is None:
-        pnum = PNUM
-    if len(optim) == 1:
-        optim_option = optim[0]
-    elif len(optim) == 2:
-        optim_option = f"{optim[0]}, {optim[1]}"
-    else:
-        raise ValueError("The 'optim' list must have either one or two elements.")
+    assert len(optim.split(',')) < 3, "optim option only takes 1 or 2 comma-separated parameters"
 
-    clingo_control = ["--warn=no-atom-undefined", "--configuration=", configuration, "-t", str(int(pnum)) + ",split"]
-    if capsize is not None:
-        clingo_control += ["-n", str(capsize)]
+    clingo_control = ["--warn=no-atom-undefined", "--configuration=", configuration, "-t", str(int(pnum)) + ",split", "-n", str(capsize)]
     ctrl = clngo.Control(clingo_control)
     if not exact:
-        ctrl.configuration.solve.opt_mode = optim_option
+        ctrl.configuration.solve.opt_mode = optim
     ctrl.add("base", [], command.decode())
     ctrl.ground([("base", [])])
     models = []
@@ -91,12 +81,12 @@ def run_clingo(command,
 
 
 def clingo(command, exact=True,
-           convert=msl_jclingo2g,
+           convert=drasl_jclingo2g,
            timeout=0,
-           capsize=None,
+           capsize=CAPSIZE,
            configuration="crafty",
-           optim=None,
-           pnum=None):
+           optim='optN',
+           pnum=PNUM):
     """
     Runs ``run_clingo`` and returns parsed equivalent class
 
@@ -117,22 +107,24 @@ def clingo(command, exact=True,
     :type capsize: integer
 
     :param configuration: Select configuration based on problem type
-        frumpy: Use conservative defaults
-        jumpy : Use aggressive defaults
-        tweety: Use defaults geared towards asp problems
-        handy : Use defaults geared towards large problems
-        crafty: Use defaults geared towards crafted problems
-        trendy: Use defaults geared towards industrial problems
+
+        - ``frumpy`` : Use conservative defaults
+        - ``jumpy`` : Use aggressive defaults
+        - ``tweety`` : Use defaults geared towards asp problems
+        - ``handy`` : Use defaults geared towards large problems
+        - ``crafty`` : Use defaults geared towards crafted problems
+        - ``trendy`` : Use defaults geared towards industrial problems
     :type configuration: string
 
-    :param optim: a list containing configuration for optimization algorithm and optionally a bound  [<arg>, <bound>]
-        <arg>: <mode {opt|enum|optN|ignore}>[,<bound>...]
-        opt   : Find optimal model
-        enum  : Find models with costs <= <bound>
-        optN  : Find optimum, then enumerate optimal models
-        ignore: Ignore optimize statements
-        <bound> : Set initial bound for objective function(s)
-    :type optim: list
+    :param optim: a comma separated string containing configuration for optimization algorithm and optionally a bound [<arg>[, <bound>]]
+        
+        - <arg> : <mode {opt|enum|optN|ignore}>
+            - ``opt`` : Find optimal model
+            - ``enum`` : Find models with costs <= <bound>
+            - ``optN`` : Find optimum, then enumerate optimal models
+            - ``ignore`` : Ignore optimize statements
+        - <bound> : Set initial bound for objective function(s)
+    :type optim: string
 
     :param pnum: number of parallel threads to run clingo on
     :type pnum: integer
@@ -140,8 +132,6 @@ def clingo(command, exact=True,
     :returns: results of parsed equivalent class
     :rtype: dictionary
     """
-    if optim is None:
-        optim = ['optN']
     result = run_clingo(command,
                         exact=exact,
                         timeout=timeout,
