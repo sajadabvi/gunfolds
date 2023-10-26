@@ -29,13 +29,13 @@ parser.add_argument("-c", "--CAPSIZE", default=0,
                     help="stop traversing after growing equivalence class to this size.", type=int)
 parser.add_argument("-b", "--BATCH", default=1, help="slurm batch.", type=int)
 parser.add_argument("-p", "--PNUM", default=PNUM, help="number of CPUs in machine.", type=int)
-parser.add_argument("-n", "--NODE", default=5, help="number of nodes in graph", type=int)
-parser.add_argument("-d", "--DEN", default=0.15, help="density of graph", type=str)
-parser.add_argument("-g", "--GTYPE", default="f", help="true for ringmore graph, false for random graph", type=str)
+parser.add_argument("-n", "--NODE", default=6, help="number of nodes in graph", type=int)
+parser.add_argument("-d", "--DEN", default=0.25, help="density of graph", type=str)
+parser.add_argument("-g", "--GTYPE", default="t", help="true for ringmore graph, false for random graph", type=str)
 parser.add_argument("-t", "--TIMEOUT", default=120, help="timeout in hours", type=int)
 parser.add_argument("-r", "--THRESHOLD", default=5, help="threshold for SVAR", type=int)
-parser.add_argument("-s", "--SCC", default="t", help="true to use SCC structure, false to not", type=str)
-parser.add_argument("-m", "--SCCMEMBERS", default="t", help="true for using g_estimate SCC members, false for using "
+parser.add_argument("-s", "--SCC", default="f", help="true to use SCC structure, false to not", type=str)
+parser.add_argument("-m", "--SCCMEMBERS", default="f", help="true for using g_estimate SCC members, false for using "
                                                             "GT SCC members", type=str)
 parser.add_argument("-u", "--UNDERSAMPLING", default=2, help="sampling rate in generated data", type=int)
 parser.add_argument("-x", "--MAXU", default=15, help="maximum number of undersampling to look for solution.", type=int)
@@ -413,14 +413,24 @@ print('number of optimal solutions is', len(r_estimated))
 min_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
 min_norm_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
 min_val = 1000000
+min_cost = 10000000
 for answer in r_estimated:
     curr_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(GT)),answer[0][1][0]), g_estimated)
     curr_normed_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(GT)),answer[0][1][0]), g_estimated, normalized=True)
-    if  (curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
+    curr_cost = answer[1]
+    if  (4*curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
         min_err = curr_errors
         min_norm_err = curr_normed_errors
-        min_val =  (curr_errors['total'][0] + curr_errors['total'][1])
+        min_cost = curr_cost
+        min_val =  (4*curr_errors['total'][0] + curr_errors['total'][1])
         min_answer_WRT_GuOptVsGest = answer
+    elif (4*curr_errors['total'][0] + curr_errors['total'][1]) == min_val:
+        if curr_cost < min_cost:
+            min_err = curr_errors
+            min_norm_err = curr_normed_errors
+            min_cost = curr_cost
+            min_val = (4*curr_errors['total'][0] + curr_errors['total'][1])
+            min_answer_WRT_GuOptVsGest = answer
 
 '''G1_opt - the solution of optimization problem (r_estimated from g_estimated) in causal time scale'''
 G1_opt_WRT_GuOptVsGest = bfutils.num2CG(min_answer_WRT_GuOptVsGest[0][0], len(g_estimated))
@@ -445,15 +455,24 @@ print('G1_opt_error_GT', round_tuple_elements(G1_opt_error_GT_WRT_GuOptVsGest))
 min_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
 min_norm_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
 min_val = 1000000
+min_cost = 10000000
 for answer in r_estimated:
     curr_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(GT)),answer[0][1][0]), bfutils.undersample(GT, answer[0][1][0]))
     curr_normed_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(GT)),answer[0][1][0]), bfutils.undersample(GT, answer[0][1][0]), normalized=True)
-
-    if  (curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
+    curr_cost = answer[1]
+    if  (4*curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
         min_err = curr_errors
         min_norm_err = curr_normed_errors
-        min_val =  (curr_errors['total'][0] + curr_errors['total'][1])
+        min_cost = curr_cost
+        min_val =  (4*curr_errors['total'][0] + curr_errors['total'][1])
         min_answer_WRT_GuOptVsGTu = answer
+    elif (4*curr_errors['total'][0] + curr_errors['total'][1]) == min_val:
+        if curr_cost < min_cost:
+            min_err = curr_errors
+            min_norm_err = curr_normed_errors
+            min_cost = curr_cost
+            min_val = (4*curr_errors['total'][0] + curr_errors['total'][1])
+            min_answer_WRT_GuOptVsGTu = answer
 
 '''G1_opt - the solution of optimization problem (r_estimated from g_estimated) in causal time scale'''
 G1_opt_WRT_GuOptVsGTu = bfutils.num2CG(min_answer_WRT_GuOptVsGTu[0][0], len(g_estimated))
@@ -477,15 +496,24 @@ print('G1_opt_error_GT', round_tuple_elements(G1_opt_error_GT_WRT_GuOptVsGTu))
 min_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
 min_norm_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
 min_val = 1000000
+min_cost = 10000000
 for answer in r_estimated:
     curr_errors = gk.OCE(bfutils.num2CG(answer[0][0], len(GT)),GT)
     curr_normed_errors = gk.OCE(bfutils.num2CG(answer[0][0], len(GT)), GT, normalized=True)
-
-    if (curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
+    curr_cost = answer[1]
+    if (4*curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
         min_err = curr_errors
         min_norm_err = curr_normed_errors
-        min_val = (curr_errors['total'][0] + curr_errors['total'][1])
+        min_cost = curr_cost
+        min_val = (4*curr_errors['total'][0] + curr_errors['total'][1])
         min_answer_WRT_G1OptVsGT = answer
+    elif (4*curr_errors['total'][0] + curr_errors['total'][1]) == min_val:
+        if curr_cost < min_cost:
+            min_err = curr_errors
+            min_norm_err = curr_normed_errors
+            min_cost = curr_cost
+            min_val = (4*curr_errors['total'][0] + curr_errors['total'][1])
+            min_answer_WRT_G1OptVsGT = answer
 
 '''G1_opt - the solution of optimization problem (r_estimated from g_estimated) in causal time scale'''
 G1_opt_WRT_G1OptVsGT = bfutils.num2CG(min_answer_WRT_G1OptVsGT[0][0], len(g_estimated))
@@ -515,7 +543,7 @@ results = {'general':{'method': PreFix,
            'dm': DD,
            'bdm': BD,
            'optim_cost': sorted_data[-1][1],
-           'min_cost_sol': sorted_data[-1],
+           'num_sols': len(r_estimated),
            'GT': GT,
            'GT_at_actual_U': GT_at_actual_U,
            'threshold': EDGE_CUTOFF * k_threshold,

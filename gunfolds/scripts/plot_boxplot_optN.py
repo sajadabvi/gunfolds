@@ -4,6 +4,7 @@ import seaborn as sns
 from gunfolds.utils import zickle as zkl
 from os import listdir
 from matplotlib.ticker import MultipleLocator
+from gunfolds.viz import gtool as gt
 
 
 folder3 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/optN/res_simulation' \
@@ -71,39 +72,41 @@ if __name__ == '__main__':
     ErrVs = []
 
     for item in res3+res+res2:
-        ErrVs.extend([ 'GuVsGest', 'GuVsGTu','G1VsGT'])
+        if item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][0] > 0.95:
+            print("check")
+        ErrVs.extend([ 'GuVsGTu', 'GuVsGest','G1VsGT'])
         WRT.extend(['GuOptVsGest','GuOptVsGest','GuOptVsGest'])
         Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][0],
                     item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][0],
                     item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][0]])
         ErrType.extend(['omm', 'omm','omm'])
-        ErrVs.extend(['GuVsGest', 'GuVsGTu', 'G1VsGT'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
         Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][1],
                     item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][1],
                     item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
 #################################################################################################
-        ErrVs.extend(['GuVsGest', 'GuVsGTu', 'G1VsGT'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
         Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][0],
                     item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
                     item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        ErrVs.extend(['GuVsGest', 'GuVsGTu', 'G1VsGT'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
         Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
                     item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
                     item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
 #################################################################################################
-        ErrVs.extend(['GuVsGest', 'GuVsGTu', 'G1VsGT'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
         Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][0],
                     item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][0],
                     item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        ErrVs.extend(['GuVsGest', 'GuVsGTu', 'G1VsGT'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
         Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][1],
                     item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][1],

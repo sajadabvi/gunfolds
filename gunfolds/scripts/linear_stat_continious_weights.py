@@ -20,22 +20,22 @@ from math import log
 
 CLINGO_LIMIT = 64
 PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
-POSTFIX = 'linear_simu'
+POSTFIX = 'linear_VAR_simu'
 Using_SVAR = True
 Using_VAR = False
 PreFix = 'SVAR' if Using_SVAR else 'GC'
 parser = argparse.ArgumentParser(description='Run settings.')
 parser.add_argument("-c", "--CAPSIZE", default=0,
                     help="stop traversing after growing equivalence class to this size.", type=int)
-parser.add_argument("-b", "--BATCH", default=11, help="slurm batch.", type=int)
+parser.add_argument("-b", "--BATCH", default=1, help="slurm batch.", type=int)
 parser.add_argument("-p", "--PNUM", default=PNUM, help="number of CPUs in machine.", type=int)
-parser.add_argument("-n", "--NODE", default=8, help="number of nodes in graph", type=int)
-parser.add_argument("-d", "--DEN", default=0.14, help="density of graph", type=str)
-parser.add_argument("-g", "--GTYPE", default="f", help="true for ringmore graph, false for random graph", type=str)
+parser.add_argument("-n", "--NODE", default=6, help="number of nodes in graph", type=int)
+parser.add_argument("-d", "--DEN", default=0.25, help="density of graph", type=str)
+parser.add_argument("-g", "--GTYPE", default="t", help="true for ringmore graph, false for random graph", type=str)
 parser.add_argument("-t", "--TIMEOUT", default=120, help="timeout in hours", type=int)
-parser.add_argument("-r", "--THRESHOLD", default=5, help="threshold for SVAR", type=int)
-parser.add_argument("-s", "--SCC", default="t", help="true to use SCC structure, false to not", type=str)
-parser.add_argument("-m", "--SCCMEMBERS", default="t", help="true for using g_estimate SCC members, false for using "
+parser.add_argument("-r", "--THRESHOLD", default=3, help="threshold for SVAR", type=int)
+parser.add_argument("-s", "--SCC", default="f", help="true to use SCC structure, false to not", type=str)
+parser.add_argument("-m", "--SCCMEMBERS", default="f", help="true for using g_estimate SCC members, false for using "
                                                             "GT SCC members", type=str)
 parser.add_argument("-u", "--UNDERSAMPLING", default=2, help="sampling rate in generated data", type=int)
 parser.add_argument("-x", "--MAXU", default=15, help="maximum number of undersampling to look for solution.", type=int)
@@ -68,119 +68,119 @@ def round_tuple_elements(input_tuple, decimal_points=3):
     return tuple(round(elem, decimal_points) if isinstance(elem, (int, float)) else elem for elem in input_tuple)
 
 
-def partition_distance(G1, G2):
-    # Get strongly connected components of the graphs
-    scc1 = list(nx.strongly_connected_components(G1))
-    scc2 = list(nx.strongly_connected_components(G2))
+# def partition_distance(G1, G2):
+#     # Get strongly connected components of the graphs
+#     scc1 = list(nx.strongly_connected_components(G1))
+#     scc2 = list(nx.strongly_connected_components(G2))
+#
+#     # Calculate variation of information
+#     vi = 0
+#     for s1 in scc1:
+#         for s2 in scc2:
+#             intersection = len(s1.intersection(s2))
+#             if intersection > 0:
+#                 vi += intersection * (log(intersection) - log(len(s1)) - log(len(s2)))
+#
+#     # Multiply by 2 because we considered each pair twice
+#     vi *= 2
+#
+#     # Normalize by log of the total number of nodes (assuming the graphs have the same nodes)
+#     vi /= log(len(G1.nodes))
+#
+#     # Return partition distance as the variation of information
+#     return vi
+#
+#
+# def get_strongly_connected_components(graph):
+#     return [c for c in nx.strongly_connected_components(graph)]
+#
+#
+# def calculate_jaccard_similarity(set1, set2):
+#     intersection = len(set1.intersection(set2))
+#     union = len(set1.union(set2))
+#     return intersection / union if union > 0 else 0
 
-    # Calculate variation of information
-    vi = 0
-    for s1 in scc1:
-        for s2 in scc2:
-            intersection = len(s1.intersection(s2))
-            if intersection > 0:
-                vi += intersection * (log(intersection) - log(len(s1)) - log(len(s2)))
-
-    # Multiply by 2 because we considered each pair twice
-    vi *= 2
-
-    # Normalize by log of the total number of nodes (assuming the graphs have the same nodes)
-    vi /= log(len(G1.nodes))
-
-    # Return partition distance as the variation of information
-    return vi
-
-
-def get_strongly_connected_components(graph):
-    return [c for c in nx.strongly_connected_components(graph)]
-
-
-def calculate_jaccard_similarity(set1, set2):
-    intersection = len(set1.intersection(set2))
-    union = len(set1.union(set2))
-    return intersection / union if union > 0 else 0
-
-
-def quantify_graph_difference(graph1, graph2):
-    # Step 1: Find the strongly connected components in both graphs
-    scc1 = get_strongly_connected_components(graph1)
-    scc2 = get_strongly_connected_components(graph2)
-
-    # Step 2: Represent SCCs as sets of vertices
-    scc_sets1 = set([frozenset(component) for component in scc1])
-    scc_sets2 = set([frozenset(component) for component in scc2])
-
-    # Step 3: Calculate Jaccard similarity between SCC sets
-    intersection = len(scc_sets1.intersection(scc_sets2))
-    union = len(scc_sets1.union(scc_sets2))
-    jaccard_similarity = intersection / union if union > 0 else 0
-
-    return jaccard_similarity
+#
+# def quantify_graph_difference(graph1, graph2):
+#     # Step 1: Find the strongly connected components in both graphs
+#     scc1 = get_strongly_connected_components(graph1)
+#     scc2 = get_strongly_connected_components(graph2)
+#
+#     # Step 2: Represent SCCs as sets of vertices
+#     scc_sets1 = set([frozenset(component) for component in scc1])
+#     scc_sets2 = set([frozenset(component) for component in scc2])
+#
+#     # Step 3: Calculate Jaccard similarity between SCC sets
+#     intersection = len(scc_sets1.intersection(scc_sets2))
+#     union = len(scc_sets1.union(scc_sets2))
+#     jaccard_similarity = intersection / union if union > 0 else 0
+#
+#     return jaccard_similarity
+#
+#
+# def makeConnected(G):
+#     # Get weakly connected components of the graph
+#     weakly_connected_components = list(nx.weakly_connected_components(G))
+#
+#     # Connect weakly connected components
+#     for i in range(len(weakly_connected_components) - 1):
+#         # Add edge between first nodes of consecutive components
+#         G.add_edge(list(weakly_connected_components[i])[0], list(weakly_connected_components[i + 1])[0])
+#
+#     return G
+#
+#
+# def rmBidirected(gu):
+#     g = copy.deepcopy(gu)
+#     for v in g:
+#         for w in list(g[v]):
+#             if g[v][w] == 2:
+#                 del g[v][w]
+#             elif g[v][w] == 3:
+#                 g[v][w] = 1
+#     return g
 
 
-def makeConnected(G):
-    # Get weakly connected components of the graph
-    weakly_connected_components = list(nx.weakly_connected_components(G))
-
-    # Connect weakly connected components
-    for i in range(len(weakly_connected_components) - 1):
-        # Add edge between first nodes of consecutive components
-        G.add_edge(list(weakly_connected_components[i])[0], list(weakly_connected_components[i + 1])[0])
-
-    return G
-
-
-def rmBidirected(gu):
-    g = copy.deepcopy(gu)
-    for v in g:
-        for w in list(g[v]):
-            if g[v][w] == 2:
-                del g[v][w]
-            elif g[v][w] == 3:
-                g[v][w] = 1
-    return g
-
-
-def transitionMatrix4(g, minstrength=0.1, distribution='normal', maxtries=1000):
-    """
-    :param g: ``gunfolds`` graph
-    :type g: dictionary (``gunfolds`` graph)
-
-    :param minstrength:
-    :type minstrength: float
-
-    :param distribution: (GUESS)distribution from which to sample the weights. Available
-     options are flat, flatsigned, beta, normal, uniform
-    :type distribution: string
-
-    :param maxtries:
-    :type maxtries: (guess)integer
-
-    :returns:
-    :rtype:
-    """
-    A = cv.graph2adj(g)
-    edges = np.where(A == 1)
-    s = 2.0
-    c = 0
-    pbar = ProgressBar(widgets=['Searching for weights: ',
-                                Percentage(), ' '],
-                       maxval=maxtries).start()
-    while s > 1.0:
-        minstrength -= 0.001
-        A = lm.initRandomMatrix(A, edges, distribution=distribution)
-        x = A[edges]
-        delta = minstrength / np.min(np.abs(x))
-        A[edges] = delta * x
-        l = lm.linalg.eig(A)[0]
-        s = np.max(np.real(l * scipy.conj(l)))
-        c += 1
-        if c > maxtries:
-            return None
-        pbar.update(c)
-    pbar.finish()
-
-    return A
+# def transitionMatrix4(g, minstrength=0.1, distribution='normal', maxtries=1000):
+#     """
+#     :param g: ``gunfolds`` graph
+#     :type g: dictionary (``gunfolds`` graph)
+#
+#     :param minstrength:
+#     :type minstrength: float
+#
+#     :param distribution: (GUESS)distribution from which to sample the weights. Available
+#      options are flat, flatsigned, beta, normal, uniform
+#     :type distribution: string
+#
+#     :param maxtries:
+#     :type maxtries: (guess)integer
+#
+#     :returns:
+#     :rtype:
+#     """
+#     A = cv.graph2adj(g)
+#     edges = np.where(A == 1)
+#     s = 2.0
+#     c = 0
+#     pbar = ProgressBar(widgets=['Searching for weights: ',
+#                                 Percentage(), ' '],
+#                        maxval=maxtries).start()
+#     while s > 1.0:
+#         minstrength -= 0.001
+#         A = lm.initRandomMatrix(A, edges, distribution=distribution)
+#         x = A[edges]
+#         delta = minstrength / np.min(np.abs(x))
+#         A[edges] = delta * x
+#         l = lm.linalg.eig(A)[0]
+#         s = np.max(np.real(l * scipy.conj(l)))
+#         c += 1
+#         if c > maxtries:
+#             return None
+#         pbar.update(c)
+#     pbar.finish()
+#
+#     return A
 
 
 # def genData(A, rate=2, burnin=100, ssize=2000, noise=0.1, dist='beta'):
@@ -226,97 +226,97 @@ def genData(A, rate=2, burnin=100, ssize=5000, noise=0.1, dist='normal'):
     return data[:, ::rate]
 
 
-def drawsamplesLG(A, nstd=0.1, samples=100):
-    """
-    :param A:
-    :type A:
-
-    :param nstd:
-    :type nstd: float
-
-    :param samples:
-    :type samples: integer
-
-    :returns:
-    :rtype:
-    """
-    n = A.shape[0]
-    data = np.zeros([n, samples])
-    data[:, 0] = nstd * np.random.randn(A.shape[0])
-    for i in range(1, samples):
-        data[:, i] = A @ data[:, i - 1] + nstd * np.random.randn(A.shape[0])
-    return data
-
-
-def drawsamplesMA(A, nstd=0.1, samples=100, order=5):
-    """
-    :param A:
-    :type A:
-
-    :param nstd:
-    :type nstd: float
-
-    :param samples:
-    :type samples: integer
-
-    :param order:
-    :type order: integer
-
-    :returns:
-    :rtype:
-    """
-    n = A.shape[0]
-    data = scipy.zeros([n, samples])
-    data[:, 0] = nstd * scipy.random.randn(A.shape[0])
-    for i in range(1, samples):
-        if i > order:
-            result = 0
-            for j in range(order):
-                result += np.dot(1 / (j + 1) * A, data[:, i - 1 - j]) \
-                          + nstd * np.dot(1 / (j + 1) * A, scipy.random.randn(A.shape[0]))
-            data[:, i] = result
-        else:
-            data[:, i] = scipy.dot(A, data[:, i - 1]) \
-                         + nstd * scipy.random.randn(A.shape[0])
-    return data
+# def drawsamplesLG(A, nstd=0.1, samples=100):
+#     """
+#     :param A:
+#     :type A:
+#
+#     :param nstd:
+#     :type nstd: float
+#
+#     :param samples:
+#     :type samples: integer
+#
+#     :returns:
+#     :rtype:
+#     """
+#     n = A.shape[0]
+#     data = np.zeros([n, samples])
+#     data[:, 0] = nstd * np.random.randn(A.shape[0])
+#     for i in range(1, samples):
+#         data[:, i] = A @ data[:, i - 1] + nstd * np.random.randn(A.shape[0])
+#     return data
 
 
-def AB2intAB_1(A, B, th=0.09):
-    """
-    :param A:
-    :type A:
+# def drawsamplesMA(A, nstd=0.1, samples=100, order=5):
+#     """
+#     :param A:
+#     :type A:
+#
+#     :param nstd:
+#     :type nstd: float
+#
+#     :param samples:
+#     :type samples: integer
+#
+#     :param order:
+#     :type order: integer
+#
+#     :returns:
+#     :rtype:
+#     """
+#     n = A.shape[0]
+#     data = scipy.zeros([n, samples])
+#     data[:, 0] = nstd * scipy.random.randn(A.shape[0])
+#     for i in range(1, samples):
+#         if i > order:
+#             result = 0
+#             for j in range(order):
+#                 result += np.dot(1 / (j + 1) * A, data[:, i - 1 - j]) \
+#                           + nstd * np.dot(1 / (j + 1) * A, scipy.random.randn(A.shape[0]))
+#             data[:, i] = result
+#         else:
+#             data[:, i] = scipy.dot(A, data[:, i - 1]) \
+#                          + nstd * scipy.random.randn(A.shape[0])
+#     return data
 
-    :param B:
-    :type B:
 
-    :param th: (GUESS)threshold for discarding edges in A and B
-    :type th: float
+# def AB2intAB_1(A, B, th=0.09):
+#     """
+#     :param A:
+#     :type A:
+#
+#     :param B:
+#     :type B:
+#
+#     :param th: (GUESS)threshold for discarding edges in A and B
+#     :type th: float
+#
+#     :returns:
+#     :rtype:
+#     """
+#
+#     A[amap(lambda x: abs(x) > th, A)] = 1
+#     A[amap(lambda x: abs(x) < 1, A)] = 0
+#     B[amap(lambda x: abs(x) > th, B)] = 1
+#     B[amap(lambda x: np.abs(x) < 1, B)] = 0
+#     np.fill_diagonal(B, 0)
+#     return A, B
 
-    :returns:
-    :rtype:
-    """
 
-    A[amap(lambda x: abs(x) > th, A)] = 1
-    A[amap(lambda x: abs(x) < 1, A)] = 0
-    B[amap(lambda x: abs(x) > th, B)] = 1
-    B[amap(lambda x: np.abs(x) < 1, B)] = 0
-    np.fill_diagonal(B, 0)
-    return A, B
-
-
-def amap(f, a):
-    """
-    :param f:
-    :type f:
-
-    :param a:
-    :type a:
-
-    :returns:
-    :rtype:
-    """
-    v = np.vectorize(f)
-    return v(a)
+# def amap(f, a):
+#     """
+#     :param f:
+#     :type f:
+#
+#     :param a:
+#     :type a:
+#
+#     :returns:
+#     :rtype:
+#     """
+#     v = np.vectorize(f)
+#     return v(a)
 
 '''
 if you get a graph G_1 that is a DAG (directed acyclic graph), i.e. all SCCs are singletons (each node is its own SCC)
@@ -333,9 +333,19 @@ but this function will be bad for singleton nodes - it will add a self loop to a
  :slightly_smiling_face: Please do not apply it to singleton SCCs
 '''
 print('_____________________________________________')
-dataset = zkl.load('datasets/all_samples_n8d14.zkl')
-GT = dataset[args.BATCH-1]
-mask = cv.graph2adj(GT)
+if graphType == 'ringmore':
+    e = bfutils.dens2edgenum(DENSITY, n=args.NODE)
+    GT = gk.ringmore(args.NODE, e)
+    mask = cv.graph2adj(GT)
+else:
+    deg = (((args.NODE ** 2) + args.NODE) * DENSITY) / args.NODE
+    GT = gk.bp_mean_degree_graph(args.NODE, deg)
+    GG = gk.graph2nx(GT)
+    if not nx.is_weakly_connected(GG):
+        GGC = makeConnected(GG)
+        GT = gk.nx2graph(GGC)
+    mask = cv.graph2adj(GT)
+    print('density {0:} in {1:} nodes is average degree {2:}'.format(DENSITY, args.NODE, deg))
 
 G = np.clip(np.random.randn(*mask.shape) * 0.2 + 0.5, 0.3, 0.7)
 Con_mat = G * mask
@@ -355,7 +365,8 @@ dd = genData(Con_mat, rate=u_rate, ssize=2000, noise=noise_svar)  # data.values
 # if Using_SVAR:
 
 g_estimated, A, B = lm.data2graph(dd, th=EDGE_CUTOFF * k_threshold)
-DD = (np.abs(cv.graph2adj(g_estimated) * A) * 10000).astype(int)
+
+DD = (np.abs(cv.graph2adj(g_estimated) * A) * 10000).astype(int)  #here instead of multiply by adjacency, multiply by zero-one matrix of elements in A less tann threshhold
 DD[np.where(DD == 0)] = DD.max()
 BD = (np.abs(cv.graph2badj(g_estimated) * B) * 10000).astype(int)
 BD[np.where(BD == 0)] = BD.max()
@@ -403,14 +414,24 @@ print('number of optimal solutions is', len(r_estimated))
 min_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
 min_norm_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
 min_val = 1000000
+min_cost = 10000000
 for answer in r_estimated:
     curr_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(GT)),answer[0][1][0]), g_estimated)
     curr_normed_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(GT)),answer[0][1][0]), g_estimated, normalized=True)
-    if  (curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
+    curr_cost = answer[1]
+    if  (4*curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
         min_err = curr_errors
         min_norm_err = curr_normed_errors
-        min_val =  (curr_errors['total'][0] + curr_errors['total'][1])
+        min_cost = curr_cost
+        min_val =  (4*curr_errors['total'][0] + curr_errors['total'][1])
         min_answer_WRT_GuOptVsGest = answer
+    elif (4*curr_errors['total'][0] + curr_errors['total'][1]) == min_val:
+        if curr_cost < min_cost:
+            min_err = curr_errors
+            min_norm_err = curr_normed_errors
+            min_cost = curr_cost
+            min_val = (4*curr_errors['total'][0] + curr_errors['total'][1])
+            min_answer_WRT_GuOptVsGest = answer
 
 '''G1_opt - the solution of optimization problem (r_estimated from g_estimated) in causal time scale'''
 G1_opt_WRT_GuOptVsGest = bfutils.num2CG(min_answer_WRT_GuOptVsGest[0][0], len(g_estimated))
@@ -435,15 +456,24 @@ print('G1_opt_error_GT', round_tuple_elements(G1_opt_error_GT_WRT_GuOptVsGest))
 min_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
 min_norm_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
 min_val = 1000000
+min_cost = 10000000
 for answer in r_estimated:
     curr_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(GT)),answer[0][1][0]), bfutils.undersample(GT, answer[0][1][0]))
     curr_normed_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(GT)),answer[0][1][0]), bfutils.undersample(GT, answer[0][1][0]), normalized=True)
-
-    if  (curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
+    curr_cost = answer[1]
+    if  (4*curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
         min_err = curr_errors
         min_norm_err = curr_normed_errors
-        min_val =  (curr_errors['total'][0] + curr_errors['total'][1])
+        min_cost = curr_cost
+        min_val =  (4*curr_errors['total'][0] + curr_errors['total'][1])
         min_answer_WRT_GuOptVsGTu = answer
+    elif (4*curr_errors['total'][0] + curr_errors['total'][1]) == min_val:
+        if curr_cost < min_cost:
+            min_err = curr_errors
+            min_norm_err = curr_normed_errors
+            min_cost = curr_cost
+            min_val = (4*curr_errors['total'][0] + curr_errors['total'][1])
+            min_answer_WRT_GuOptVsGTu = answer
 
 '''G1_opt - the solution of optimization problem (r_estimated from g_estimated) in causal time scale'''
 G1_opt_WRT_GuOptVsGTu = bfutils.num2CG(min_answer_WRT_GuOptVsGTu[0][0], len(g_estimated))
@@ -467,15 +497,24 @@ print('G1_opt_error_GT', round_tuple_elements(G1_opt_error_GT_WRT_GuOptVsGTu))
 min_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
 min_norm_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
 min_val = 1000000
+min_cost = 10000000
 for answer in r_estimated:
     curr_errors = gk.OCE(bfutils.num2CG(answer[0][0], len(GT)),GT)
     curr_normed_errors = gk.OCE(bfutils.num2CG(answer[0][0], len(GT)), GT, normalized=True)
-
-    if (curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
+    curr_cost = answer[1]
+    if (4*curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
         min_err = curr_errors
         min_norm_err = curr_normed_errors
-        min_val = (curr_errors['total'][0] + curr_errors['total'][1])
+        min_cost = curr_cost
+        min_val = (4*curr_errors['total'][0] + curr_errors['total'][1])
         min_answer_WRT_G1OptVsGT = answer
+    elif (4*curr_errors['total'][0] + curr_errors['total'][1]) == min_val:
+        if curr_cost < min_cost:
+            min_err = curr_errors
+            min_norm_err = curr_normed_errors
+            min_cost = curr_cost
+            min_val = (4*curr_errors['total'][0] + curr_errors['total'][1])
+            min_answer_WRT_G1OptVsGT = answer
 
 '''G1_opt - the solution of optimization problem (r_estimated from g_estimated) in causal time scale'''
 G1_opt_WRT_G1OptVsGT = bfutils.num2CG(min_answer_WRT_G1OptVsGT[0][0], len(g_estimated))
@@ -548,7 +587,7 @@ results = {'general':{'method': PreFix,
 
 '''saving files'''
 filename = 'nodes_' + str(args.NODE) + '_density_' + str(DENSITY) + '_undersampling_' + str(args.UNDERSAMPLING) + \
-           '_' + PreFix + '_optN_dataset_' + POSTFIX + '_' + graphType + '_CAPSIZE_' + str(args.CAPSIZE) + '_batch_' + \
+           '_' + PreFix + '_optN_' + POSTFIX + '_' + graphType + '_CAPSIZE_' + str(args.CAPSIZE) + '_batch_' + \
            str(args.BATCH) + '_pnum_' + str(args.PNUM) + '_timeout_' + str(args.TIMEOUT) + '_threshold_' + \
            str(args.THRESHOLD) + '_maxu_' + str(args.MAXU) + '_sccMember_' + str(SCC_members) + '_SCC_' + str(SCC)
 folder = 'res_simulation'
