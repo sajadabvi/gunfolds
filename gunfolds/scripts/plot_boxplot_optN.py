@@ -34,7 +34,33 @@ if file_list2[0].startswith('.'):
 res3 = [zkl.load(folder3 + file) for file in file_list3]
 res = [zkl.load(folder + file) for file in file_list]
 res2 = [zkl.load(folder2 + file) for file in file_list2]
+############################################################
 
+folder6 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/optN/soft_weights' \
+          '/res_simulation/8nodes/n8sfmf14/'
+folder4 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/optN/soft_weights' \
+          '/res_simulation/8nodes/n8stmt14/'
+folder5 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/optN/soft_weights' \
+          '/res_simulation/8nodes/n8stmf14/'
+
+file_list6 = listdir(folder6)
+file_list6.sort()
+if file_list6[0].startswith('.'):
+    file_list6.pop(0)
+
+file_list4 = listdir(folder4)
+file_list4.sort()
+if file_list4[0].startswith('.'):
+    file_list4.pop(0)
+
+file_list5 = listdir(folder5)
+file_list5.sort()
+if file_list5[0].startswith('.'):
+    file_list5.pop(0)
+
+res6 = [zkl.load(folder6 + file) for file in file_list6]
+res4 = [zkl.load(folder4 + file) for file in file_list4]
+res5 = [zkl.load(folder5 + file) for file in file_list5]
 
 G1_opt_error_GT_om = []
 G1_opt_error_GT_com = []
@@ -70,22 +96,23 @@ if __name__ == '__main__':
     node = []
     WRT = []
     ErrVs = []
+    weights_scheme = []
 
     for item in res3+res+res2:
-        if item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][0] > 0.95:
-            print("check")
         ErrVs.extend([ 'GuVsGTu', 'GuVsGest','G1VsGT'])
         WRT.extend(['GuOptVsGest','GuOptVsGest','GuOptVsGest'])
         Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][0],
                     item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][0],
                     item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][0]])
         ErrType.extend(['omm', 'omm','omm'])
+        weights_scheme.extend(['hard','hard','hard'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
         Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][1],
                     item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][1],
                     item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['hard', 'hard', 'hard'])
 #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
@@ -93,12 +120,14 @@ if __name__ == '__main__':
                     item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
                     item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['hard', 'hard', 'hard'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
         Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
                     item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
                     item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['hard', 'hard', 'hard'])
 #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
@@ -106,31 +135,78 @@ if __name__ == '__main__':
                     item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][0],
                     item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['hard', 'hard', 'hard'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
         Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][1],
                     item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][1],
                     item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['hard', 'hard', 'hard'])
 
-
+    for item in res6 + res4 + res5:
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
+        Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][0],
+                    item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][0],
+                    item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['soft', 'soft', 'soft'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
+        Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][1],
+                    item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][1],
+                    item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['soft', 'soft', 'soft'])
+        #################################################################################################
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
+        Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][0],
+                    item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
+                    item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['soft', 'soft', 'soft'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
+        Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
+                    item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
+                    item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['soft', 'soft', 'soft'])
+        #################################################################################################
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
+        Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][0],
+                    item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][0],
+                    item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['soft', 'soft', 'soft'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
+        Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][1],
+                    item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][1],
+                    item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['soft', 'soft', 'soft'])
 
     df['Err'] = Err
     df['ErrVs'] = ErrVs
     df['ErrType'] = ErrType
     df['WRT'] = WRT
+    df['weights_scheme'] = weights_scheme
 
     sns.set({"xtick.minor.size": 0.2})
-    pal = dict(old_opt="gold", Capped_optim_the_sRASL="maroon",
+    pal = dict(soft="gold", hard="blue",
                new_optN="blue", optim_then_sRASL="green")
     g = sns.FacetGrid(df, col="WRT", row="ErrType", height=4, aspect=1, margin_titles=True)
 
 
     def custom_boxplot(*args, **kwargs):
-        sns.boxplot(*args, **kwargs)
+        sns.boxplot(*args, **kwargs, palette=pal)
 
 
-    g.map_dataframe(custom_boxplot, x='ErrVs', y='Err')
+    g.map_dataframe(custom_boxplot, x='ErrVs', y='Err', hue='weights_scheme')
     g.add_legend()
     g.set_axis_labels("error type", "normalized error")
 
