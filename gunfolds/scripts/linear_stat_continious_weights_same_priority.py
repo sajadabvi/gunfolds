@@ -20,7 +20,7 @@ from math import log
 
 CLINGO_LIMIT = 64
 PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
-POSTFIX = 'linear_simu_continous_weights_dataset'
+POSTFIX = 'linear_simu_continous_weights_dataset_same_priority'
 Using_SVAR = True
 Using_VAR = False
 PreFix = 'SVAR' if Using_SVAR else 'GC'
