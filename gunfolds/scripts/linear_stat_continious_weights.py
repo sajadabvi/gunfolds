@@ -367,6 +367,7 @@ MAXCOST = 10000
 g_estimated, A, B = lm.data2graph(dd, th=EDGE_CUTOFF * k_threshold)
 DD = (np.abs((np.abs(A/np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1))*MAXCOST)).astype(int)
 BD = (np.abs((np.abs(B/np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1))*MAXCOST)).astype(int)
+gk.density()
 # absA = np.abs(A)
 # absA = absA/absA.max()
 # DD2 = (np.abs((np.abs(A/np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1))*MAXCOST)).astype(int)

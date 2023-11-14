@@ -62,6 +62,63 @@ res6 = [zkl.load(folder6 + file) for file in file_list6]
 res4 = [zkl.load(folder4 + file) for file in file_list4]
 res5 = [zkl.load(folder5 + file) for file in file_list5]
 
+
+############################################################
+
+folder9 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/optN/soft_weight_no_priority' \
+          '/res_simulation/8nodes/n8sfmf14/'
+folder7 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/optN/soft_weight_no_priority' \
+          '/res_simulation/8nodes/n8stmt14/'
+folder8 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/optN/soft_weight_no_priority' \
+          '/res_simulation/8nodes/n8stmf14/'
+
+file_list9 = listdir(folder9)
+file_list9.sort()
+if file_list9[0].startswith('.'):
+    file_list9.pop(0)
+
+file_list7 = listdir(folder7)
+file_list7.sort()
+if file_list7[0].startswith('.'):
+    file_list7.pop(0)
+
+file_list8 = listdir(folder8)
+file_list8.sort()
+if file_list8[0].startswith('.'):
+    file_list8.pop(0)
+
+res9 = [zkl.load(folder9 + file) for file in file_list9]
+res7 = [zkl.load(folder7 + file) for file in file_list7]
+res8 = [zkl.load(folder8 + file) for file in file_list8]
+
+############################################################
+
+folder12 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/optN/ringmore' \
+          '/res_simulation/7nodes/'
+# folder10 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/optN/soft_weight_no_priority' \
+#           '/res_simulation/8nodes/n8stmt14/'
+# folder11 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/optN/soft_weight_no_priority' \
+#           '/res_simulation/8nodes/n8stmf14/'
+
+file_list12 = listdir(folder12)
+file_list12.sort()
+if file_list12[0].startswith('.'):
+    file_list12.pop(0)
+
+# file_list10 = listdir(folder10)
+# file_list10.sort()
+# if file_list10[0].startswith('.'):
+#     file_list10.pop(0)
+
+# file_list11 = listdir(folder11)
+# file_list11.sort()
+# if file_list11[0].startswith('.'):
+#     file_list11.pop(0)
+
+res12 = [zkl.load(folder12 + file) for file in file_list12]
+# res10 = [zkl.load(folder10 + file) for file in file_list10]
+# res11 = [zkl.load(folder11 + file) for file in file_list11]
+
 G1_opt_error_GT_om = []
 G1_opt_error_GT_com = []
 Gu_opt_errors_network_GT_U_om = []
@@ -190,6 +247,101 @@ if __name__ == '__main__':
         ErrType.extend(['comm', 'comm', 'comm'])
         weights_scheme.extend(['soft', 'soft', 'soft'])
 
+
+    for item in res9 + res7 + res8:
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
+        Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][0],
+                    item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][0],
+                    item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['same_priority', 'same_priority', 'same_priority'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
+        Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][1],
+                    item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][1],
+                    item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['same_priority', 'same_priority', 'same_priority'])
+        #################################################################################################
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
+        Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][0],
+                    item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
+                    item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['same_priority', 'same_priority', 'same_priority'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
+        Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
+                    item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
+                    item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['same_priority', 'same_priority', 'same_priority'])
+        #################################################################################################
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
+        Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][0],
+                    item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][0],
+                    item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['same_priority', 'same_priority', 'same_priority'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
+        Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][1],
+                    item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][1],
+                    item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['same_priority', 'same_priority', 'same_priority'])
+
+
+    for item in res12:
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
+        Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][0],
+                    item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][0],
+                    item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['ringmore', 'ringmore', 'ringmore'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
+        Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][1],
+                    item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][1],
+                    item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['ringmore', 'ringmore', 'ringmore'])
+        #################################################################################################
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
+        Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][0],
+                    item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
+                    item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['ringmore', 'ringmore', 'ringmore'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
+        Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
+                    item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
+                    item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['ringmore', 'ringmore', 'ringmore'])
+        #################################################################################################
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
+        Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][0],
+                    item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][0],
+                    item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['ringmore', 'ringmore', 'ringmore'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
+        Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][1],
+                    item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][1],
+                    item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['ringmore', 'ringmore', 'ringmore'])
+
+
     df['Err'] = Err
     df['ErrVs'] = ErrVs
     df['ErrType'] = ErrType
@@ -198,7 +350,7 @@ if __name__ == '__main__':
 
     sns.set({"xtick.minor.size": 0.2})
     pal = dict(soft="gold", hard="blue",
-               new_optN="blue", optim_then_sRASL="green")
+               same_priority="maroon", ringmore="green")
     g = sns.FacetGrid(df, col="WRT", row="ErrType", height=4, aspect=1, margin_titles=True)
 
 
