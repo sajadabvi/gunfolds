@@ -333,7 +333,7 @@ but this function will be bad for singleton nodes - it will add a self loop to a
  :slightly_smiling_face: Please do not apply it to singleton SCCs
 '''
 print('_____________________________________________')
-dataset = zkl.load('datasets/ringmore_n7d18.zkl')
+dataset = zkl.load('datasets/ringmore_n8d14.zkl')
 GT = dataset[args.BATCH-1]
 mask = cv.graph2adj(GT)
 
@@ -388,6 +388,7 @@ r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,
                     bdm=[BD],
                     scc=SCC,
                     scc_members=members,
+                    GT_density=int(1000*gk.density(GT)),
                     edge_weights=(1, 1), pnum=args.PNUM, optim='optN')
 # else:
 #     r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,

@@ -253,7 +253,7 @@ def glist2str(g_list, weighted=False, dm=None, bdm=None):
     return s
 
 
-def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=None, dm=None, bdm=None, edge_weights=(1, 1)):
+def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=None, dm=None, bdm=None, edge_weights=(1, 1),GT_density=None):
     """
     Given a list of graphs generates ``clingo`` codes
 
@@ -289,6 +289,10 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
         directed weights when solving optimization problem and the second is for bidirected.
     :type edge_weights: tuple with 2 elements
 
+    :param GT_density: desired desnsity of the grounf truth at causal
+        time-scale, multiplied by 1000
+    :type GT_density: integer
+
     :returns: clingo code as a string
     :rtype: string
     """
@@ -303,6 +307,13 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
         max_urate = 1+3*len(g_list[0])
     n = len(g_list)
     command = clingo_preamble(g_list[0])
+    if GT_density is not None:
+        command += f"#const d = {GT_density}. "
+        command += 'countedge1(C):- C = #count { edge1(X, Y): edge1(X, Y), node(X), node(Y)}. '
+        command += 'countfull(C):- C = n*n. '
+        command += 'hypoth_density(D) :- D = 1000*X/Y,  countfull(Y), countedge1(X). '
+        command += 'abs_diff(Diff) :- hypoth_density(D), Diff = |D - d|. '
+        command += ':~ abs_diff(Diff). [Diff@1]'
     if scc:
         command += encode_list_sccs(g_list, scc_members)
     command += f"dagl({len(g_list[0])-1}). "
@@ -318,7 +329,7 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
 
 
 def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False, scc_members=None, dm=None,
-          bdm=None, pnum=PNUM, edge_weights=(1, 1), configuration="crafty", optim='optN'):
+          bdm=None, pnum=PNUM, GT_density= None, edge_weights=(1, 1), configuration="crafty", optim='optN'):
     """
     Compute all candidate causal time-scale graphs that could have
     generated all undersampled graphs at all possible undersampling
@@ -363,6 +374,10 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
     :param pnum: number of parallel threads to run ``clingo`` on
     :type pnum: integer
 
+    :param GT_density: desired desnsity of the grounf truth at causal
+        time-scale, multiplied by 1000
+    :type GT_density: integer
+
     :param edge_weights: a tuple of 2 values, the first is importance
         of matching directed weights when solving optimization problem and the second is for bidirected.
     :type edge_weights: tuple with 2 elements
@@ -397,7 +412,7 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
     if not isinstance(glist, list):
         glist = [glist]
     return clingo(drasl_command(glist, max_urate=urate, weighted=weighted,
-                                scc=scc, scc_members=scc_members, dm=dm, bdm=bdm, edge_weights=edge_weights),
+                                scc=scc, scc_members=scc_members, dm=dm, bdm=bdm, edge_weights=edge_weights,GT_density=GT_density),
                   capsize=capsize, convert=drasl_jclingo2g, configuration=configuration,
                   timeout=timeout, exact=not weighted, pnum=pnum, optim=optim)
 
