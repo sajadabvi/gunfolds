@@ -313,7 +313,7 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
         command += 'countfull(C):- C = n*n. '
         command += 'hypoth_density(D) :- D = 1000*X/Y,  countfull(Y), countedge1(X). '
         command += 'abs_diff(Diff) :- hypoth_density(D), Diff = |D - d|. '
-        command += ':~ abs_diff(Diff). [Diff@1]'
+        command += ':~ abs_diff(Diff). [Diff@2]'
     if scc:
         command += encode_list_sccs(g_list, scc_members)
     command += f"dagl({len(g_list[0])-1}). "
