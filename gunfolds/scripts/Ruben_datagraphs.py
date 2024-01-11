@@ -64,6 +64,13 @@ Gu_opt_dir_errors_omm = []
 Gu_opt_dir_errors_comm = []
 error_normalization = True
 
+for fl in range(1,61):
+    num = str(fl) if fl>9 else '0' + str(fl)
+    print ('reading file:'+num)
+    data = pd.read_csv(
+        './DataSets_Feedbacks/1. Simple_Networks/Network5_cont/data_fslfilter/BOLDfslfilter_{0}.txt'.format(
+            num), delimiter='\t')
+
 def round_tuple_elements(input_tuple, decimal_points=3):
     return tuple(round(elem, decimal_points) if isinstance(elem, (int, float)) else elem for elem in input_tuple)
 
@@ -350,7 +357,7 @@ while not res:
     res = all(ele <= 1 for ele in abs(w))
 
 '''SVAR'''
-dd = genData(Con_mat, rate=u_rate, ssize=2000*u_rate, noise=noise_svar)  # data.values
+dd = genData(Con_mat, rate=u_rate, ssize=2000, noise=noise_svar)  # data.values
 
 # if Using_SVAR:
 MAXCOST = 10000
