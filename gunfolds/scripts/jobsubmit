@@ -2,10 +2,10 @@
 #SBATCH -N 1
 #SBATCH -n 1
 #SBATCH -c 15
-#SBATCH --mem=100g
+#SBATCH --mem=50g
 #SBATCH -p qTRDGPU
 #SBATCH -t 7600
-#SBATCH -J 814sfmfVARdatasetsoft
+#SBATCH -J 8_14_u20_full_send_ring_gtdensdensity_2priority
 #SBATCH -e ./err/error%A-%a.err
 #SBATCH -o ./out/out%A-%a.out
 #SBATCH -A psy53c17
@@ -20,7 +20,7 @@ export MODULEPATH=/apps/Compilers/modules-3.2.10/Debug-Build/Modules/3.2.10/modu
 echo $HOSTNAME >&2
 
 source /home/users/mabavisani/anaconda3/bin/activate
-conda activate softweights
-python linear_stat_dataset_cont_weights.py -m=f -s=f  -b=$SLURM_ARRAY_TASK_ID  -n=8 -p=15
+conda activate gt_density
+python linear_stat_continious_weights_same_priority_ringmore_8node.py  -m=f -s=f  -b=$SLURM_ARRAY_TASK_ID  -n=8 -p=15 -u=20
 
 sleep 3s
