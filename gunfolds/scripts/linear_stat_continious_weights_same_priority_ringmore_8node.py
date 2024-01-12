@@ -350,7 +350,8 @@ while not res:
     res = all(ele <= 1 for ele in abs(w))
 
 '''SVAR'''
-dd = genData(Con_mat, rate=u_rate, ssize=2000, noise=noise_svar)  # data.values
+dd = genData(Con_mat, rate=u_rate, ssize=2000*u_rate, noise=noise_svar)  # data.values
+
 
 # if Using_SVAR:
 MAXCOST = 10000

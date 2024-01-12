@@ -64,6 +64,13 @@ Gu_opt_dir_errors_omm = []
 Gu_opt_dir_errors_comm = []
 error_normalization = True
 
+for fl in range(1,61):
+    num = str(fl) if fl>9 else '0' + str(fl)
+    print ('reading file:'+num)
+    data = pd.read_csv(
+        './DataSets_Feedbacks/1. Simple_Networks/Network5_cont/data_fslfilter/BOLDfslfilter_{0}.txt'.format(
+            num), delimiter='\t')
+
 def round_tuple_elements(input_tuple, decimal_points=3):
     return tuple(round(elem, decimal_points) if isinstance(elem, (int, float)) else elem for elem in input_tuple)
 
@@ -333,7 +340,7 @@ but this function will be bad for singleton nodes - it will add a self loop to a
  :slightly_smiling_face: Please do not apply it to singleton SCCs
 '''
 print('_____________________________________________')
-dataset = zkl.load('datasets/ringmore_n10d13.zkl')
+dataset = zkl.load('datasets/ringmore_n8d14.zkl')
 GT = dataset[args.BATCH-1]
 mask = cv.graph2adj(GT)
 
@@ -350,7 +357,7 @@ while not res:
     res = all(ele <= 1 for ele in abs(w))
 
 '''SVAR'''
-dd = genData(Con_mat, rate=u_rate, ssize=2000*u_rate, noise=noise_svar)  # data.values
+dd = genData(Con_mat, rate=u_rate, ssize=2000, noise=noise_svar)  # data.values
 
 # if Using_SVAR:
 MAXCOST = 10000
@@ -575,7 +582,7 @@ results = {'general':{'method': PreFix,
 
 '''saving files'''
 filename = 'nodes_' + str(args.NODE) + '_density_' + str(DENSITY) + '_undersampling_' + str(args.UNDERSAMPLING) + \
-           '_' + PreFix + '_optN_gt_den_priority2_dataset_' + POSTFIX + '_' + graphType + '_CAPSIZE_' + str(args.CAPSIZE) + '_batch_' + \
+           '_' + PreFix + '_optN_dataset_' + POSTFIX + '_' + graphType + '_CAPSIZE_' + str(args.CAPSIZE) + '_batch_' + \
            str(args.BATCH) + '_pnum_' + str(args.PNUM) + '_timeout_' + str(args.TIMEOUT) + '_threshold_' + \
            str(args.THRESHOLD) + '_maxu_' + str(args.MAXU) + '_sccMember_' + str(SCC_members) + '_SCC_' + str(SCC)
 folder = 'res_simulation'
