@@ -16,7 +16,7 @@ from progressbar import ProgressBar, Percentage
 from numpy import linalg as la
 import networkx as nx
 from math import log
-
+from gunfolds.viz import gtool as gt
 
 CLINGO_LIMIT = 64
 PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
@@ -34,8 +34,11 @@ parser.add_argument("-d", "--DEN", default=0.14, help="density of graph", type=s
 parser.add_argument("-g", "--GTYPE", default="f", help="true for ringmore graph, false for random graph", type=str)
 parser.add_argument("-t", "--TIMEOUT", default=120, help="timeout in hours", type=int)
 parser.add_argument("-r", "--THRESHOLD", default=5, help="threshold for SVAR", type=int)
-parser.add_argument("-s", "--SCC", default="t", help="true to use SCC structure, false to not", type=str)
-parser.add_argument("-m", "--SCCMEMBERS", default="t", help="true for using g_estimate SCC members, false for using "
+parser.add_argument("-z", "--Noise", default=10, help="noise str multiplied by 100", type=int)
+parser.add_argument("-i", "--GMIN", default=3, help="min of random nitialization gor g mask multiplied by 10", type=int)
+parser.add_argument("-a", "--GMAX", default=7, help="max of random nitialization gor g mask multiplied by 10", type=int)
+parser.add_argument("-s", "--SCC", default="f", help="true to use SCC structure, false to not", type=str)
+parser.add_argument("-m", "--SCCMEMBERS", default="f", help="true for using g_estimate SCC members, false for using "
                                                             "GT SCC members", type=str)
 parser.add_argument("-u", "--UNDERSAMPLING", default=2, help="sampling rate in generated data", type=int)
 parser.add_argument("-x", "--MAXU", default=15, help="maximum number of undersampling to look for solution.", type=int)
@@ -50,18 +53,10 @@ SCC = True if SCC_members else SCC
 u_rate = args.UNDERSAMPLING
 k_threshold = args.THRESHOLD
 EDGE_CUTOFF = 0.01
-noise_svar = 0.1
+noise_svar = args.Noise / 100
+GMIN = args.GMIN / 10
+GMAX = args.GMAX / 10
 
-drop_bd_normed_errors_comm = []
-drop_bd_normed_errors_omm = []
-dir_errors_omm = []
-dir_errors_comm = []
-opt_dir_errors_omm = []
-opt_dir_errors_comm = []
-g_dir_errors_omm = []
-g_dir_errors_comm = []
-Gu_opt_dir_errors_omm = []
-Gu_opt_dir_errors_comm = []
 error_normalization = True
 
 def round_tuple_elements(input_tuple, decimal_points=3):
@@ -337,20 +332,20 @@ dataset = zkl.load('datasets/ringmore_n8d14.zkl')
 GT = dataset[args.BATCH-1]
 mask = cv.graph2adj(GT)
 
-G = np.clip(np.random.randn(*mask.shape) * 0.2 + 0.5, 0.3, 0.7)
+G = np.clip(np.random.randn(*mask.shape) * 0.2 + 0.5, GMIN, GMAX)
 Con_mat = G * mask
-
+# Con_mat =  mask
 w, v = la.eig(Con_mat)
 res = all(ele <= 1 for ele in abs(w))
 
 while not res:
-    G = np.clip(np.random.randn(*mask.shape) * 0.2 + 0.5, 0.3, 0.7)
+    G = np.clip(np.random.randn(*mask.shape) * 0.2 + 0.5, GMIN, GMAX)
     Con_mat = G * mask
     w, v = la.eig(Con_mat)
     res = all(ele <= 1 for ele in abs(w))
 
 '''SVAR'''
-dd = genData(Con_mat, rate=u_rate, ssize=2000*u_rate, noise=noise_svar)  # data.values
+dd = genData(Con_mat, rate=u_rate, ssize=8000, noise=noise_svar)  # data.values
 
 # if Using_SVAR:
 MAXCOST = 10000
