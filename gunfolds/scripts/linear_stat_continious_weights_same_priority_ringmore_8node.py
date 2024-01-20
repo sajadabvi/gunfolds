@@ -347,6 +347,7 @@ while not res:
 '''SVAR'''
 dd = genData(Con_mat, rate=u_rate, ssize=8000, noise=noise_svar)  # data.values
 
+
 # if Using_SVAR:
 MAXCOST = 10000
 g_estimated, A, B = lm.data2graph(dd, th=EDGE_CUTOFF * k_threshold)
