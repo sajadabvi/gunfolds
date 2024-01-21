@@ -34,7 +34,7 @@ parser.add_argument("-d", "--DEN", default=0.14, help="density of graph", type=s
 parser.add_argument("-g", "--GTYPE", default="f", help="true for ringmore graph, false for random graph", type=str)
 parser.add_argument("-t", "--TIMEOUT", default=120, help="timeout in hours", type=int)
 parser.add_argument("-r", "--THRESHOLD", default=5, help="threshold for SVAR", type=int)
-parser.add_argument("-z", "--Noise", default=10, help="noise str multiplied by 100", type=int)
+parser.add_argument("-z", "--NOISE", default=10, help="noise str multiplied by 100", type=int)
 parser.add_argument("-i", "--GMIN", default=3, help="min of random nitialization gor g mask multiplied by 10", type=int)
 parser.add_argument("-a", "--GMAX", default=7, help="max of random nitialization gor g mask multiplied by 10", type=int)
 parser.add_argument("-s", "--SCC", default="f", help="true to use SCC structure, false to not", type=str)
@@ -53,7 +53,7 @@ SCC = True if SCC_members else SCC
 u_rate = args.UNDERSAMPLING
 k_threshold = args.THRESHOLD
 EDGE_CUTOFF = 0.01
-noise_svar = args.Noise / 100
+noise_svar = args.NOISE / 100
 GMIN = args.GMIN / 10
 GMAX = args.GMAX / 10
 
