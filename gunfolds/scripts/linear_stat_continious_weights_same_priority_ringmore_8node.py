@@ -331,7 +331,7 @@ print('_____________________________________________')
 dataset = zkl.load('datasets/ringmore_n8d14.zkl')
 GT = dataset[args.BATCH-1]
 mask = cv.graph2adj(GT)
-
+G2= lm.transitionMatrix(GT,0.5)
 G = np.clip(np.random.randn(*mask.shape) * 0.2 + 0.5, GMIN, GMAX)
 Con_mat = G * mask
 # Con_mat =  mask
@@ -346,7 +346,7 @@ while not res:
 
 '''SVAR'''
 dd = genData(Con_mat, rate=u_rate, ssize=8000, noise=noise_svar)  # data.values
-
+dd2 = genData(Con_mat, rate=u_rate, ssize=8000, noise=noise_svar*100)
 
 # if Using_SVAR:
 MAXCOST = 10000

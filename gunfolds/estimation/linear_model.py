@@ -420,11 +420,11 @@ def initRandomMatrix(A, edges, distribution='beta'):
         if distribution == 'flat':
             x = np.ones(len(edges[0]))
         elif distribution == 'flatsigned':
-            x = np.sign(np.randn(len(edges[0]))) * np.ones(len(edges[0]))
+            x = np.sign(np.random.randn(len(edges[0]))) * np.ones(len(edges[0]))
         elif distribution == 'beta':
             x = np.random.beta(0.5, 0.5, len(edges[0])) * 3 - 1.5
         elif distribution == 'normal':
-            x = np.randn(len(edges[0]))
+            x = np.random.randn(len(edges[0]))
         elif distribution == 'uniform':
             x = np.sign(np.randn(len(edges[0]))) * np.rand(len(edges[0]))
         else:

@@ -12,7 +12,6 @@ from gunfolds.utils import graphkit as gk
 from gunfolds.utils.calc_procs import get_process_count
 from gunfolds.estimation import linear_model as lm
 from gunfolds import conversions as cv
-from progressbar import ProgressBar, Percentage
 from numpy import linalg as la
 import networkx as nx
 from math import log
@@ -37,6 +36,7 @@ parser.add_argument("-d", "--DEN", default=0.14, help="density of graph", type=s
 parser.add_argument("-g", "--GTYPE", default="f", help="true for ringmore graph, false for random graph", type=str)
 parser.add_argument("-t", "--TIMEOUT", default=120, help="timeout in hours", type=int)
 parser.add_argument("-r", "--THRESHOLD", default=5, help="threshold for SVAR", type=int)
+parser.add_argument("-l", "--MINLINK", default=2, help=" lower threshold transition matrix abs value x10", type=int)
 parser.add_argument("-z", "--NOISE", default=10, help="noise str multiplied by 100", type=int)
 parser.add_argument("-s", "--SCC", default="f", help="true to use SCC structure, false to not", type=str)
 parser.add_argument("-m", "--SCCMEMBERS", default="f", help="true for using g_estimate SCC members, false for using "
@@ -185,7 +185,7 @@ print('_____________________________________________')
 dataset = zkl.load('datasets/ringmore_n8d14.zkl')
 GT = dataset[args.BATCH-1]
 A = cv.graph2adj(GT)
-W = create_stable_weighted_matrix(A)
+W = create_stable_weighted_matrix(A, threshold=args.MINLINK/10, powers=[2, 3, 4])
 
 for i in range(1,10):
     plt.subplot(3,3,i)
@@ -195,11 +195,10 @@ for i in range(1,10):
     plt.axis('off')
     plt.clim([-np.abs(M).max(),np.abs(M).max()])
     plt.title('u='+str(i))
-
+#
 
 '''SVAR'''
 dd = genData(W, rate=u_rate, ssize=8000, noise=noise_svar)  # data.values
-dd2 = genData(W, rate=u_rate, ssize=8000, noise=noise_svar*100)
 
 
 MAXCOST = 10000
@@ -422,7 +421,7 @@ results = {'general':{'method': PreFix,
 filename = 'full_sols_nodes_' + str(args.NODE) + '_density_' + str(DENSITY) + '_undersampling_' + str(args.UNDERSAMPLING) + \
            '_' + PreFix + '_optN_gt_den_priority2_dataset_' + POSTFIX + '_' + graphType + '_CAPSIZE_' + str(args.CAPSIZE) + '_batch_' + \
            str(args.BATCH) + '_pnum_' + str(args.PNUM) + '_timeout_' + str(args.TIMEOUT) + '_threshold_' + \
-           str(args.THRESHOLD) + '_noise_' + str(args.NOISE)  + \
+           str(args.THRESHOLD) + '_noise_' + str(args.NOISE)  + '_MINLINK_' +str(args.MINLINK) + \
            '_maxu_' + str(args.MAXU) + '_sccMember_' + str(SCC_members) + '_SCC_' + str(SCC)
 folder = 'res_simulation'
 if not os.path.exists(folder):
