@@ -1,0 +1,466 @@
+from matplotlib import pyplot as plt
+import pandas as pd
+import seaborn as sns
+from gunfolds.utils import zickle as zkl
+from os import listdir
+from matplotlib.ticker import MultipleLocator
+from gunfolds.viz import gtool as gt
+from collections import defaultdict
+def merge_graphs(graphs, threshold_density):
+    # Dictionary to store edge frequencies
+    edge_frequencies = defaultdict(int)
+
+    # Set to store all nodes in the input graphs
+    all_nodes = set()
+
+    # Count the frequencies of each edge in the list of graphs
+    for graph in graphs:
+        all_nodes.update(graph.keys())
+        for node, connections in graph.items():
+            for neighbor, edge_type in connections.items():
+                edge_frequencies[(node, neighbor, edge_type)] += 1
+
+    # Calculate the threshold for inclusion based on the provided density
+    threshold = threshold_density * len(graphs)
+
+    # Create the merged graph based on edges that meet the threshold
+    merged_graph = {}
+    for (node, neighbor, edge_type), frequency in edge_frequencies.items():
+        if frequency >= threshold:
+            if node not in merged_graph:
+                merged_graph[node] = {}
+            merged_graph[node][neighbor] = edge_type
+
+    # Ensure all nodes are present in the merged graph
+    for graph in graphs:
+        for node in all_nodes:
+            if node not in merged_graph:
+                merged_graph[node] = {}
+
+    return merged_graph
+
+############################################################
+
+folder14 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/optN/same_num_samples_gtdensdensity_2priority' \
+          '/8nodes/u2/'
+
+
+file_list14 = listdir(folder14)
+file_list14.sort()
+if file_list14[0].startswith('.'):
+    file_list14.pop(0)
+
+
+
+res14 = [zkl.load(folder14 + file) for file in file_list14]
+
+############################################################
+
+folder15 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/optN/same_num_samples_gtdensdensity_2priority' \
+          '/8nodes/u3/'
+
+
+file_list15 = listdir(folder15)
+file_list15.sort()
+if file_list15[0].startswith('.'):
+    file_list15.pop(0)
+
+
+
+res15 = [zkl.load(folder15 + file) for file in file_list15]
+
+############################################################
+
+folder16 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/optN/same_num_samples_gtdensdensity_2priority' \
+          '/8nodes/u4/'
+
+
+file_list16 = listdir(folder16)
+file_list16.sort()
+if file_list16[0].startswith('.'):
+    file_list16.pop(0)
+
+
+
+res16 = [zkl.load(folder16 + file) for file in file_list16]
+
+############################################################
+
+folder17 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/optN/gt_density' \
+          '/priority2/8nodes/u2/'
+
+
+file_list17 = listdir(folder17)
+file_list17.sort()
+if file_list17[0].startswith('.'):
+    file_list17.pop(0)
+
+
+
+res17 = [zkl.load(folder17 + file) for file in file_list17]
+
+############################################################
+
+folder18 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/optN/gt_density' \
+          '/priority2/8nodes/u3/'
+
+
+file_list18 = listdir(folder18)
+file_list18.sort()
+if file_list18[0].startswith('.'):
+    file_list18.pop(0)
+
+res18 = [zkl.load(folder18 + file) for file in file_list18]
+
+############################################################
+
+folder19 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/optN/gt_density' \
+          '/priority2/8nodes/u4/'
+
+
+file_list19 = listdir(folder19)
+file_list19.sort()
+if file_list19[0].startswith('.'):
+    file_list19.pop(0)
+res19 = [zkl.load(folder19 + file) for file in file_list19]
+############################################################
+
+
+
+
+G1_opt_error_GT_om = []
+G1_opt_error_GT_com = []
+Gu_opt_errors_network_GT_U_om = []
+Gu_opt_errors_network_GT_U_com = []
+Gu_opt_errors_g_estimated_om = []
+Gu_opt_errors_g_estimated_com = []
+
+
+
+
+
+if __name__ == '__main__':
+    df = pd.DataFrame()
+    Err = []
+    method = []
+    ErrType = []
+    u = []
+    deg = []
+    node = []
+    WRT = []
+    ErrVs = []
+    weights_scheme = []
+
+
+
+    for item in res14:
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
+        Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][0],
+                    item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][0],
+                    item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['U2_4000samlpes', 'U2_4000samlpes', 'U2_4000samlpes'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
+        Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][1],
+                    item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][1],
+                    item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['U2_4000samlpes', 'U2_4000samlpes', 'U2_4000samlpes'])
+        #################################################################################################
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
+        Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][0],
+                    item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
+                    item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['U2_4000samlpes', 'U2_4000samlpes', 'U2_4000samlpes'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
+        Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
+                    item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
+                    item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['U2_4000samlpes', 'U2_4000samlpes', 'U2_4000samlpes'])
+        #################################################################################################
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
+        Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][0],
+                    item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][0],
+                    item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['U2_4000samlpes', 'U2_4000samlpes', 'U2_4000samlpes'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
+        Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][1],
+                    item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][1],
+                    item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['U2_4000samlpes', 'U2_4000samlpes', 'U2_4000samlpes'])
+
+    for item in res17:
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
+        Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][0],
+                    item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][0],
+                    item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['U2_2000samlpes', 'U2_2000samlpes', 'U2_2000samlpes'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
+        Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][1],
+                    item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][1],
+                    item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['U2_2000samlpes', 'U2_2000samlpes', 'U2_2000samlpes'])
+        #################################################################################################
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
+        Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][0],
+                    item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
+                    item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['U2_2000samlpes', 'U2_2000samlpes', 'U2_2000samlpes'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
+        Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
+                    item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
+                    item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['U2_2000samlpes', 'U2_2000samlpes', 'U2_2000samlpes'])
+        #################################################################################################
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
+        Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][0],
+                    item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][0],
+                    item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['U2_2000samlpes', 'U2_2000samlpes', 'U2_2000samlpes'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
+        Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][1],
+                    item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][1],
+                    item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['U2_2000samlpes', 'U2_2000samlpes', 'U2_2000samlpes'])
+
+    for item in res15:
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
+        Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][0],
+                    item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][0],
+                    item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['U3_6000samlpes', 'U3_6000samlpes', 'U3_6000samlpes'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
+        Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][1],
+                    item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][1],
+                    item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['U3_6000samlpes', 'U3_6000samlpes', 'U3_6000samlpes'])
+        #################################################################################################
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
+        Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][0],
+                    item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
+                    item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['U3_6000samlpes', 'U3_6000samlpes', 'U3_6000samlpes'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
+        Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
+                    item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
+                    item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['U3_6000samlpes', 'U3_6000samlpes', 'U3_6000samlpes'])
+        #################################################################################################
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
+        Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][0],
+                    item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][0],
+                    item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['U3_6000samlpes', 'U3_6000samlpes', 'U3_6000samlpes'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
+        Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][1],
+                    item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][1],
+                    item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['U3_6000samlpes', 'U3_6000samlpes', 'U3_6000samlpes'])
+
+
+    for item in res18:
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
+        Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][0],
+                    item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][0],
+                    item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['U3_2000samlpes', 'U3_2000samlpes', 'U3_2000samlpes'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
+        Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][1],
+                    item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][1],
+                    item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['U3_2000samlpes', 'U3_2000samlpes', 'U3_2000samlpes'])
+        #################################################################################################
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
+        Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][0],
+                    item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
+                    item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['U3_2000samlpes', 'U3_2000samlpes', 'U3_2000samlpes'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
+        Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
+                    item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
+                    item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['U3_2000samlpes', 'U3_2000samlpes', 'U3_2000samlpes'])
+        #################################################################################################
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
+        Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][0],
+                    item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][0],
+                    item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['U3_2000samlpes', 'U3_2000samlpes', 'U3_2000samlpes'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
+        Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][1],
+                    item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][1],
+                    item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['U3_2000samlpes', 'U3_2000samlpes', 'U3_2000samlpes'])
+
+
+    for item in res16:
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
+        Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][0],
+                    item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][0],
+                    item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['U4_8000samlpes', 'U4_8000samlpes', 'U4_8000samlpes'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
+        Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][1],
+                    item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][1],
+                    item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['U4_8000samlpes', 'U4_8000samlpes', 'U4_8000samlpes'])
+        #################################################################################################
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
+        Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][0],
+                    item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
+                    item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['U4_8000samlpes', 'U4_8000samlpes', 'U4_8000samlpes'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
+        Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
+                    item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
+                    item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['U4_8000samlpes', 'U4_8000samlpes', 'U4_8000samlpes'])
+        #################################################################################################
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
+        Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][0],
+                    item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][0],
+                    item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['U4_8000samlpes', 'U4_8000samlpes', 'U4_8000samlpes'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
+        Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][1],
+                    item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][1],
+                    item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['U4_8000samlpes', 'U4_8000samlpes', 'U4_8000samlpes'])
+
+    for item in res19:
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
+        Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][0],
+                    item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][0],
+                    item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['U4_2000samlpes', 'U4_2000samlpes', 'U4_2000samlpes'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
+        Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][1],
+                    item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][1],
+                    item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['U4_2000samlpes', 'U4_2000samlpes', 'U4_2000samlpes'])
+        #################################################################################################
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
+        Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][0],
+                    item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
+                    item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['U4_2000samlpes', 'U4_2000samlpes', 'U4_2000samlpes'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
+        Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
+                    item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
+                    item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['U4_2000samlpes', 'U4_2000samlpes', 'U4_2000samlpes'])
+        #################################################################################################
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
+        Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][0],
+                    item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][0],
+                    item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][0]])
+        ErrType.extend(['omm', 'omm', 'omm'])
+        weights_scheme.extend(['U4_2000samlpes', 'U4_2000samlpes', 'U4_2000samlpes'])
+        ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
+        WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
+        Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][1],
+                    item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][1],
+                    item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][1]])
+        ErrType.extend(['comm', 'comm', 'comm'])
+        weights_scheme.extend(['U4_2000samlpes', 'U4_2000samlpes', 'U4_2000samlpes'])
+
+
+
+
+    df['Err'] = Err
+    df['ErrVs'] = ErrVs
+    df['ErrType'] = ErrType
+    df['WRT'] = WRT
+    df['weights_scheme'] = weights_scheme
+
+    sns.set({"xtick.minor.size": 0.2})
+    pal = dict(U2="gold", U3="blue",
+               U4="maroon", U5="green",U6="red",U4_2000samlpes="yellow")
+    g = sns.FacetGrid(df, col="WRT", row="ErrType", height=4, aspect=1.5, margin_titles=True)
+
+
+    def custom_boxplot(*args, **kwargs):
+        sns.boxplot(*args, **kwargs, palette='Set1')
+
+
+    g.map_dataframe(custom_boxplot, x='ErrVs', y='Err', hue='weights_scheme')
+    g.add_legend()
+    g.set_axis_labels("error type", "normalized error")
+
+    for i in range(g.axes.shape[0]):
+        for j in range(g.axes.shape[1]):
+            ax = g.facet_axis(i, j)
+            # ax.xaxis.grid(True, "minor", linewidth=.75)
+            # ax.xaxis.grid(True, "major", linewidth=3)
+            # ax.xaxis.set_major_locator(MultipleLocator(1))
+            ax.set_ylim(0, 1)
+
+    # plt.show()
+    plt.savefig("figs/VAR_sim_upto_4_undersampling_effect_number_samples.svg")
