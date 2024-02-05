@@ -86,8 +86,7 @@ res16 = [zkl.load(folder16 + file) for file in file_list16]
 
 ############################################################
 
-folder17 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/optN/gt_density' \
-          '/priority2/8nodes/u2/'
+folder17 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/u2/'
 
 
 file_list17 = listdir(folder17)
@@ -101,8 +100,7 @@ res17 = [zkl.load(folder17 + file) for file in file_list17]
 
 ############################################################
 
-folder18 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/optN/gt_density' \
-          '/priority2/8nodes/u3/'
+folder18 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/u3/'
 
 
 file_list18 = listdir(folder18)
@@ -114,8 +112,7 @@ res18 = [zkl.load(folder18 + file) for file in file_list18]
 
 ############################################################
 
-folder19 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/optN/gt_density' \
-          '/priority2/8nodes/u4/'
+folder19 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/u4/'
 
 
 file_list19 = listdir(folder19)
@@ -160,14 +157,14 @@ if __name__ == '__main__':
                     item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][0],
                     item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U2_4000samlpes', 'U2_4000samlpes', 'U2_4000samlpes'])
+        weights_scheme.extend(['U2_Old', 'U2_Old', 'U2_Old'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
         Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][1],
                     item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][1],
                     item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U2_4000samlpes', 'U2_4000samlpes', 'U2_4000samlpes'])
+        weights_scheme.extend(['U2_Old', 'U2_Old', 'U2_Old'])
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
@@ -175,14 +172,14 @@ if __name__ == '__main__':
                     item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
                     item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U2_4000samlpes', 'U2_4000samlpes', 'U2_4000samlpes'])
+        weights_scheme.extend(['U2_Old', 'U2_Old', 'U2_Old'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
         Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
                     item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
                     item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U2_4000samlpes', 'U2_4000samlpes', 'U2_4000samlpes'])
+        weights_scheme.extend(['U2_Old', 'U2_Old', 'U2_Old'])
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
@@ -190,14 +187,14 @@ if __name__ == '__main__':
                     item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][0],
                     item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U2_4000samlpes', 'U2_4000samlpes', 'U2_4000samlpes'])
+        weights_scheme.extend(['U2_Old', 'U2_Old', 'U2_Old'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
         Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][1],
                     item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][1],
                     item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U2_4000samlpes', 'U2_4000samlpes', 'U2_4000samlpes'])
+        weights_scheme.extend(['U2_Old', 'U2_Old', 'U2_Old'])
 
     for item in res17:
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
@@ -206,14 +203,14 @@ if __name__ == '__main__':
                     item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][0],
                     item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U2_2000samlpes', 'U2_2000samlpes', 'U2_2000samlpes'])
+        weights_scheme.extend(['U2_New', 'U2_New', 'U2_New'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
         Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][1],
                     item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][1],
                     item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U2_2000samlpes', 'U2_2000samlpes', 'U2_2000samlpes'])
+        weights_scheme.extend(['U2_New', 'U2_New', 'U2_New'])
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
@@ -221,14 +218,14 @@ if __name__ == '__main__':
                     item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
                     item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U2_2000samlpes', 'U2_2000samlpes', 'U2_2000samlpes'])
+        weights_scheme.extend(['U2_New', 'U2_New', 'U2_New'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
         Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
                     item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
                     item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U2_2000samlpes', 'U2_2000samlpes', 'U2_2000samlpes'])
+        weights_scheme.extend(['U2_New', 'U2_New', 'U2_New'])
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
@@ -236,14 +233,14 @@ if __name__ == '__main__':
                     item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][0],
                     item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U2_2000samlpes', 'U2_2000samlpes', 'U2_2000samlpes'])
+        weights_scheme.extend(['U2_New', 'U2_New', 'U2_New'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
         Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][1],
                     item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][1],
                     item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U2_2000samlpes', 'U2_2000samlpes', 'U2_2000samlpes'])
+        weights_scheme.extend(['U2_New', 'U2_New', 'U2_New'])
 
     for item in res15:
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
@@ -252,14 +249,14 @@ if __name__ == '__main__':
                     item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][0],
                     item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U3_6000samlpes', 'U3_6000samlpes', 'U3_6000samlpes'])
+        weights_scheme.extend(['U3_Old', 'U3_Old', 'U3_Old'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
         Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][1],
                     item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][1],
                     item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U3_6000samlpes', 'U3_6000samlpes', 'U3_6000samlpes'])
+        weights_scheme.extend(['U3_Old', 'U3_Old', 'U3_Old'])
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
@@ -267,14 +264,14 @@ if __name__ == '__main__':
                     item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
                     item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U3_6000samlpes', 'U3_6000samlpes', 'U3_6000samlpes'])
+        weights_scheme.extend(['U3_Old', 'U3_Old', 'U3_Old'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
         Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
                     item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
                     item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U3_6000samlpes', 'U3_6000samlpes', 'U3_6000samlpes'])
+        weights_scheme.extend(['U3_Old', 'U3_Old', 'U3_Old'])
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
@@ -282,14 +279,14 @@ if __name__ == '__main__':
                     item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][0],
                     item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U3_6000samlpes', 'U3_6000samlpes', 'U3_6000samlpes'])
+        weights_scheme.extend(['U3_Old', 'U3_Old', 'U3_Old'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
         Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][1],
                     item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][1],
                     item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U3_6000samlpes', 'U3_6000samlpes', 'U3_6000samlpes'])
+        weights_scheme.extend(['U3_Old', 'U3_Old', 'U3_Old'])
 
 
     for item in res18:
@@ -299,14 +296,14 @@ if __name__ == '__main__':
                     item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][0],
                     item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U3_2000samlpes', 'U3_2000samlpes', 'U3_2000samlpes'])
+        weights_scheme.extend(['U3_New', 'U3_New', 'U3_New'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
         Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][1],
                     item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][1],
                     item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U3_2000samlpes', 'U3_2000samlpes', 'U3_2000samlpes'])
+        weights_scheme.extend(['U3_New', 'U3_New', 'U3_New'])
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
@@ -314,14 +311,14 @@ if __name__ == '__main__':
                     item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
                     item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U3_2000samlpes', 'U3_2000samlpes', 'U3_2000samlpes'])
+        weights_scheme.extend(['U3_New', 'U3_New', 'U3_New'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
         Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
                     item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
                     item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U3_2000samlpes', 'U3_2000samlpes', 'U3_2000samlpes'])
+        weights_scheme.extend(['U3_New', 'U3_New', 'U3_New'])
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
@@ -329,14 +326,14 @@ if __name__ == '__main__':
                     item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][0],
                     item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U3_2000samlpes', 'U3_2000samlpes', 'U3_2000samlpes'])
+        weights_scheme.extend(['U3_New', 'U3_New', 'U3_New'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
         Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][1],
                     item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][1],
                     item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U3_2000samlpes', 'U3_2000samlpes', 'U3_2000samlpes'])
+        weights_scheme.extend(['U3_New', 'U3_New', 'U3_New'])
 
 
     for item in res16:
@@ -346,14 +343,14 @@ if __name__ == '__main__':
                     item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][0],
                     item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U4_8000samlpes', 'U4_8000samlpes', 'U4_8000samlpes'])
+        weights_scheme.extend(['U4_Old', 'U4_Old', 'U4_Old'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
         Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][1],
                     item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][1],
                     item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U4_8000samlpes', 'U4_8000samlpes', 'U4_8000samlpes'])
+        weights_scheme.extend(['U4_Old', 'U4_Old', 'U4_Old'])
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
@@ -361,14 +358,14 @@ if __name__ == '__main__':
                     item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
                     item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U4_8000samlpes', 'U4_8000samlpes', 'U4_8000samlpes'])
+        weights_scheme.extend(['U4_Old', 'U4_Old', 'U4_Old'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
         Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
                     item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
                     item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U4_8000samlpes', 'U4_8000samlpes', 'U4_8000samlpes'])
+        weights_scheme.extend(['U4_Old', 'U4_Old', 'U4_Old'])
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
@@ -376,14 +373,14 @@ if __name__ == '__main__':
                     item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][0],
                     item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U4_8000samlpes', 'U4_8000samlpes', 'U4_8000samlpes'])
+        weights_scheme.extend(['U4_Old', 'U4_Old', 'U4_Old'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
         Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][1],
                     item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][1],
                     item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U4_8000samlpes', 'U4_8000samlpes', 'U4_8000samlpes'])
+        weights_scheme.extend(['U4_Old', 'U4_Old', 'U4_Old'])
 
     for item in res19:
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
@@ -392,14 +389,14 @@ if __name__ == '__main__':
                     item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][0],
                     item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U4_2000samlpes', 'U4_2000samlpes', 'U4_2000samlpes'])
+        weights_scheme.extend(['U4_New', 'U4_New', 'U4_New'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
         Err.extend([item['GuOptVsGest']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGest'][1],
                     item['GuOptVsGest']['Gu_opt_errors_g_estimated_WRT_GuOptVsGest'][1],
                     item['GuOptVsGest']['G1_opt_error_GT_WRT_GuOptVsGest'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U4_2000samlpes', 'U4_2000samlpes', 'U4_2000samlpes'])
+        weights_scheme.extend(['U4_New', 'U4_New', 'U4_New'])
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
@@ -407,14 +404,14 @@ if __name__ == '__main__':
                     item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
                     item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U4_2000samlpes', 'U4_2000samlpes', 'U4_2000samlpes'])
+        weights_scheme.extend(['U4_New', 'U4_New', 'U4_New'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
         Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
                     item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
                     item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U4_2000samlpes', 'U4_2000samlpes', 'U4_2000samlpes'])
+        weights_scheme.extend(['U4_New', 'U4_New', 'U4_New'])
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
@@ -422,14 +419,14 @@ if __name__ == '__main__':
                     item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][0],
                     item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U4_2000samlpes', 'U4_2000samlpes', 'U4_2000samlpes'])
+        weights_scheme.extend(['U4_New', 'U4_New', 'U4_New'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
         Err.extend([item['G1OptVsGT']['Gu_opt_errors_network_GT_U_WRT_G1OptVsGT'][1],
                     item['G1OptVsGT']['Gu_opt_errors_g_estimated_WRT_G1OptVsGT'][1],
                     item['G1OptVsGT']['G1_opt_error_GT_WRT_G1OptVsGT'][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U4_2000samlpes', 'U4_2000samlpes', 'U4_2000samlpes'])
+        weights_scheme.extend(['U4_New', 'U4_New', 'U4_New'])
 
 
 
@@ -442,7 +439,7 @@ if __name__ == '__main__':
 
     sns.set({"xtick.minor.size": 0.2})
     pal = dict(U2="gold", U3="blue",
-               U4="maroon", U5="green",U6="red",U4_2000samlpes="yellow")
+               U4="maroon", U5="green",U6="red",U4_New="yellow")
     g = sns.FacetGrid(df, col="WRT", row="ErrType", height=4, aspect=1.5, margin_titles=True)
 
 
@@ -462,5 +459,5 @@ if __name__ == '__main__':
             # ax.xaxis.set_major_locator(MultipleLocator(1))
             ax.set_ylim(0, 1)
 
-    # plt.show()
-    plt.savefig("figs/VAR_sim_upto_4_undersampling_effect_number_samples.svg")
+    plt.show()
+    # plt.savefig("figs/VAR_sim_upto_4_undersampling_effect_number_samples.svg")

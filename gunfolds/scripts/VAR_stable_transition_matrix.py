@@ -76,7 +76,7 @@ def create_stable_weighted_matrix(
     A,
     threshold=0.1,
     powers=[1, 2, 3, 4],
-    max_attempts=1000,
+    max_attempts=100000,
     damping_factor=0.99,
     random_state=None,
 ):
@@ -187,15 +187,15 @@ GT = dataset[args.BATCH-1]
 A = cv.graph2adj(GT)
 W = create_stable_weighted_matrix(A, threshold=args.MINLINK/10, powers=[2, 3, 4])
 
-for i in range(1,10):
-    plt.subplot(3,3,i)
-    M = np.linalg.matrix_power(W,i)
-    plt.imshow(M,interpolation="none",cmap=cm.seismic)
-    plt.colorbar()
-    plt.axis('off')
-    plt.clim([-np.abs(M).max(),np.abs(M).max()])
-    plt.title('u='+str(i))
-#
+# for i in range(1,10):
+#     plt.subplot(3,3,i)
+#     M = np.linalg.matrix_power(W,i)
+#     plt.imshow(M,interpolation="none",cmap=cm.seismic)
+#     plt.colorbar()
+#     plt.axis('off')
+#     plt.clim([-np.abs(M).max(),np.abs(M).max()])
+#     plt.title('u='+str(i))
+# #
 
 '''SVAR'''
 dd = genData(W, rate=u_rate, ssize=8000, noise=noise_svar)  # data.values
