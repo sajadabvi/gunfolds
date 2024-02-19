@@ -188,15 +188,15 @@ GT = dataset[args.BATCH-1]
 A = cv.graph2adj(GT)
 W = create_stable_weighted_matrix(A, threshold=args.MINLINK/10, powers=[2, 3, 4])
 
-for i in range(1,10):
-    plt.subplot(3,3,i)
-    M = np.linalg.matrix_power(W,i)
-    plt.imshow(M,interpolation="none",cmap=cm.seismic)
-    plt.colorbar()
-    plt.axis('off')
-    plt.clim([-np.abs(M).max(),np.abs(M).max()])
-    plt.title('u='+str(i))
-    plt.show()
+# for i in range(1,10):
+#     plt.subplot(3,3,i)
+#     M = np.linalg.matrix_power(W,i)
+#     plt.imshow(M,interpolation="none",cmap=cm.seismic)
+#     plt.colorbar()
+#     plt.axis('off')
+#     plt.clim([-np.abs(M).max(),np.abs(M).max()])
+#     plt.title('u='+str(i))
+# plt.show()
 #
 
 '''VAR'''
