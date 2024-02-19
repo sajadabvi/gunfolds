@@ -20,16 +20,17 @@ import scipy.sparse as sp
 from scipy.sparse.linalg import eigs
 from matplotlib import pyplot as plt
 from matplotlib import cm
+from gunfolds.estimation.modifiedgc import  gc
 
 CLINGO_LIMIT = 64
 PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
 POSTFIX = 'VAR_stable_trans_mat'
-Using_SVAR = True
+Using_SVAR = False
 PreFix = 'SVAR' if Using_SVAR else 'GC'
 parser = argparse.ArgumentParser(description='Run settings.')
 parser.add_argument("-c", "--CAPSIZE", default=0,
                     help="stop traversing after growing equivalence class to this size.", type=int)
-parser.add_argument("-b", "--BATCH", default=1, help="slurm batch.", type=int)
+parser.add_argument("-b", "--BATCH", default=11, help="slurm batch.", type=int)
 parser.add_argument("-p", "--PNUM", default=PNUM, help="number of CPUs in machine.", type=int)
 parser.add_argument("-n", "--NODE", default=8, help="number of nodes in graph", type=int)
 parser.add_argument("-d", "--DEN", default=0.14, help="density of graph", type=str)
@@ -76,7 +77,7 @@ def create_stable_weighted_matrix(
     A,
     threshold=0.1,
     powers=[1, 2, 3, 4],
-    max_attempts=100000,
+    max_attempts=10000000,
     damping_factor=0.99,
     random_state=None,
 ):
@@ -187,25 +188,30 @@ GT = dataset[args.BATCH-1]
 A = cv.graph2adj(GT)
 W = create_stable_weighted_matrix(A, threshold=args.MINLINK/10, powers=[2, 3, 4])
 
-# for i in range(1,10):
-#     plt.subplot(3,3,i)
-#     M = np.linalg.matrix_power(W,i)
-#     plt.imshow(M,interpolation="none",cmap=cm.seismic)
-#     plt.colorbar()
-#     plt.axis('off')
-#     plt.clim([-np.abs(M).max(),np.abs(M).max()])
-#     plt.title('u='+str(i))
-# #
+for i in range(1,10):
+    plt.subplot(3,3,i)
+    M = np.linalg.matrix_power(W,i)
+    plt.imshow(M,interpolation="none",cmap=cm.seismic)
+    plt.colorbar()
+    plt.axis('off')
+    plt.clim([-np.abs(M).max(),np.abs(M).max()])
+    plt.title('u='+str(i))
+    plt.show()
+#
+
+'''VAR'''
+dd = genData(W, rate=u_rate, ssize=8000, noise=noise_svar)  # data.values
+MAXCOST = 10000
 
 '''SVAR'''
-dd = genData(W, rate=u_rate, ssize=8000, noise=noise_svar)  # data.values
+if Using_SVAR:
+    g_estimated, A, B = lm.data2graph(dd, th=EDGE_CUTOFF * k_threshold)
 
+else:
+    g_estimated, A, B = gc(dd)
 
-MAXCOST = 10000
-g_estimated, A, B = lm.data2graph(dd, th=EDGE_CUTOFF * k_threshold)
 DD = (np.abs((np.abs(A/np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1))*MAXCOST)).astype(int)
 BD = (np.abs((np.abs(B/np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1))*MAXCOST)).astype(int)
-
 GT_at_actual_U = bfutils.undersample(GT, u_rate)
 
 jaccard_similarity = quantify_graph_difference(gk.graph2nx(g_estimated), gk.graph2nx(GT_at_actual_U))

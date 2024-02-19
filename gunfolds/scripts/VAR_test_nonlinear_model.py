@@ -23,7 +23,7 @@ from matplotlib import cm
 
 CLINGO_LIMIT = 64
 PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
-POSTFIX = 'VAR_stable_trans_mat'
+POSTFIX = 'VAR_stable_trans_mat_nonlinear'
 Using_SVAR = True
 PreFix = 'SVAR' if Using_SVAR else 'GC'
 parser = argparse.ArgumentParser(description='Run settings.')
@@ -146,9 +146,7 @@ def quantify_graph_difference(graph1, graph2):
 # def genData(A, rate=2, burnin=100, ssize=2000, noise=0.1, dist='beta'):
 def genData(A, rate=2, burnin=100, ssize=5000, noise=0.1, dist='normal'):
 
-    Agt = A
-    for i in range(rate-1):
-        Agt = Agt@A
+    Agt = np.linalg.matrix_power(A, rate)
     data = drawsamplesLG(Agt, samples=burnin + (ssize), nstd=noise)
     data = data[:, burnin:]
     return data
@@ -189,15 +187,15 @@ GT = dataset[args.BATCH-1]
 A = cv.graph2adj(GT)
 W = create_stable_weighted_matrix(A, threshold=args.MINLINK/10, powers=[2, 3, 4])
 
-# for i in range(1,10):
-#     plt.subplot(3,3,i)
-#     M = np.linalg.matrix_power(W,i)
-#     plt.imshow(M,interpolation="none",cmap=cm.seismic)
-#     plt.colorbar()
-#     plt.axis('off')
-#     plt.clim([-np.abs(M).max(),np.abs(M).max()])
-#     plt.title('u='+str(i))
-# #
+for i in range(1,10):
+    plt.subplot(3,3,i)
+    M = np.linalg.matrix_power(W,i)
+    plt.imshow(M,interpolation="none",cmap=cm.seismic)
+    plt.colorbar()
+    plt.axis('off')
+    plt.clim([-np.abs(M).max(),np.abs(M).max()])
+    plt.title('u='+str(i))
+plt.show()
 
 '''SVAR'''
 dd = genData(W, rate=u_rate, ssize=8000, noise=noise_svar)  # data.values
