@@ -240,7 +240,7 @@ r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,
                     scc=SCC,
                     scc_members=members,
                     GT_density=int(1000 * gk.density(GT)),
-                    edge_weights=(1, 1), pnum=args.PNUM, optim='optN')
+                    edge_weights=(2, 2), pnum=args.PNUM, optim='optN')
 
 endTime = int(round(time.time() * 1000))
 sat_time = endTime - startTime
