@@ -40,6 +40,7 @@ parser.add_argument("-m", "--SCCMEMBERS", default="f", help="true for using g_es
 parser.add_argument("-u", "--UNDERSAMPLING", default=2, help="sampling rate in generated data", type=int)
 parser.add_argument("-x", "--MAXU", default=15, help="maximum number of undersampling to look for solution.", type=int)
 parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
+parser.add_argument("-y", "--PRIORITY", default="12345", help="string of priorities", type=str)
 args = parser.parse_args()
 TIMEOUT = args.TIMEOUT * 60 * 60
 GRAPHTYPE = bool(distutils.util.strtobool(args.GTYPE))
@@ -52,7 +53,9 @@ u_rate = args.UNDERSAMPLING
 noise_svar = args.NOISE / 100
 alpha_level = args.ALPHA / 1000
 error_normalization = True
-
+priprities = []
+for char in args.PRIORITY:
+    priprities.append(int(char))
 
 def round_tuple_elements(input_tuple, decimal_points=3):
     return tuple(round(elem, decimal_points) if isinstance(elem, (int, float)) else elem for elem in input_tuple)
@@ -269,7 +272,7 @@ r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,
                     scc=SCC,
                     scc_members=members,
                     GT_density=int(1000 * gk.density(GT)),
-                    edge_weights=(1, 1), pnum=args.PNUM, optim='optN')
+                    edge_weights=priprities, pnum=args.PNUM, optim='optN')
 
 endTime = int(round(time.time() * 1000))
 sat_time = endTime - startTime
@@ -470,7 +473,7 @@ filename = 'full_sols_nodes_' + str(args.NODE) + '_density_' + str(DENSITY) + '_
            graphType + '_CAPSIZE_' + str(args.CAPSIZE) + '_batch_' + str(args.BATCH) + '_pnum_' + str(args.PNUM) + \
            '_timeout_' + str(args.TIMEOUT) + '_noise_' + str(args.NOISE) + '_MINLINK_' + str(args.MINLINK) + \
            '_alphaLvL_' + str(args.ALPHA) + '_maxu_' + str(args.MAXU) + '_sccMember_' + str(SCC_members) + \
-           '_SCC_' + str(SCC)
+           '_SCC_' + str(SCC) + 'priorities' + args.PRIORITY
 
 folder = 'res_simulation'
 if not os.path.exists(folder):
