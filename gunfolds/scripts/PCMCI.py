@@ -1,6 +1,7 @@
 import os
 import copy
 import distutils.util
+from gunfolds.viz import gtool as gt
 from gunfolds.utils import bfutils
 from gunfolds.utils import zickle as zkl
 import numpy as np
@@ -165,7 +166,7 @@ def Glag2CG(results):
     bidirected_edges = np.where(graph_array == 'o-o', 1, 0).astype(int)
     directed_edges = np.where(graph_array == '-->', 1, 0).astype(int)
 
-    graph_dict = cv.adjs2graph(directed_edges[:, :, 1], bidirected_edges[:, :, 0])
+    graph_dict = cv.adjs2graph(np.transpose(directed_edges[:, :, 1]), np.transpose((bidirected_edges[:, :, 0])))
     A_matrix = results['val_matrix'][:, :, 1]
     B_matrix = results['val_matrix'][:, :, 0]
 
@@ -203,7 +204,7 @@ MAXCOST = 10000
 dataframe = pp.DataFrame(np.transpose(data))
 cond_ind_test = ParCorr()
 pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
-results = pcmci.run_pcmci(tau_max=2, pc_alpha=None)
+results = pcmci.run_pcmci(tau_max=2, pc_alpha=None,alpha_level=0.01)
 # pcmci.print_significant_links(p_matrix=results['p_matrix'],
 #                               val_matrix=results['val_matrix'],
 #                               alpha_level=0.05)
