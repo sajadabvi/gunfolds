@@ -39,6 +39,7 @@ parser.add_argument("-m", "--SCCMEMBERS", default="f", help="true for using g_es
                                                             "GT SCC members", type=str)
 parser.add_argument("-u", "--UNDERSAMPLING", default=2, help="sampling rate in generated data", type=int)
 parser.add_argument("-x", "--MAXU", default=15, help="maximum number of undersampling to look for solution.", type=int)
+parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
 args = parser.parse_args()
 TIMEOUT = args.TIMEOUT * 60 * 60
 GRAPHTYPE = bool(distutils.util.strtobool(args.GTYPE))
@@ -49,12 +50,12 @@ SCC_members = bool(distutils.util.strtobool(args.SCCMEMBERS))
 SCC = True if SCC_members else SCC
 u_rate = args.UNDERSAMPLING
 noise_svar = args.NOISE / 100
-
+alpha_level = args.ALPHA / 1000
 error_normalization = True
+
 
 def round_tuple_elements(input_tuple, decimal_points=3):
     return tuple(round(elem, decimal_points) if isinstance(elem, (int, float)) else elem for elem in input_tuple)
-
 
 
 def check_matrix_powers(W, A, powers, threshold):
@@ -67,12 +68,12 @@ def check_matrix_powers(W, A, powers, threshold):
 
 
 def create_stable_weighted_matrix(
-    A,
-    threshold=0.1,
-    powers=[1, 2, 3, 4],
-    max_attempts=10000000,
-    damping_factor=0.99,
-    random_state=None,
+        A,
+        threshold=0.1,
+        powers=[1, 2, 3, 4],
+        max_attempts=10000000,
+        damping_factor=0.99,
+        random_state=None,
 ):
     np.random.seed(
         random_state
@@ -104,6 +105,7 @@ def create_stable_weighted_matrix(
         f"Unable to create a matrix satisfying the condition after {max_attempts} attempts."
     )
 
+
 def get_strongly_connected_components(graph):
     return [c for c in nx.strongly_connected_components(graph)]
 
@@ -133,7 +135,6 @@ def quantify_graph_difference(graph1, graph2):
 
 # def genData(A, rate=2, burnin=100, ssize=2000, noise=0.1, dist='beta'):
 def genData(A, rate=2, burnin=100, ssize=5000, noise=0.1, dist='normal'):
-
     Agt = A
     data = drawsamplesLG(Agt, samples=burnin + (ssize * rate), nstd=noise)
     data = data[:, burnin:]
@@ -141,13 +142,13 @@ def genData(A, rate=2, burnin=100, ssize=5000, noise=0.1, dist='normal'):
 
 
 def drawsamplesLG(A, nstd=0.1, samples=100):
-
     n = A.shape[0]
     data = np.zeros([n, samples])
     data[:, 0] = nstd * np.random.randn(A.shape[0])
     for i in range(1, samples):
         data[:, i] = A @ data[:, i - 1] + nstd * np.random.randn(A.shape[0])
     return data
+
 
 def Glag2CG(results):
     """Converts lag graph format to gunfolds graph format,
@@ -204,15 +205,14 @@ MAXCOST = 10000
 dataframe = pp.DataFrame(np.transpose(data))
 cond_ind_test = ParCorr()
 pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
-results = pcmci.run_pcmci(tau_max=2, pc_alpha=None,alpha_level=0.01)
+results = pcmci.run_pcmci(tau_max=2, pc_alpha=None, alpha_level=alpha_level)
 # pcmci.print_significant_links(p_matrix=results['p_matrix'],
 #                               val_matrix=results['val_matrix'],
 #                               alpha_level=0.05)
 g_estimated, A, B = Glag2CG(results)
 
-
-DD = (np.abs((np.abs(A/np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1))*MAXCOST)).astype(int)
-BD = (np.abs((np.abs(B/np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1))*MAXCOST)).astype(int)
+DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
+BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
 GT_at_actual_U = bfutils.undersample(GT, u_rate)
 
 jaccard_similarity = quantify_graph_difference(gk.graph2nx(g_estimated), gk.graph2nx(GT_at_actual_U))
@@ -225,7 +225,7 @@ print("Gtype : {0:}, intended sampling rate : {1:} Num nodes  "
       "using estimated SCC: {6:}".format(graphType, u_rate, args.NODE, DENSITY, args.BATCH,
                                          round_tuple_elements(g_estimated_errors_GT_at_actual_U), SCC_members))
 
-print('jaccard similarity is: ' +str(jaccard_similarity))
+print('jaccard similarity is: ' + str(jaccard_similarity))
 '''task optimization'''
 if SCC_members:
     members = nx.strongly_connected_components(gk.graph2nx(g_estimated))
@@ -239,7 +239,7 @@ r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,
                     bdm=[BD],
                     scc=SCC,
                     scc_members=members,
-                    GT_density=int(1000*gk.density(GT)),
+                    GT_density=int(1000 * gk.density(GT)),
                     edge_weights=(1, 1), pnum=args.PNUM, optim='optN')
 
 endTime = int(round(time.time() * 1000))
@@ -253,14 +253,15 @@ min_norm_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
 min_val = 1000000
 min_cost = 10000000
 for answer in r_estimated:
-    curr_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(GT)),answer[0][1][0]), g_estimated)
-    curr_normed_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(GT)),answer[0][1][0]), g_estimated, normalized=True)
+    curr_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(GT)), answer[0][1][0]), g_estimated)
+    curr_normed_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(GT)), answer[0][1][0]),
+                                g_estimated, normalized=True)
     curr_cost = answer[1]
-    if  (curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
+    if (curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
         min_err = curr_errors
         min_norm_err = curr_normed_errors
         min_cost = curr_cost
-        min_val =  (curr_errors['total'][0] + curr_errors['total'][1])
+        min_val = (curr_errors['total'][0] + curr_errors['total'][1])
         min_answer_WRT_GuOptVsGest = answer
     elif (curr_errors['total'][0] + curr_errors['total'][1]) == min_val:
         if curr_cost < min_cost:
@@ -278,9 +279,12 @@ Gu_opt_WRT_GuOptVsGest = bfutils.undersample(G1_opt_WRT_GuOptVsGest, min_answer_
 '''network_GT_U - the GT  in measured time scale'''
 network_GT_U_WRT_GuOptVsGest = bfutils.undersample(GT, min_answer_WRT_GuOptVsGest[0][1][0])
 
-Gu_opt_errors_network_GT_U_WRT_GuOptVsGest = gk.OCE(Gu_opt_WRT_GuOptVsGest, network_GT_U_WRT_GuOptVsGest, undirected=False, normalized=error_normalization)['total']
-Gu_opt_errors_g_estimated_WRT_GuOptVsGest = gk.OCE(Gu_opt_WRT_GuOptVsGest, g_estimated, undirected=False, normalized=error_normalization)['total']
-G1_opt_error_GT_WRT_GuOptVsGest = gk.OCE(G1_opt_WRT_GuOptVsGest, GT, undirected=False, normalized=error_normalization)['total']
+Gu_opt_errors_network_GT_U_WRT_GuOptVsGest = \
+gk.OCE(Gu_opt_WRT_GuOptVsGest, network_GT_U_WRT_GuOptVsGest, undirected=False, normalized=error_normalization)['total']
+Gu_opt_errors_g_estimated_WRT_GuOptVsGest = \
+gk.OCE(Gu_opt_WRT_GuOptVsGest, g_estimated, undirected=False, normalized=error_normalization)['total']
+G1_opt_error_GT_WRT_GuOptVsGest = gk.OCE(G1_opt_WRT_GuOptVsGest, GT, undirected=False, normalized=error_normalization)[
+    'total']
 print('*******************************************')
 print('results with respect to Gu_opt Vs. G_estimate ')
 print('U rate found to be:' + str(min_answer_WRT_GuOptVsGest[0][1][0]))
@@ -288,21 +292,22 @@ print('Gu_opt_errors_network_GT_U = ', round_tuple_elements(Gu_opt_errors_networ
 print('Gu_opt_errors_g_estimated', round_tuple_elements(Gu_opt_errors_g_estimated_WRT_GuOptVsGest))
 print('G1_opt_error_GT', round_tuple_elements(G1_opt_error_GT_WRT_GuOptVsGest))
 
-
 ### minimizing with respect to Gu_opt Vs. GTu
 min_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
 min_norm_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
 min_val = 1000000
 min_cost = 10000000
 for answer in r_estimated:
-    curr_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(GT)),answer[0][1][0]), bfutils.undersample(GT, answer[0][1][0]))
-    curr_normed_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(GT)),answer[0][1][0]), bfutils.undersample(GT, answer[0][1][0]), normalized=True)
+    curr_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(GT)), answer[0][1][0]),
+                         bfutils.undersample(GT, answer[0][1][0]))
+    curr_normed_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(GT)), answer[0][1][0]),
+                                bfutils.undersample(GT, answer[0][1][0]), normalized=True)
     curr_cost = answer[1]
-    if  (curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
+    if (curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
         min_err = curr_errors
         min_norm_err = curr_normed_errors
         min_cost = curr_cost
-        min_val =  (curr_errors['total'][0] + curr_errors['total'][1])
+        min_val = (curr_errors['total'][0] + curr_errors['total'][1])
         min_answer_WRT_GuOptVsGTu = answer
     elif (curr_errors['total'][0] + curr_errors['total'][1]) == min_val:
         if curr_cost < min_cost:
@@ -320,9 +325,12 @@ Gu_opt_WRT_GuOptVsGTu = bfutils.undersample(G1_opt_WRT_GuOptVsGTu, min_answer_WR
 '''network_GT_U - the GT  in measured time scale'''
 network_GT_U_WRT_GuOptVsGTu = bfutils.undersample(GT, min_answer_WRT_GuOptVsGTu[0][1][0])
 
-Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu = gk.OCE(Gu_opt_WRT_GuOptVsGTu, network_GT_U_WRT_GuOptVsGTu, undirected=False, normalized=error_normalization)['total']
-Gu_opt_errors_g_estimated_WRT_GuOptVsGTu = gk.OCE(Gu_opt_WRT_GuOptVsGTu, g_estimated, undirected=False, normalized=error_normalization)['total']
-G1_opt_error_GT_WRT_GuOptVsGTu = gk.OCE(G1_opt_WRT_GuOptVsGTu, GT, undirected=False, normalized=error_normalization)['total']
+Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu = \
+gk.OCE(Gu_opt_WRT_GuOptVsGTu, network_GT_U_WRT_GuOptVsGTu, undirected=False, normalized=error_normalization)['total']
+Gu_opt_errors_g_estimated_WRT_GuOptVsGTu = \
+gk.OCE(Gu_opt_WRT_GuOptVsGTu, g_estimated, undirected=False, normalized=error_normalization)['total']
+G1_opt_error_GT_WRT_GuOptVsGTu = gk.OCE(G1_opt_WRT_GuOptVsGTu, GT, undirected=False, normalized=error_normalization)[
+    'total']
 print('*******************************************')
 print('results of minimizing with respect to Gu_opt Vs. GTu')
 print('U rate found to be:' + str(min_answer_WRT_GuOptVsGTu[0][1][0]))
@@ -336,7 +344,7 @@ min_norm_err = {'directed': (0, 0), 'bidirected': (0, 0), 'total': (0, 0)}
 min_val = 1000000
 min_cost = 10000000
 for answer in r_estimated:
-    curr_errors = gk.OCE(bfutils.num2CG(answer[0][0], len(GT)),GT)
+    curr_errors = gk.OCE(bfutils.num2CG(answer[0][0], len(GT)), GT)
     curr_normed_errors = gk.OCE(bfutils.num2CG(answer[0][0], len(GT)), GT, normalized=True)
     curr_cost = answer[1]
     if (curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
@@ -361,9 +369,12 @@ Gu_opt_WRT_G1OptVsGT = bfutils.undersample(G1_opt_WRT_G1OptVsGT, min_answer_WRT_
 '''network_GT_U - the GT  in measured time scale'''
 network_GT_U_WRT_G1OptVsGT = bfutils.undersample(GT, min_answer_WRT_G1OptVsGT[0][1][0])
 
-Gu_opt_errors_network_GT_U_WRT_G1OptVsGT = gk.OCE(Gu_opt_WRT_G1OptVsGT, network_GT_U_WRT_G1OptVsGT, undirected=False, normalized=error_normalization)['total']
-Gu_opt_errors_g_estimated_WRT_G1OptVsGT = gk.OCE(Gu_opt_WRT_G1OptVsGT, g_estimated, undirected=False, normalized=error_normalization)['total']
-G1_opt_error_GT_WRT_G1OptVsGT = gk.OCE(G1_opt_WRT_G1OptVsGT, GT, undirected=False, normalized=error_normalization)['total']
+Gu_opt_errors_network_GT_U_WRT_G1OptVsGT = \
+gk.OCE(Gu_opt_WRT_G1OptVsGT, network_GT_U_WRT_G1OptVsGT, undirected=False, normalized=error_normalization)['total']
+Gu_opt_errors_g_estimated_WRT_G1OptVsGT = \
+gk.OCE(Gu_opt_WRT_G1OptVsGT, g_estimated, undirected=False, normalized=error_normalization)['total']
+G1_opt_error_GT_WRT_G1OptVsGT = gk.OCE(G1_opt_WRT_G1OptVsGT, GT, undirected=False, normalized=error_normalization)[
+    'total']
 print('*******************************************')
 print('results of minimizing with respect to G1_opt Vs. GT')
 print('U rate found to be:' + str(min_answer_WRT_G1OptVsGT[0][1][0]))
@@ -371,69 +382,69 @@ print('Gu_opt_errors_network_GT_U = ', round_tuple_elements(Gu_opt_errors_networ
 print('Gu_opt_errors_g_estimated', round_tuple_elements(Gu_opt_errors_g_estimated_WRT_G1OptVsGT))
 print('G1_opt_error_GT', round_tuple_elements(G1_opt_error_GT_WRT_G1OptVsGT))
 
-
 '''saving results'''
 sorted_data = sorted(r_estimated, key=lambda x: x[1], reverse=True)
 F = 2 * (gk.density(GT) * len(GT) * len(GT) - min_norm_err['total'][0]) / (
         2 * gk.density(GT) * len(GT) * len(GT) - min_norm_err['total'][0] + min_norm_err['total'][1])
-results = {'general':{'method': PreFix,
-           'g_estimated': g_estimated,
-           'A':A,
-           'B':B,
-           'W': W,
-           'dm': DD,
-           'bdm': BD,
-           'optim_cost': sorted_data[-1][1],
-           'num_sols': len(r_estimated),
-           'GT': GT,
-           'GT_at_actual_U': GT_at_actual_U,
-           'timeout': TIMEOUT,
-           'graphType': graphType,
-           'intended_u_rate': u_rate,
-           'noise_svar': noise_svar,
-           'full_sols':r_estimated,
-           'jaccard_similarity': jaccard_similarity,
-           'g_estimated_errors_GT_at_actual_U': g_estimated_errors_GT_at_actual_U,
-           'num_edges': gk.density(GT) * len(GT) * len(GT),
-           'F_score': F,
-           'total_time': round(((sat_time)/60000), 3)},
-           'GuOptVsGest':{
-               'min_answer_WRT_GuOptVsGest':min_answer_WRT_GuOptVsGest,
-               'G1_opt_WRT_GuOptVsGest':G1_opt_WRT_GuOptVsGest,
-               'Gu_opt_WRT_GuOptVsGest':Gu_opt_WRT_GuOptVsGest,
-               'network_GT_U_WRT_GuOptVsGest':network_GT_U_WRT_GuOptVsGest,
-               'Gu_opt_errors_network_GT_U_WRT_GuOptVsGest':Gu_opt_errors_network_GT_U_WRT_GuOptVsGest,
-               'Gu_opt_errors_g_estimated_WRT_GuOptVsGest':Gu_opt_errors_g_estimated_WRT_GuOptVsGest,
-               'G1_opt_error_GT_WRT_GuOptVsGest':G1_opt_error_GT_WRT_GuOptVsGest
+results = {'general': {'method': PreFix,
+                       'g_estimated': g_estimated,
+                       'A': A,
+                       'B': B,
+                       'W': W,
+                       'dm': DD,
+                       'bdm': BD,
+                       'optim_cost': sorted_data[-1][1],
+                       'num_sols': len(r_estimated),
+                       'GT': GT,
+                       'GT_at_actual_U': GT_at_actual_U,
+                       'timeout': TIMEOUT,
+                       'graphType': graphType,
+                       'intended_u_rate': u_rate,
+                       'noise_svar': noise_svar,
+                       'full_sols': r_estimated,
+                       'jaccard_similarity': jaccard_similarity,
+                       'g_estimated_errors_GT_at_actual_U': g_estimated_errors_GT_at_actual_U,
+                       'num_edges': gk.density(GT) * len(GT) * len(GT),
+                       'F_score': F,
+                       'total_time': round(((sat_time) / 60000), 3)},
+           'GuOptVsGest': {
+               'min_answer_WRT_GuOptVsGest': min_answer_WRT_GuOptVsGest,
+               'G1_opt_WRT_GuOptVsGest': G1_opt_WRT_GuOptVsGest,
+               'Gu_opt_WRT_GuOptVsGest': Gu_opt_WRT_GuOptVsGest,
+               'network_GT_U_WRT_GuOptVsGest': network_GT_U_WRT_GuOptVsGest,
+               'Gu_opt_errors_network_GT_U_WRT_GuOptVsGest': Gu_opt_errors_network_GT_U_WRT_GuOptVsGest,
+               'Gu_opt_errors_g_estimated_WRT_GuOptVsGest': Gu_opt_errors_g_estimated_WRT_GuOptVsGest,
+               'G1_opt_error_GT_WRT_GuOptVsGest': G1_opt_error_GT_WRT_GuOptVsGest
            },
-           'GuOptVsGTu':{
-               'min_answer_WRT_GuOptVsGTu':min_answer_WRT_GuOptVsGTu,
-               'G1_opt_WRT_GuOptVsGTu':G1_opt_WRT_GuOptVsGTu,
-               'Gu_opt_WRT_GuOptVsGTu':Gu_opt_WRT_GuOptVsGTu,
-               'network_GT_U_WRT_GuOptVsGTu':network_GT_U_WRT_GuOptVsGTu,
-               'Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu':Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu,
-               'Gu_opt_errors_g_estimated_WRT_GuOptVsGTu':Gu_opt_errors_g_estimated_WRT_GuOptVsGTu,
-               'G1_opt_error_GT_WRT_GuOptVsGTu':G1_opt_error_GT_WRT_GuOptVsGTu
+           'GuOptVsGTu': {
+               'min_answer_WRT_GuOptVsGTu': min_answer_WRT_GuOptVsGTu,
+               'G1_opt_WRT_GuOptVsGTu': G1_opt_WRT_GuOptVsGTu,
+               'Gu_opt_WRT_GuOptVsGTu': Gu_opt_WRT_GuOptVsGTu,
+               'network_GT_U_WRT_GuOptVsGTu': network_GT_U_WRT_GuOptVsGTu,
+               'Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu': Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu,
+               'Gu_opt_errors_g_estimated_WRT_GuOptVsGTu': Gu_opt_errors_g_estimated_WRT_GuOptVsGTu,
+               'G1_opt_error_GT_WRT_GuOptVsGTu': G1_opt_error_GT_WRT_GuOptVsGTu
            },
-           'G1OptVsGT':{
-               'min_answer_WRT_G1OptVsGT':min_answer_WRT_G1OptVsGT,
-               'G1_opt_WRT_G1OptVsGT':G1_opt_WRT_G1OptVsGT,
-               'Gu_opt_WRT_G1OptVsGT':Gu_opt_WRT_G1OptVsGT,
-               'network_GT_U_WRT_G1OptVsGT':network_GT_U_WRT_G1OptVsGT,
-               'Gu_opt_errors_network_GT_U_WRT_G1OptVsGT':Gu_opt_errors_network_GT_U_WRT_G1OptVsGT,
-               'Gu_opt_errors_g_estimated_WRT_G1OptVsGT':Gu_opt_errors_g_estimated_WRT_G1OptVsGT,
-               'G1_opt_error_GT_WRT_G1OptVsGT':G1_opt_error_GT_WRT_G1OptVsGT
+           'G1OptVsGT': {
+               'min_answer_WRT_G1OptVsGT': min_answer_WRT_G1OptVsGT,
+               'G1_opt_WRT_G1OptVsGT': G1_opt_WRT_G1OptVsGT,
+               'Gu_opt_WRT_G1OptVsGT': Gu_opt_WRT_G1OptVsGT,
+               'network_GT_U_WRT_G1OptVsGT': network_GT_U_WRT_G1OptVsGT,
+               'Gu_opt_errors_network_GT_U_WRT_G1OptVsGT': Gu_opt_errors_network_GT_U_WRT_G1OptVsGT,
+               'Gu_opt_errors_g_estimated_WRT_G1OptVsGT': Gu_opt_errors_g_estimated_WRT_G1OptVsGT,
+               'G1_opt_error_GT_WRT_G1OptVsGT': G1_opt_error_GT_WRT_G1OptVsGT
            }}
 
 '''saving files'''
-filename = 'full_sols_nodes_' + str(args.NODE) + '_density_' + str(DENSITY) + '_undersampling_' + str(args.UNDERSAMPLING) + \
-           '_' + PreFix + '_optN_gt_den_priority2_dataset_' + POSTFIX + '_' + graphType + '_CAPSIZE_' + str(args.CAPSIZE) + '_batch_' + \
-           str(args.BATCH) + '_pnum_' + str(args.PNUM) + '_timeout_' + str(args.TIMEOUT)  + \
-            '_noise_' + str(args.NOISE)  + '_MINLINK_' +str(args.MINLINK) + \
-           '_maxu_' + str(args.MAXU) + '_sccMember_' + str(SCC_members) + '_SCC_' + str(SCC)
+filename = 'full_sols_nodes_' + str(args.NODE) + '_density_' + str(DENSITY) + '_undersampling_' + \
+           str(args.UNDERSAMPLING) + '_' + PreFix + '_optN_gt_den_priority2_dataset_' + POSTFIX + '_' + \
+           graphType + '_CAPSIZE_' + str(args.CAPSIZE) + '_batch_' + str(args.BATCH) + '_pnum_' + str(args.PNUM) + \
+           '_timeout_' + str(args.TIMEOUT) + '_noise_' + str(args.NOISE) + '_MINLINK_' + str(args.MINLINK) + \
+           '_alphaLvL_' + str(args.ALPHA) + '_maxu_' + str(args.MAXU) + '_sccMember_' + str(SCC_members) + \
+           '_SCC_' + str(SCC)
+
 folder = 'res_simulation'
 if not os.path.exists(folder):
     os.makedirs(folder)
 zkl.save(results, folder + '/' + filename + '.zkl')
 print('_____________________________________________')
-
