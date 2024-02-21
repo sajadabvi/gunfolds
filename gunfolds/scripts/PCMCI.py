@@ -4,43 +4,33 @@ import distutils.util
 from gunfolds.utils import bfutils
 from gunfolds.utils import zickle as zkl
 import numpy as np
-import time, socket
-import scipy
-from gunfolds.solvers.clingo_rasl import drasl, drasl_command
+import time
+from gunfolds.solvers.clingo_rasl import drasl
 import argparse
 from gunfolds.utils import graphkit as gk
 from gunfolds.utils.calc_procs import get_process_count
-from gunfolds.estimation import linear_model as lm
 from gunfolds import conversions as cv
-from numpy import linalg as la
 import networkx as nx
-from math import log
-from gunfolds.viz import gtool as gt
 import scipy.sparse as sp
 from scipy.sparse.linalg import eigs
-from matplotlib import pyplot as plt
-from matplotlib import cm
-from gunfolds.estimation.modifiedgc import  gc
 from tigramite.pcmci import PCMCI
 from tigramite.independence_tests.parcorr import ParCorr
 import tigramite.data_processing as pp
-from tigramite.toymodels import structural_causal_processes as toys
 
 CLINGO_LIMIT = 64
 PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
 POSTFIX = 'VAR_stable_trans_mat'
 Using_SVAR = False
-PreFix = 'SVAR' if Using_SVAR else 'GC'
+PreFix = 'PCMCI'
 parser = argparse.ArgumentParser(description='Run settings.')
 parser.add_argument("-c", "--CAPSIZE", default=0,
                     help="stop traversing after growing equivalence class to this size.", type=int)
-parser.add_argument("-b", "--BATCH", default=11, help="slurm batch.", type=int)
+parser.add_argument("-b", "--BATCH", default=1, help="slurm batch.", type=int)
 parser.add_argument("-p", "--PNUM", default=PNUM, help="number of CPUs in machine.", type=int)
 parser.add_argument("-n", "--NODE", default=8, help="number of nodes in graph", type=int)
 parser.add_argument("-d", "--DEN", default=0.14, help="density of graph", type=str)
-parser.add_argument("-g", "--GTYPE", default="f", help="true for ringmore graph, false for random graph", type=str)
+parser.add_argument("-g", "--GTYPE", default="t", help="true for ringmore graph, false for random graph", type=str)
 parser.add_argument("-t", "--TIMEOUT", default=120, help="timeout in hours", type=int)
-parser.add_argument("-r", "--THRESHOLD", default=5, help="threshold for SVAR", type=int)
 parser.add_argument("-l", "--MINLINK", default=2, help=" lower threshold transition matrix abs value x10", type=int)
 parser.add_argument("-z", "--NOISE", default=10, help="noise str multiplied by 100", type=int)
 parser.add_argument("-s", "--SCC", default="f", help="true to use SCC structure, false to not", type=str)
@@ -57,8 +47,6 @@ SCC = bool(distutils.util.strtobool(args.SCC))
 SCC_members = bool(distutils.util.strtobool(args.SCCMEMBERS))
 SCC = True if SCC_members else SCC
 u_rate = args.UNDERSAMPLING
-k_threshold = args.THRESHOLD
-EDGE_CUTOFF = 0.01
 noise_svar = args.NOISE / 100
 
 error_normalization = True
@@ -142,12 +130,6 @@ def quantify_graph_difference(graph1, graph2):
     return jaccard_similarity
 
 
-
-
-
-
-
-
 # def genData(A, rate=2, burnin=100, ssize=2000, noise=0.1, dist='beta'):
 def genData(A, rate=2, burnin=100, ssize=5000, noise=0.1, dist='normal'):
 
@@ -190,9 +172,6 @@ def Glag2CG(results):
     return graph_dict, A_matrix, B_matrix
 
 
-
-
-
 '''
 if you get a graph G_1 that is a DAG (directed acyclic graph), i.e. all SCCs are singletons (each node is its own SCC)
  then this is a very non-biological case and you need to discard it and try to generate another/better graph
@@ -209,46 +188,26 @@ but this function will be bad for singleton nodes - it will add a self loop to a
 '''
 print('_____________________________________________')
 dataset = zkl.load('datasets/ringmore_n8d14.zkl')
-GT = dataset[args.BATCH-1]
+GT = dataset[args.BATCH - 1]
 A = cv.graph2adj(GT)
-W = create_stable_weighted_matrix(A, threshold=args.MINLINK/10, powers=[2, 3, 4])
-
-# for i in range(1,10):
-#     plt.subplot(3,3,i)
-#     M = np.linalg.matrix_power(W,i)
-#     plt.imshow(M,interpolation="none",cmap=cm.seismic)
-#     plt.colorbar()
-#     plt.axis('off')
-#     plt.clim([-np.abs(M).max(),np.abs(M).max()])
-#     plt.title('u='+str(i))
-# plt.show()
-#
-
+W = create_stable_weighted_matrix(A, threshold=args.MINLINK / 10, powers=[2, 3, 4])
 '''VAR'''
-dd = genData(W, rate=u_rate, ssize=8000, noise=noise_svar)  # data.values
+data = genData(W, rate=u_rate, ssize=8000, noise=noise_svar)  # data.values
 MAXCOST = 10000
+# links_coeffs = {0: [((0, -1), 0.8)],
+#                 1: [((1, -1), 0.8), ((0, -1), 0.5)],
+#                 2: [((2, -1), 0.8), ((1, -2), -0.6)]}
+# data, _ = toys.var_process(links_coeffs, T=1000)
+# Data must be an array of shape (time, variables)
 
-'''SVAR'''
-if Using_SVAR:
-    g_estimated, A, B = lm.data2graph(dd, th=EDGE_CUTOFF * k_threshold)
-
-else:
-    g_estimated, A, B = gc(dd)
-
-if False:
-    # links_coeffs = {0: [((0, -1), 0.8)],
-    #                 1: [((1, -1), 0.8), ((0, -1), 0.5)],
-    #                 2: [((2, -1), 0.8), ((1, -2), -0.6)]}
-    # data, _ = toys.var_process(links_coeffs, T=1000)
-    # Data must be an array of shape (time, variables)
-    dataframe = pp.DataFrame(np.transpose(dd))
-    cond_ind_test = ParCorr()
-    pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
-    results = pcmci.run_pcmci(tau_max=2, pc_alpha=None)
-    # pcmci.print_significant_links(p_matrix=results['p_matrix'],
-    #                                    val_matrix=results['val_matrix'],
-    #                                    alpha_level=0.05)
-    g_estimated, A, B = Glag2CG(results)
+dataframe = pp.DataFrame(np.transpose(data))
+cond_ind_test = ParCorr()
+pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
+results = pcmci.run_pcmci(tau_max=2, pc_alpha=None)
+# pcmci.print_significant_links(p_matrix=results['p_matrix'],
+#                               val_matrix=results['val_matrix'],
+#                               alpha_level=0.05)
+g_estimated, A, B = Glag2CG(results)
 
 
 DD = (np.abs((np.abs(A/np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1))*MAXCOST)).astype(int)
@@ -418,6 +377,8 @@ F = 2 * (gk.density(GT) * len(GT) * len(GT) - min_norm_err['total'][0]) / (
         2 * gk.density(GT) * len(GT) * len(GT) - min_norm_err['total'][0] + min_norm_err['total'][1])
 results = {'general':{'method': PreFix,
            'g_estimated': g_estimated,
+           'A':A,
+           'B':B,
            'W': W,
            'dm': DD,
            'bdm': BD,
@@ -425,7 +386,6 @@ results = {'general':{'method': PreFix,
            'num_sols': len(r_estimated),
            'GT': GT,
            'GT_at_actual_U': GT_at_actual_U,
-           'threshold': EDGE_CUTOFF * k_threshold,
            'timeout': TIMEOUT,
            'graphType': graphType,
            'intended_u_rate': u_rate,
@@ -467,11 +427,12 @@ results = {'general':{'method': PreFix,
 '''saving files'''
 filename = 'full_sols_nodes_' + str(args.NODE) + '_density_' + str(DENSITY) + '_undersampling_' + str(args.UNDERSAMPLING) + \
            '_' + PreFix + '_optN_gt_den_priority2_dataset_' + POSTFIX + '_' + graphType + '_CAPSIZE_' + str(args.CAPSIZE) + '_batch_' + \
-           str(args.BATCH) + '_pnum_' + str(args.PNUM) + '_timeout_' + str(args.TIMEOUT) + '_threshold_' + \
-           str(args.THRESHOLD) + '_noise_' + str(args.NOISE)  + '_MINLINK_' +str(args.MINLINK) + \
+           str(args.BATCH) + '_pnum_' + str(args.PNUM) + '_timeout_' + str(args.TIMEOUT)  + \
+            '_noise_' + str(args.NOISE)  + '_MINLINK_' +str(args.MINLINK) + \
            '_maxu_' + str(args.MAXU) + '_sccMember_' + str(SCC_members) + '_SCC_' + str(SCC)
 folder = 'res_simulation'
 if not os.path.exists(folder):
     os.makedirs(folder)
 zkl.save(results, folder + '/' + filename + '.zkl')
 print('_____________________________________________')
+
