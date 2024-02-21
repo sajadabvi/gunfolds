@@ -168,12 +168,35 @@ def Glag2CG(results):
     directed_edges = np.where(graph_array == '-->', 1, 0).astype(int)
 
     graph_dict = cv.adjs2graph(np.transpose(directed_edges[:, :, 1]), np.transpose((bidirected_edges[:, :, 0])))
-    A_matrix = results['val_matrix'][:, :, 1]
-    B_matrix = results['val_matrix'][:, :, 0]
+    A_matrix = np.transpose(results['val_matrix'][:, :, 1])
+    B_matrix = np.transpose(results['val_matrix'][:, :, 0])
 
     return graph_dict, A_matrix, B_matrix
 
+def normalize_non_zero_elems_matrix(matrix):
+    """
+        Normalize a numpy matrix such that non-zero elements are scaled to the range [0.01, 1],
+        while keeping zero elements unchanged.
 
+        Parameters:
+            matrix (numpy.ndarray): Input matrix to be normalized.
+
+        Returns:
+            numpy.ndarray: Normalized matrix with zero elements unchanged and non-zero elements
+            normalized between 0.01 and 1.
+
+        Example:
+            a = np.array([[10, 0], [1, 0]])
+            normalized_a = normalize_matrix(a)
+            print(normalized_a)
+            [[1.   0.  ]
+             [0.01 0.  ]]
+        """
+    non_zero_elements = matrix[matrix != 0]
+    normalized_elements = np.interp(non_zero_elements, (non_zero_elements.min(), non_zero_elements.max()), (0.01, 1))
+    normalized_matrix = np.copy(matrix)
+    normalized_matrix[matrix != 0] = normalized_elements
+    return normalized_matrix
 '''
 if you get a graph G_1 that is a DAG (directed acyclic graph), i.e. all SCCs are singletons (each node is its own SCC)
  then this is a very non-biological case and you need to discard it and try to generate another/better graph
@@ -211,8 +234,14 @@ results = pcmci.run_pcmci(tau_max=2, pc_alpha=None, alpha_level=alpha_level)
 #                               alpha_level=0.05)
 g_estimated, A, B = Glag2CG(results)
 
-DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
-BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
+dir_present = normalize_non_zero_elems_matrix((cv.graph2adj(g_estimated))*(np.abs(A)))
+dir_absent = normalize_non_zero_elems_matrix(-np.abs((cv.graph2adj(g_estimated) - 1))*(np.abs(A)))
+DD = ((dir_present + dir_absent) * MAXCOST).astype(int)
+
+bidir_present = normalize_non_zero_elems_matrix((cv.graph2badj(g_estimated))*(np.abs(B)))
+bidir_absent = normalize_non_zero_elems_matrix(-np.abs((cv.graph2badj(g_estimated) - 1))*(np.abs(B)))
+BD = ((bidir_present + bidir_absent) * MAXCOST).astype(int)
+
 GT_at_actual_U = bfutils.undersample(GT, u_rate)
 
 jaccard_similarity = quantify_graph_difference(gk.graph2nx(g_estimated), gk.graph2nx(GT_at_actual_U))
@@ -240,7 +269,7 @@ r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,
                     scc=SCC,
                     scc_members=members,
                     GT_density=int(1000 * gk.density(GT)),
-                    edge_weights=(2, 2), pnum=args.PNUM, optim='optN')
+                    edge_weights=(1, 1), pnum=args.PNUM, optim='optN')
 
 endTime = int(round(time.time() * 1000))
 sat_time = endTime - startTime

@@ -3,10 +3,11 @@ import pandas as pd
 import seaborn as sns
 from gunfolds.utils import zickle as zkl
 from os import listdir
-from matplotlib.ticker import MultipleLocator
 from gunfolds.viz import gtool as gt
 from collections import defaultdict
 from gunfolds.utils import graphkit as gk
+
+
 def merge_graphs(graphs, threshold_density):
     # Dictionary to store edge frequencies
     edge_frequencies = defaultdict(int)
@@ -40,66 +41,54 @@ def merge_graphs(graphs, threshold_density):
 
     return merged_graph
 
+
 ############################################################
 
-folder14 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/l_2/u2/'
-
+folder14 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/u2/'
 
 file_list14 = listdir(folder14)
 file_list14.sort()
 if file_list14[0].startswith('.'):
     file_list14.pop(0)
 
-
-
 res14 = [zkl.load(folder14 + file) for file in file_list14]
 
 ############################################################
 
-folder15 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/l_2/u3/'
-
+folder15 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/u3/'
 
 file_list15 = listdir(folder15)
 file_list15.sort()
 if file_list15[0].startswith('.'):
     file_list15.pop(0)
 
-
-
 res15 = [zkl.load(folder15 + file) for file in file_list15]
 
 ############################################################
 
-folder16 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/l_2/u4/'
-
+folder16 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/u4/'
 
 file_list16 = listdir(folder16)
 file_list16.sort()
 if file_list16[0].startswith('.'):
     file_list16.pop(0)
 
-
-
 res16 = [zkl.load(folder16 + file) for file in file_list16]
 
 ############################################################
 
-folder17 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/u2/'
-
+folder17 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/PCMCI_alpha2/u2/'
 
 file_list17 = listdir(folder17)
 file_list17.sort()
 if file_list17[0].startswith('.'):
     file_list17.pop(0)
 
-
-
 res17 = [zkl.load(folder17 + file) for file in file_list17]
 
 ############################################################
 
-folder18 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/u3/'
-
+folder18 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/PCMCI_alpha2/u3/'
 
 file_list18 = listdir(folder18)
 file_list18.sort()
@@ -110,8 +99,7 @@ res18 = [zkl.load(folder18 + file) for file in file_list18]
 
 ############################################################
 
-folder19 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/u4/'
-
+folder19 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/PCMCI_alpha2/u4/'
 
 file_list19 = listdir(folder19)
 file_list19.sort()
@@ -121,8 +109,6 @@ res19 = [zkl.load(folder19 + file) for file in file_list19]
 ############################################################
 
 
-
-
 G1_opt_error_GT_om = []
 G1_opt_error_GT_com = []
 Gu_opt_errors_network_GT_U_om = []
@@ -130,9 +116,7 @@ Gu_opt_errors_network_GT_U_com = []
 Gu_opt_errors_g_estimated_om = []
 Gu_opt_errors_g_estimated_com = []
 
-
 err_criteria = 'bidirected'
-
 
 if __name__ == '__main__':
     df = pd.DataFrame()
@@ -155,16 +139,24 @@ if __name__ == '__main__':
     for item in res14:
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
-        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][0]])
+        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
+                           item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[
+                        err_criteria][0],
+                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'],
+                           undirected=False, normalized=True)[err_criteria][0],
+                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
         weights_scheme.extend(['U2_SVAR', 'U2_SVAR', 'U2_SVAR'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
-        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][1]])
+        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
+                           item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[
+                        err_criteria][1],
+                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'],
+                           undirected=False, normalized=True)[err_criteria][1],
+                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
         weights_scheme.extend(['U2_SVAR', 'U2_SVAR', 'U2_SVAR'])
         #################################################################################################
@@ -187,35 +179,48 @@ if __name__ == '__main__':
         #             gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][0],
         #             gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][0]])
 
-
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
-        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][0]])
+        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
+                           undirected=False, normalized=True)[err_criteria][0],
+                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False,
+                           normalized=True)[err_criteria][0],
+                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
         weights_scheme.extend(['U2_SVAR', 'U2_SVAR', 'U2_SVAR'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
-        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][1]])
+        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
+                           undirected=False, normalized=True)[err_criteria][1],
+                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False,
+                           normalized=True)[err_criteria][1],
+                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
         weights_scheme.extend(['U2_SVAR', 'U2_SVAR', 'U2_SVAR'])
 
     for item in res17:
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
-        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][0]])
+        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
+                           item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[
+                        err_criteria][0],
+                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'],
+                           undirected=False, normalized=True)[err_criteria][0],
+                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
         weights_scheme.extend(['U2_PCMCI', 'U2_PCMCI', 'U2_PCMCI'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
-        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][1]])
+        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
+                           item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[
+                        err_criteria][1],
+                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'],
+                           undirected=False, normalized=True)[err_criteria][1],
+                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
         weights_scheme.extend(['U2_PCMCI', 'U2_PCMCI', 'U2_PCMCI'])
         #################################################################################################
@@ -236,32 +241,46 @@ if __name__ == '__main__':
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
-        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][0]])
+        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
+                           undirected=False, normalized=True)[err_criteria][0],
+                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False,
+                           normalized=True)[err_criteria][0],
+                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
         weights_scheme.extend(['U2_PCMCI', 'U2_PCMCI', 'U2_PCMCI'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
-        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][1]])
+        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
+                           undirected=False, normalized=True)[err_criteria][1],
+                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False,
+                           normalized=True)[err_criteria][1],
+                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
         weights_scheme.extend(['U2_PCMCI', 'U2_PCMCI', 'U2_PCMCI'])
 
     for item in res15:
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
-        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][0]])
+        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
+                           item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[
+                        err_criteria][0],
+                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'],
+                           undirected=False, normalized=True)[err_criteria][0],
+                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
         weights_scheme.extend(['U3_SVAR', 'U3_SVAR', 'U3_SVAR'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
-        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][1]])
+        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
+                           item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[
+                        err_criteria][1],
+                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'],
+                           undirected=False, normalized=True)[err_criteria][1],
+                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
         weights_scheme.extend(['U3_SVAR', 'U3_SVAR', 'U3_SVAR'])
         #################################################################################################
@@ -282,33 +301,46 @@ if __name__ == '__main__':
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
-        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][0]])
+        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
+                           undirected=False, normalized=True)[err_criteria][0],
+                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False,
+                           normalized=True)[err_criteria][0],
+                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
         weights_scheme.extend(['U3_SVAR', 'U3_SVAR', 'U3_SVAR'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
-        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][1]])
+        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
+                           undirected=False, normalized=True)[err_criteria][1],
+                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False,
+                           normalized=True)[err_criteria][1],
+                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
         weights_scheme.extend(['U3_SVAR', 'U3_SVAR', 'U3_SVAR'])
-
 
     for item in res18:
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
-        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][0]])
+        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
+                           item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[
+                        err_criteria][0],
+                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'],
+                           undirected=False, normalized=True)[err_criteria][0],
+                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
         weights_scheme.extend(['U3_PCMCI', 'U3_PCMCI', 'U3_PCMCI'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
-        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][1]])
+        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
+                           item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[
+                        err_criteria][1],
+                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'],
+                           undirected=False, normalized=True)[err_criteria][1],
+                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
         weights_scheme.extend(['U3_PCMCI', 'U3_PCMCI', 'U3_PCMCI'])
         #################################################################################################
@@ -329,33 +361,46 @@ if __name__ == '__main__':
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
-        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][0]])
+        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
+                           undirected=False, normalized=True)[err_criteria][0],
+                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False,
+                           normalized=True)[err_criteria][0],
+                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
         weights_scheme.extend(['U3_PCMCI', 'U3_PCMCI', 'U3_PCMCI'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
-        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][1]])
+        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
+                           undirected=False, normalized=True)[err_criteria][1],
+                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False,
+                           normalized=True)[err_criteria][1],
+                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
         weights_scheme.extend(['U3_PCMCI', 'U3_PCMCI', 'U3_PCMCI'])
-
 
     for item in res16:
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
-        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][0]])
+        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
+                           item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[
+                        err_criteria][0],
+                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'],
+                           undirected=False, normalized=True)[err_criteria][0],
+                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
         weights_scheme.extend(['U4_SVAR', 'U4_SVAR', 'U4_SVAR'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
-        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][1]])
+        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
+                           item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[
+                        err_criteria][1],
+                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'],
+                           undirected=False, normalized=True)[err_criteria][1],
+                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
         weights_scheme.extend(['U4_SVAR', 'U4_SVAR', 'U4_SVAR'])
         #################################################################################################
@@ -376,32 +421,46 @@ if __name__ == '__main__':
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
-        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][0]])
+        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
+                           undirected=False, normalized=True)[err_criteria][0],
+                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False,
+                           normalized=True)[err_criteria][0],
+                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
         weights_scheme.extend(['U4_SVAR', 'U4_SVAR', 'U4_SVAR'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
-        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][1]])
+        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
+                           undirected=False, normalized=True)[err_criteria][1],
+                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False,
+                           normalized=True)[err_criteria][1],
+                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
         weights_scheme.extend(['U4_SVAR', 'U4_SVAR', 'U4_SVAR'])
 
     for item in res19:
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
-        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][0]])
+        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
+                           item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[
+                        err_criteria][0],
+                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'],
+                           undirected=False, normalized=True)[err_criteria][0],
+                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
         weights_scheme.extend(['U4_PCMCI', 'U4_PCMCI', 'U4_PCMCI'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
-        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][1]])
+        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
+                           item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[
+                        err_criteria][1],
+                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'],
+                           undirected=False, normalized=True)[err_criteria][1],
+                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
         weights_scheme.extend(['U4_PCMCI', 'U4_PCMCI', 'U4_PCMCI'])
         #################################################################################################
@@ -422,21 +481,24 @@ if __name__ == '__main__':
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
-        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][0]])
+        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
+                           undirected=False, normalized=True)[err_criteria][0],
+                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False,
+                           normalized=True)[err_criteria][0],
+                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
         weights_scheme.extend(['U4_PCMCI', 'U4_PCMCI', 'U4_PCMCI'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
-        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False, normalized=True)[err_criteria][1]])
+        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
+                           undirected=False, normalized=True)[err_criteria][1],
+                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False,
+                           normalized=True)[err_criteria][1],
+                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
+                           normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
         weights_scheme.extend(['U4_PCMCI', 'U4_PCMCI', 'U4_PCMCI'])
-
-
-
 
     df['Err'] = Err
     df['ErrVs'] = ErrVs
@@ -468,5 +530,5 @@ if __name__ == '__main__':
             # ax.xaxis.set_major_locator(MultipleLocator(1))
             ax.set_ylim(0, 1)
     plt.suptitle("calculating " + err_criteria + " errors ", x=0.45, y=1, fontsize=20)
-    # plt.show()
-    plt.savefig("figs/SVAR_VS_PCMCI_" + err_criteria + "_error.png")
+    plt.show()
+    # plt.savefig("figs/SVAR_VS_PCMCI_" + err_criteria + "_error.png")
