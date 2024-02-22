@@ -44,7 +44,7 @@ def merge_graphs(graphs, threshold_density):
 
 ############################################################
 
-folder14 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/u2/'
+folder14 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/l_2/u2/'
 
 file_list14 = listdir(folder14)
 file_list14.sort()
@@ -55,7 +55,7 @@ res14 = [zkl.load(folder14 + file) for file in file_list14]
 
 ############################################################
 
-folder15 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/u3/'
+folder15 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/l_2/u3/'
 
 file_list15 = listdir(folder15)
 file_list15.sort()
@@ -66,7 +66,7 @@ res15 = [zkl.load(folder15 + file) for file in file_list15]
 
 ############################################################
 
-folder16 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/u4/'
+folder16 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/l_2/u4/'
 
 file_list16 = listdir(folder16)
 file_list16.sort()
@@ -77,7 +77,7 @@ res16 = [zkl.load(folder16 + file) for file in file_list16]
 
 ############################################################
 
-folder17 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/PCMCI_alpha2/u2/'
+folder17 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/prioriti42531/u2/'
 
 file_list17 = listdir(folder17)
 file_list17.sort()
@@ -88,7 +88,7 @@ res17 = [zkl.load(folder17 + file) for file in file_list17]
 
 ############################################################
 
-folder18 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/PCMCI_alpha2/u3/'
+folder18 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/prioriti42531/u3/'
 
 file_list18 = listdir(folder18)
 file_list18.sort()
@@ -99,7 +99,7 @@ res18 = [zkl.load(folder18 + file) for file in file_list18]
 
 ############################################################
 
-folder19 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/PCMCI_alpha2/u4/'
+folder19 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/prioriti42531/u4/'
 
 file_list19 = listdir(folder19)
 file_list19.sort()
@@ -116,7 +116,7 @@ Gu_opt_errors_network_GT_U_com = []
 Gu_opt_errors_g_estimated_om = []
 Gu_opt_errors_g_estimated_com = []
 
-err_criteria = 'bidirected'
+err_criteria = 'total'
 
 if __name__ == '__main__':
     df = pd.DataFrame()
@@ -211,7 +211,7 @@ if __name__ == '__main__':
                     gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U2_PCMCI', 'U2_PCMCI', 'U2_PCMCI'])
+        weights_scheme.extend(['U2PCMCI_new_weights', 'U2PCMCI_new_weights', 'U2PCMCI_new_weights'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
         Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
@@ -222,7 +222,7 @@ if __name__ == '__main__':
                     gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U2_PCMCI', 'U2_PCMCI', 'U2_PCMCI'])
+        weights_scheme.extend(['U2PCMCI_new_weights', 'U2PCMCI_new_weights', 'U2PCMCI_new_weights'])
         #################################################################################################
         # ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         # WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
@@ -230,14 +230,14 @@ if __name__ == '__main__':
         #             item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
         #             item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
         # ErrType.extend(['omm', 'omm', 'omm'])
-        # weights_scheme.extend(['U2_PCMCI', 'U2_PCMCI', 'U2_PCMCI'])
+        # weights_scheme.extend(['U2PCMCI_new_weights', 'U2PCMCI_new_weights', 'U2PCMCI_new_weights'])
         # ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         # WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
         # Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
         #             item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
         #             item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
         # ErrType.extend(['comm', 'comm', 'comm'])
-        # weights_scheme.extend(['U2_PCMCI', 'U2_PCMCI', 'U2_PCMCI'])
+        # weights_scheme.extend(['U2PCMCI_new_weights', 'U2PCMCI_new_weights', 'U2PCMCI_new_weights'])
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
@@ -248,7 +248,7 @@ if __name__ == '__main__':
                     gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U2_PCMCI', 'U2_PCMCI', 'U2_PCMCI'])
+        weights_scheme.extend(['U2PCMCI_new_weights', 'U2PCMCI_new_weights', 'U2PCMCI_new_weights'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
         Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
@@ -258,7 +258,7 @@ if __name__ == '__main__':
                     gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U2_PCMCI', 'U2_PCMCI', 'U2_PCMCI'])
+        weights_scheme.extend(['U2PCMCI_new_weights', 'U2PCMCI_new_weights', 'U2PCMCI_new_weights'])
 
     for item in res15:
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
@@ -331,7 +331,7 @@ if __name__ == '__main__':
                     gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U3_PCMCI', 'U3_PCMCI', 'U3_PCMCI'])
+        weights_scheme.extend(['U3PCMCI_new_weights', 'U3PCMCI_new_weights', 'U3PCMCI_new_weights'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
         Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
@@ -342,7 +342,7 @@ if __name__ == '__main__':
                     gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U3_PCMCI', 'U3_PCMCI', 'U3_PCMCI'])
+        weights_scheme.extend(['U3PCMCI_new_weights', 'U3PCMCI_new_weights', 'U3PCMCI_new_weights'])
         #################################################################################################
         # ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         # WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
@@ -350,14 +350,14 @@ if __name__ == '__main__':
         #             item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
         #             item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
         # ErrType.extend(['omm', 'omm', 'omm'])
-        # weights_scheme.extend(['U3_PCMCI', 'U3_PCMCI', 'U3_PCMCI'])
+        # weights_scheme.extend(['U3PCMCI_new_weights', 'U3PCMCI_new_weights', 'U3PCMCI_new_weights'])
         # ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         # WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
         # Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
         #             item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
         #             item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
         # ErrType.extend(['comm', 'comm', 'comm'])
-        # weights_scheme.extend(['U3_PCMCI', 'U3_PCMCI', 'U3_PCMCI'])
+        # weights_scheme.extend(['U3PCMCI_new_weights', 'U3PCMCI_new_weights', 'U3PCMCI_new_weights'])
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
@@ -368,7 +368,7 @@ if __name__ == '__main__':
                     gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U3_PCMCI', 'U3_PCMCI', 'U3_PCMCI'])
+        weights_scheme.extend(['U3PCMCI_new_weights', 'U3PCMCI_new_weights', 'U3PCMCI_new_weights'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
         Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
@@ -378,7 +378,7 @@ if __name__ == '__main__':
                     gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U3_PCMCI', 'U3_PCMCI', 'U3_PCMCI'])
+        weights_scheme.extend(['U3PCMCI_new_weights', 'U3PCMCI_new_weights', 'U3PCMCI_new_weights'])
 
     for item in res16:
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
@@ -451,7 +451,7 @@ if __name__ == '__main__':
                     gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U4_PCMCI', 'U4_PCMCI', 'U4_PCMCI'])
+        weights_scheme.extend(['U4PCMCI_new_weights', 'U4PCMCI_new_weights', 'U4PCMCI_new_weights'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
         Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
@@ -462,7 +462,7 @@ if __name__ == '__main__':
                     gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U4_PCMCI', 'U4_PCMCI', 'U4_PCMCI'])
+        weights_scheme.extend(['U4PCMCI_new_weights', 'U4PCMCI_new_weights', 'U4PCMCI_new_weights'])
         #################################################################################################
         # ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         # WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
@@ -470,14 +470,14 @@ if __name__ == '__main__':
         #             item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
         #             item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
         # ErrType.extend(['omm', 'omm', 'omm'])
-        # weights_scheme.extend(['U4_PCMCI', 'U4_PCMCI', 'U4_PCMCI'])
+        # weights_scheme.extend(['U4PCMCI_new_weights', 'U4PCMCI_new_weights', 'U4PCMCI_new_weights'])
         # ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         # WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
         # Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
         #             item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
         #             item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
         # ErrType.extend(['comm', 'comm', 'comm'])
-        # weights_scheme.extend(['U4_PCMCI', 'U4_PCMCI', 'U4_PCMCI'])
+        # weights_scheme.extend(['U4PCMCI_new_weights', 'U4PCMCI_new_weights', 'U4PCMCI_new_weights'])
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
@@ -488,7 +488,7 @@ if __name__ == '__main__':
                     gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U4_PCMCI', 'U4_PCMCI', 'U4_PCMCI'])
+        weights_scheme.extend(['U4PCMCI_new_weights', 'U4PCMCI_new_weights', 'U4PCMCI_new_weights'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
         Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
@@ -498,7 +498,7 @@ if __name__ == '__main__':
                     gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U4_PCMCI', 'U4_PCMCI', 'U4_PCMCI'])
+        weights_scheme.extend(['U4PCMCI_new_weights', 'U4PCMCI_new_weights', 'U4PCMCI_new_weights'])
 
     df['Err'] = Err
     df['ErrVs'] = ErrVs
@@ -530,5 +530,5 @@ if __name__ == '__main__':
             # ax.xaxis.set_major_locator(MultipleLocator(1))
             ax.set_ylim(0, 1)
     plt.suptitle("calculating " + err_criteria + " errors ", x=0.45, y=1, fontsize=20)
-    plt.show()
-    # plt.savefig("figs/SVAR_VS_PCMCI_" + err_criteria + "_error.png")
+    # plt.show()
+    plt.savefig("figs/SVAR_VS_PCMCI_priority42531_plu_new_highrese_weight_" + err_criteria + "_error.png")

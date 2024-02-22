@@ -29,7 +29,7 @@ from tigramite.toymodels import structural_causal_processes as toys
 CLINGO_LIMIT = 64
 PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
 POSTFIX = 'VAR_stable_trans_mat'
-Using_SVAR = False
+Using_SVAR = True
 PreFix = 'SVAR' if Using_SVAR else 'GC'
 parser = argparse.ArgumentParser(description='Run settings.')
 parser.add_argument("-c", "--CAPSIZE", default=0,
@@ -48,6 +48,7 @@ parser.add_argument("-m", "--SCCMEMBERS", default="f", help="true for using g_es
                                                             "GT SCC members", type=str)
 parser.add_argument("-u", "--UNDERSAMPLING", default=2, help="sampling rate in generated data", type=int)
 parser.add_argument("-x", "--MAXU", default=15, help="maximum number of undersampling to look for solution.", type=int)
+parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
 args = parser.parse_args()
 TIMEOUT = args.TIMEOUT * 60 * 60
 GRAPHTYPE = bool(distutils.util.strtobool(args.GTYPE))
@@ -62,6 +63,10 @@ EDGE_CUTOFF = 0.01
 noise_svar = args.NOISE / 100
 
 error_normalization = True
+
+priprities = []
+for char in args.PRIORITY:
+    priprities.append(int(char))
 
 def round_tuple_elements(input_tuple, decimal_points=3):
     return tuple(round(elem, decimal_points) if isinstance(elem, (int, float)) else elem for elem in input_tuple)
@@ -189,7 +194,30 @@ def Glag2CG(results):
 
     return graph_dict, A_matrix, B_matrix
 
+def normalize_non_zero_elems_matrix(matrix):
+    """
+        Normalize a numpy matrix such that non-zero elements are scaled to the range [0.01, 1],
+        while keeping zero elements unchanged.
 
+        Parameters:
+            matrix (numpy.ndarray): Input matrix to be normalized.
+
+        Returns:
+            numpy.ndarray: Normalized matrix with zero elements unchanged and non-zero elements
+            normalized between 0.01 and 1.
+
+        Example:
+            a = np.array([[10, 0], [1, 0]])
+            normalized_a = normalize_matrix(a)
+            print(normalized_a)
+            [[1.   0.  ]
+             [0.01 0.  ]]
+        """
+    non_zero_elements = matrix[matrix != 0]
+    normalized_elements = np.interp(non_zero_elements, (non_zero_elements.min(), non_zero_elements.max()), (0.01, 1))
+    normalized_matrix = np.copy(matrix)
+    normalized_matrix[matrix != 0] = normalized_elements
+    return normalized_matrix
 
 
 
@@ -251,8 +279,18 @@ if False:
     g_estimated, A, B = Glag2CG(results)
 
 
-DD = (np.abs((np.abs(A/np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1))*MAXCOST)).astype(int)
-BD = (np.abs((np.abs(B/np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1))*MAXCOST)).astype(int)
+# DD = (np.abs((np.abs(A/np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1))*MAXCOST)).astype(int)
+# BD = (np.abs((np.abs(B/np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1))*MAXCOST)).astype(int)
+
+
+dir_present = normalize_non_zero_elems_matrix((cv.graph2adj(g_estimated))*(np.abs(A)))
+dir_absent = normalize_non_zero_elems_matrix(-np.abs((cv.graph2adj(g_estimated) - 1))*(np.abs(A)))
+DD = ((dir_present + dir_absent) * MAXCOST).astype(int)
+
+bidir_present = normalize_non_zero_elems_matrix((cv.graph2badj(g_estimated))*(np.abs(B)))
+bidir_absent = normalize_non_zero_elems_matrix(-np.abs((cv.graph2badj(g_estimated) - 1))*(np.abs(B)))
+BD = ((bidir_present + bidir_absent) * MAXCOST).astype(int)
+
 GT_at_actual_U = bfutils.undersample(GT, u_rate)
 
 jaccard_similarity = quantify_graph_difference(gk.graph2nx(g_estimated), gk.graph2nx(GT_at_actual_U))
@@ -280,7 +318,7 @@ r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,
                     scc=SCC,
                     scc_members=members,
                     GT_density=int(1000*gk.density(GT)),
-                    edge_weights=(1, 1), pnum=args.PNUM, optim='optN')
+                    edge_weights=priprities, pnum=args.PNUM, optim='optN')
 
 endTime = int(round(time.time() * 1000))
 sat_time = endTime - startTime
@@ -469,7 +507,7 @@ filename = 'full_sols_nodes_' + str(args.NODE) + '_density_' + str(DENSITY) + '_
            '_' + PreFix + '_optN_gt_den_priority2_dataset_' + POSTFIX + '_' + graphType + '_CAPSIZE_' + str(args.CAPSIZE) + '_batch_' + \
            str(args.BATCH) + '_pnum_' + str(args.PNUM) + '_timeout_' + str(args.TIMEOUT) + '_threshold_' + \
            str(args.THRESHOLD) + '_noise_' + str(args.NOISE)  + '_MINLINK_' +str(args.MINLINK) + \
-           '_maxu_' + str(args.MAXU) + '_sccMember_' + str(SCC_members) + '_SCC_' + str(SCC)
+           '_maxu_' + str(args.MAXU) + '_sccMember_' + str(SCC_members) + '_SCC_' + str(SCC) + 'priorities' + args.PRIORITY
 folder = 'res_simulation'
 if not os.path.exists(folder):
     os.makedirs(folder)
