@@ -231,19 +231,22 @@ MAXCOST = 10000
 dataframe = pp.DataFrame(np.transpose(data))
 cond_ind_test = ParCorr()
 pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
-results = pcmci.run_pcmci(tau_max=2, pc_alpha=None, alpha_level=alpha_level)
+results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=alpha_level)
 # pcmci.print_significant_links(p_matrix=results['p_matrix'],
 #                               val_matrix=results['val_matrix'],
 #                               alpha_level=0.05)
 g_estimated, A, B = Glag2CG(results)
 
-dir_present = normalize_non_zero_elems_matrix((cv.graph2adj(g_estimated))*(np.abs(A)))
-dir_absent = normalize_non_zero_elems_matrix(-np.abs((cv.graph2adj(g_estimated) - 1))*(np.abs(A)))
-DD = ((dir_present + dir_absent) * MAXCOST).astype(int)
+# dir_present = normalize_non_zero_elems_matrix((cv.graph2adj(g_estimated))*(np.abs(A)))
+# dir_absent = normalize_non_zero_elems_matrix(-np.abs((cv.graph2adj(g_estimated) - 1))*(np.abs(A)))
+# DD = ((dir_present + dir_absent) * MAXCOST).astype(int)
+#
+# bidir_present = normalize_non_zero_elems_matrix((cv.graph2badj(g_estimated))*(np.abs(B)))
+# bidir_absent = normalize_non_zero_elems_matrix(-np.abs((cv.graph2badj(g_estimated) - 1))*(np.abs(B)))
+# BD = ((bidir_present + bidir_absent) * MAXCOST).astype(int)
 
-bidir_present = normalize_non_zero_elems_matrix((cv.graph2badj(g_estimated))*(np.abs(B)))
-bidir_absent = normalize_non_zero_elems_matrix(-np.abs((cv.graph2badj(g_estimated) - 1))*(np.abs(B)))
-BD = ((bidir_present + bidir_absent) * MAXCOST).astype(int)
+DD = (np.abs((np.abs(A/np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1))*MAXCOST)).astype(int)
+BD = (np.abs((np.abs(B/np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1))*MAXCOST)).astype(int)
 
 GT_at_actual_U = bfutils.undersample(GT, u_rate)
 
