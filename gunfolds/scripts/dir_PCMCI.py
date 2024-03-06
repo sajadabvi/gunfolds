@@ -250,7 +250,7 @@ BD = (np.ones(np.shape(B))*MAXCOST).astype(int)
 
 GT_at_actual_U = bfutils.undersample(GT, u_rate)
 
-g_estimated2 = cv.adjs2graph(cv.graph2adj(g_estimated),cv.graph2badj(GT_at_actual_U))
+g_estimated = cv.adjs2graph(cv.graph2adj(g_estimated),cv.graph2badj(GT_at_actual_U))
 jaccard_similarity = quantify_graph_difference(gk.graph2nx(g_estimated), gk.graph2nx(GT_at_actual_U))
 g_estimated_errors_GT_at_actual_U = \
     gk.OCE(g_estimated, GT_at_actual_U, undirected=False, normalized=error_normalization)['total']
