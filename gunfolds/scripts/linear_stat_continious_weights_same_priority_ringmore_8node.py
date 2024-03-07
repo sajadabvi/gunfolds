@@ -137,23 +137,7 @@ def rmBidirected(gu):
 
 
 def transitionMatrix4(g, minstrength=0.1, distribution='normal', maxtries=1000):
-    """
-    :param g: ``gunfolds`` graph
-    :type g: dictionary (``gunfolds`` graph)
 
-    :param minstrength:
-    :type minstrength: float
-
-    :param distribution: (GUESS)distribution from which to sample the weights. Available
-     options are flat, flatsigned, beta, normal, uniform
-    :type distribution: string
-
-    :param maxtries:
-    :type maxtries: (guess)integer
-
-    :returns:
-    :rtype:
-    """
     A = cv.graph2adj(g)
     edges = np.where(A == 1)
     s = 2.0
@@ -180,41 +164,7 @@ def transitionMatrix4(g, minstrength=0.1, distribution='normal', maxtries=1000):
 
 # def genData(A, rate=2, burnin=100, ssize=2000, noise=0.1, dist='beta'):
 def genData(A, rate=2, burnin=100, ssize=5000, noise=0.1, dist='normal'):
-    """
-    Given a number of nodes this function randomly generates a ring
-    SCC and the corresponding stable transition matrix. It tries until
-    succeeds and for some graph densities and parameters of the
-    distribution of transition matrix values it may take
-    forever. Please play with the dist parameter to stableVAR. Then
-    using this transition matrix it generates `ssize` samples of data
-    and undersamples them by `rate` discarding the `burnin` number of
-    samples at the beginning.
 
-    :param n: number of nodes in the desired graph
-    :type n: (guess)integer
-
-    :param rate: undersampling rate (1 - no undersampling)
-    :type rate: integer
-
-    :param density: density of the graph to be generted
-    :type density: (guess) float
-
-    :param burnin: number of samples to discard since the beginning of VAR sampling
-    :type burnin: integer
-
-    :param ssize: how many samples to keep at the causal sampling rate
-    :type ssize: (guess)integer
-
-    :param noise: noise standard deviation for the VAR model
-    :type noise: (guess)float
-
-    :param dist: (GUESS)distribution from which to sample the weights. Available
-     options are flat, flatsigned, beta, normal, uniform
-    :type dist: (guess)string
-
-    :returns:
-    :rtype:
-    """
     Agt = A
     data = drawsamplesLG(Agt, samples=burnin + (ssize * rate), nstd=noise)
     data = data[:, burnin:]
@@ -222,19 +172,7 @@ def genData(A, rate=2, burnin=100, ssize=5000, noise=0.1, dist='normal'):
 
 
 def drawsamplesLG(A, nstd=0.1, samples=100):
-    """
-    :param A:
-    :type A:
 
-    :param nstd:
-    :type nstd: float
-
-    :param samples:
-    :type samples: integer
-
-    :returns:
-    :rtype:
-    """
     n = A.shape[0]
     data = np.zeros([n, samples])
     data[:, 0] = nstd * np.random.randn(A.shape[0])
@@ -244,22 +182,7 @@ def drawsamplesLG(A, nstd=0.1, samples=100):
 
 
 def drawsamplesMA(A, nstd=0.1, samples=100, order=5):
-    """
-    :param A:
-    :type A:
 
-    :param nstd:
-    :type nstd: float
-
-    :param samples:
-    :type samples: integer
-
-    :param order:
-    :type order: integer
-
-    :returns:
-    :rtype:
-    """
     n = A.shape[0]
     data = scipy.zeros([n, samples])
     data[:, 0] = nstd * scipy.random.randn(A.shape[0])
@@ -277,19 +200,7 @@ def drawsamplesMA(A, nstd=0.1, samples=100, order=5):
 
 
 def AB2intAB_1(A, B, th=0.09):
-    """
-    :param A:
-    :type A:
 
-    :param B:
-    :type B:
-
-    :param th: (GUESS)threshold for discarding edges in A and B
-    :type th: float
-
-    :returns:
-    :rtype:
-    """
 
     A[amap(lambda x: abs(x) > th, A)] = 1
     A[amap(lambda x: abs(x) < 1, A)] = 0
@@ -300,16 +211,7 @@ def AB2intAB_1(A, B, th=0.09):
 
 
 def amap(f, a):
-    """
-    :param f:
-    :type f:
 
-    :param a:
-    :type a:
-
-    :returns:
-    :rtype:
-    """
     v = np.vectorize(f)
     return v(a)
 

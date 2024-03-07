@@ -6,7 +6,7 @@ from os import listdir
 from gunfolds.viz import gtool as gt
 from collections import defaultdict
 from gunfolds.utils import graphkit as gk
-
+from gunfolds.utils import bfutils
 
 def merge_graphs(graphs, threshold_density):
     # Dictionary to store edge frequencies
@@ -77,7 +77,7 @@ res16 = [zkl.load(folder16 + file) for file in file_list16]
 
 ############################################################
 
-folder17 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/fix_bidir/u2/'
+folder17 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/prioriti42531_alpha1_my_weights/u2/'
 
 file_list17 = listdir(folder17)
 file_list17.sort()
@@ -88,7 +88,7 @@ res17 = [zkl.load(folder17 + file) for file in file_list17]
 
 ############################################################
 
-folder18 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/fix_bidir/u3/'
+folder18 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/prioriti42531_alpha1_my_weights/u3/'
 
 file_list18 = listdir(folder18)
 file_list18.sort()
@@ -99,7 +99,7 @@ res18 = [zkl.load(folder18 + file) for file in file_list18]
 
 ############################################################
 
-folder19 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/fix_bidir/u4/'
+folder19 = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/results/VAR_simulation_results/stable_trans_mat/PCMCI/prioriti42531_alpha1_my_weights/u4/'
 
 file_list19 = listdir(folder19)
 file_list19.sort()
@@ -116,7 +116,24 @@ Gu_opt_errors_network_GT_U_com = []
 Gu_opt_errors_g_estimated_om = []
 Gu_opt_errors_g_estimated_com = []
 
-err_criteria = 'bidirected'
+err_criteria = 'total'
+def cal_mean_error(item, err_criteria, type):
+    GuVsGTu = []
+    GuVsGest = []
+    G1VsGT = []
+    for sol in item['general']['full_sols']:
+        g1 = bfutils.num2CG(sol[0][0], len(item['general']['GT']))
+        gu = bfutils.undersample(bfutils.num2CG(sol[0][0], len(item['general']['GT'])), sol[0][1][0])
+        gt = item['general']['GT']
+        gtu = item['general']['GT_at_actual_U']
+        g_est = item['general']['g_estimated']
+        GuVsGTu.append(gk.OCE(gu, gtu, undirected=False, normalized=True)[err_criteria][type])
+        GuVsGest.append(gk.OCE(gu, g_est, undirected=False, normalized=True)[err_criteria][type])
+        G1VsGT.append(gk.OCE(g1, gt, undirected=False, normalized=True)[err_criteria][type])
+        err_GuVsGTu = sum(GuVsGTu) / len(GuVsGTu)
+        err_GuVsGest = sum(GuVsGest) / len(GuVsGest)
+        err_G1VsGT = sum(G1VsGT) / len(G1VsGT)
+    return [err_GuVsGTu, err_GuVsGest, err_G1VsGT]
 
 if __name__ == '__main__':
     df = pd.DataFrame()
@@ -141,7 +158,7 @@ if __name__ == '__main__':
                     gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U2_PCMCI_diff_priority', 'U2_PCMCI_diff_priority', 'U2_PCMCI_diff_priority'])
+        weights_scheme.extend(['U2_traditional_error', 'U2_traditional_error', 'U2_traditional_error'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
         Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
@@ -152,7 +169,7 @@ if __name__ == '__main__':
                     gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U2_PCMCI_diff_priority', 'U2_PCMCI_diff_priority', 'U2_PCMCI_diff_priority'])
+        weights_scheme.extend(['U2_traditional_error', 'U2_traditional_error', 'U2_traditional_error'])
         #################################################################################################
         # ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         # WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
@@ -160,14 +177,14 @@ if __name__ == '__main__':
         #             item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
         #             item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
         # ErrType.extend(['omm', 'omm', 'omm'])
-        # weights_scheme.extend(['U2_PCMCI_diff_priority', 'U2_PCMCI_diff_priority', 'U2_PCMCI_diff_priority'])
+        # weights_scheme.extend(['U2_traditional_error', 'U2_traditional_error', 'U2_traditional_error'])
         # ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         # WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
         # Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
         #             item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
         #             item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
         # ErrType.extend(['comm', 'comm', 'comm'])
-        # weights_scheme.extend(['U2_PCMCI_diff_priority', 'U2_PCMCI_diff_priority', 'U2_PCMCI_diff_priority'])
+        # weights_scheme.extend(['U2_traditional_error', 'U2_traditional_error', 'U2_traditional_error'])
         #################################################################################################
         # Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'], undirected=False, normalized=True)[err_criteria][0],
         #             gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False, normalized=True)[err_criteria][0],
@@ -182,7 +199,7 @@ if __name__ == '__main__':
                     gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U2_PCMCI_diff_priority', 'U2_PCMCI_diff_priority', 'U2_PCMCI_diff_priority'])
+        weights_scheme.extend(['U2_traditional_error', 'U2_traditional_error', 'U2_traditional_error'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
         Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
@@ -192,31 +209,19 @@ if __name__ == '__main__':
                     gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U2_PCMCI_diff_priority', 'U2_PCMCI_diff_priority', 'U2_PCMCI_diff_priority'])
+        weights_scheme.extend(['U2_traditional_error', 'U2_traditional_error', 'U2_traditional_error'])
 
     for item in res17:
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
-        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
-                           item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[
-                        err_criteria][0],
-                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'],
-                           undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
-                           normalized=True)[err_criteria][0]])
+        Err.extend(cal_mean_error(item,err_criteria,0))
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U2_PCMCI_fix_bidir', 'U2_PCMCI_fix_bidir', 'U2_PCMCI_fix_bidir'])
+        weights_scheme.extend(['U2_mean_error', 'U2_mean_error', 'U2_mean_error'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
-        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
-                           item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[
-                        err_criteria][1],
-                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'],
-                           undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
-                           normalized=True)[err_criteria][1]])
+        Err.extend(cal_mean_error(item,err_criteria,1))
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U2_PCMCI_fix_bidir', 'U2_PCMCI_fix_bidir', 'U2_PCMCI_fix_bidir'])
+        weights_scheme.extend(['U2_mean_error', 'U2_mean_error', 'U2_mean_error'])
         #################################################################################################
         # ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         # WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
@@ -224,35 +229,25 @@ if __name__ == '__main__':
         #             item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
         #             item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
         # ErrType.extend(['omm', 'omm', 'omm'])
-        # weights_scheme.extend(['U2_PCMCI_fix_bidir', 'U2_PCMCI_fix_bidir', 'U2_PCMCI_fix_bidir'])
+        # weights_scheme.extend(['U2_mean_error', 'U2_mean_error', 'U2_mean_error'])
         # ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         # WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
         # Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
         #             item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
         #             item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
         # ErrType.extend(['comm', 'comm', 'comm'])
-        # weights_scheme.extend(['U2_PCMCI_fix_bidir', 'U2_PCMCI_fix_bidir', 'U2_PCMCI_fix_bidir'])
+        # weights_scheme.extend(['U2_mean_error', 'U2_mean_error', 'U2_mean_error'])
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
-        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
-                           undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False,
-                           normalized=True)[err_criteria][0],
-                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
-                           normalized=True)[err_criteria][0]])
+        Err.extend(cal_mean_error(item,err_criteria,0))
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U2_PCMCI_fix_bidir', 'U2_PCMCI_fix_bidir', 'U2_PCMCI_fix_bidir'])
+        weights_scheme.extend(['U2_mean_error', 'U2_mean_error', 'U2_mean_error'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
-        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
-                           undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False,
-                           normalized=True)[err_criteria][1],
-                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
-                           normalized=True)[err_criteria][1]])
+        Err.extend(cal_mean_error(item,err_criteria,1))
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U2_PCMCI_fix_bidir', 'U2_PCMCI_fix_bidir', 'U2_PCMCI_fix_bidir'])
+        weights_scheme.extend(['U2_mean_error', 'U2_mean_error', 'U2_mean_error'])
 
     for item in res15:
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
@@ -265,7 +260,7 @@ if __name__ == '__main__':
                     gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U3_PCMCI_diff_priority', 'U3_PCMCI_diff_priority', 'U3_PCMCI_diff_priority'])
+        weights_scheme.extend(['U3_traditional_error', 'U3_traditional_error', 'U3_traditional_error'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
         Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
@@ -276,7 +271,7 @@ if __name__ == '__main__':
                     gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U3_PCMCI_diff_priority', 'U3_PCMCI_diff_priority', 'U3_PCMCI_diff_priority'])
+        weights_scheme.extend(['U3_traditional_error', 'U3_traditional_error', 'U3_traditional_error'])
         #################################################################################################
         # ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         # WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
@@ -284,14 +279,14 @@ if __name__ == '__main__':
         #             item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
         #             item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
         # ErrType.extend(['omm', 'omm', 'omm'])
-        # weights_scheme.extend(['U3_PCMCI_diff_priority', 'U3_PCMCI_diff_priority', 'U3_PCMCI_diff_priority'])
+        # weights_scheme.extend(['U3_traditional_error', 'U3_traditional_error', 'U3_traditional_error'])
         # ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         # WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
         # Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
         #             item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
         #             item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
         # ErrType.extend(['comm', 'comm', 'comm'])
-        # weights_scheme.extend(['U3_PCMCI_diff_priority', 'U3_PCMCI_diff_priority', 'U3_PCMCI_diff_priority'])
+        # weights_scheme.extend(['U3_traditional_error', 'U3_traditional_error', 'U3_traditional_error'])
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
@@ -302,7 +297,7 @@ if __name__ == '__main__':
                     gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U3_PCMCI_diff_priority', 'U3_PCMCI_diff_priority', 'U3_PCMCI_diff_priority'])
+        weights_scheme.extend(['U3_traditional_error', 'U3_traditional_error', 'U3_traditional_error'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
         Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
@@ -312,31 +307,19 @@ if __name__ == '__main__':
                     gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U3_PCMCI_diff_priority', 'U3_PCMCI_diff_priority', 'U3_PCMCI_diff_priority'])
+        weights_scheme.extend(['U3_traditional_error', 'U3_traditional_error', 'U3_traditional_error'])
 
     for item in res18:
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
-        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
-                           item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[
-                        err_criteria][0],
-                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'],
-                           undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
-                           normalized=True)[err_criteria][0]])
+        Err.extend(cal_mean_error(item,err_criteria,0))
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U3_PCMCI_fix_bidir', 'U3_PCMCI_fix_bidir', 'U3_PCMCI_fix_bidir'])
+        weights_scheme.extend(['U3_mean_error', 'U3_mean_error', 'U3_mean_error'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
-        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
-                           item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[
-                        err_criteria][1],
-                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'],
-                           undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
-                           normalized=True)[err_criteria][1]])
+        Err.extend(cal_mean_error(item,err_criteria,1))
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U3_PCMCI_fix_bidir', 'U3_PCMCI_fix_bidir', 'U3_PCMCI_fix_bidir'])
+        weights_scheme.extend(['U3_mean_error', 'U3_mean_error', 'U3_mean_error'])
         #################################################################################################
         # ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         # WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
@@ -344,35 +327,25 @@ if __name__ == '__main__':
         #             item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
         #             item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
         # ErrType.extend(['omm', 'omm', 'omm'])
-        # weights_scheme.extend(['U3_PCMCI_fix_bidir', 'U3_PCMCI_fix_bidir', 'U3_PCMCI_fix_bidir'])
+        # weights_scheme.extend(['U3_mean_error', 'U3_mean_error', 'U3_mean_error'])
         # ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         # WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
         # Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
         #             item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
         #             item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
         # ErrType.extend(['comm', 'comm', 'comm'])
-        # weights_scheme.extend(['U3_PCMCI_fix_bidir', 'U3_PCMCI_fix_bidir', 'U3_PCMCI_fix_bidir'])
+        # weights_scheme.extend(['U3_mean_error', 'U3_mean_error', 'U3_mean_error'])
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
-        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
-                           undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False,
-                           normalized=True)[err_criteria][0],
-                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
-                           normalized=True)[err_criteria][0]])
+        Err.extend(cal_mean_error(item,err_criteria,0))
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U3_PCMCI_fix_bidir', 'U3_PCMCI_fix_bidir', 'U3_PCMCI_fix_bidir'])
+        weights_scheme.extend(['U3_mean_error', 'U3_mean_error', 'U3_mean_error'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
-        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
-                           undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False,
-                           normalized=True)[err_criteria][1],
-                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
-                           normalized=True)[err_criteria][1]])
+        Err.extend(cal_mean_error(item,err_criteria,1))
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U3_PCMCI_fix_bidir', 'U3_PCMCI_fix_bidir', 'U3_PCMCI_fix_bidir'])
+        weights_scheme.extend(['U3_mean_error', 'U3_mean_error', 'U3_mean_error'])
 
     for item in res16:
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
@@ -385,7 +358,7 @@ if __name__ == '__main__':
                     gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U4_PCMCI_diff_priority', 'U4_PCMCI_diff_priority', 'U4_PCMCI_diff_priority'])
+        weights_scheme.extend(['U4_traditional_error', 'U4_traditional_error', 'U4_traditional_error'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
         Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
@@ -396,7 +369,7 @@ if __name__ == '__main__':
                     gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U4_PCMCI_diff_priority', 'U4_PCMCI_diff_priority', 'U4_PCMCI_diff_priority'])
+        weights_scheme.extend(['U4_traditional_error', 'U4_traditional_error', 'U4_traditional_error'])
         #################################################################################################
         # ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         # WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
@@ -404,14 +377,14 @@ if __name__ == '__main__':
         #             item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
         #             item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
         # ErrType.extend(['omm', 'omm', 'omm'])
-        # weights_scheme.extend(['U4_PCMCI_diff_priority', 'U4_PCMCI_diff_priority', 'U4_PCMCI_diff_priority'])
+        # weights_scheme.extend(['U4_traditional_error', 'U4_traditional_error', 'U4_traditional_error'])
         # ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         # WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
         # Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
         #             item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
         #             item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
         # ErrType.extend(['comm', 'comm', 'comm'])
-        # weights_scheme.extend(['U4_PCMCI_diff_priority', 'U4_PCMCI_diff_priority', 'U4_PCMCI_diff_priority'])
+        # weights_scheme.extend(['U4_traditional_error', 'U4_traditional_error', 'U4_traditional_error'])
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
@@ -422,7 +395,7 @@ if __name__ == '__main__':
                     gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][0]])
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U4_PCMCI_diff_priority', 'U4_PCMCI_diff_priority', 'U4_PCMCI_diff_priority'])
+        weights_scheme.extend(['U4_traditional_error', 'U4_traditional_error', 'U4_traditional_error'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
         Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
@@ -432,31 +405,19 @@ if __name__ == '__main__':
                     gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
                            normalized=True)[err_criteria][1]])
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U4_PCMCI_diff_priority', 'U4_PCMCI_diff_priority', 'U4_PCMCI_diff_priority'])
+        weights_scheme.extend(['U4_traditional_error', 'U4_traditional_error', 'U4_traditional_error'])
 
     for item in res19:
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
-        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
-                           item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[
-                        err_criteria][0],
-                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'],
-                           undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
-                           normalized=True)[err_criteria][0]])
+        Err.extend(cal_mean_error(item,err_criteria,0))
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U4_PCMCI_fix_bidir', 'U4_PCMCI_fix_bidir', 'U4_PCMCI_fix_bidir'])
+        weights_scheme.extend(['U4_mean_error', 'U4_mean_error', 'U4_mean_error'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['GuOptVsGest', 'GuOptVsGest', 'GuOptVsGest'])
-        Err.extend([gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'],
-                           item['GuOptVsGest']['network_GT_U_WRT_GuOptVsGest'], undirected=False, normalized=True)[
-                        err_criteria][1],
-                    gk.OCE(item['GuOptVsGest']['Gu_opt_WRT_GuOptVsGest'], item['general']['g_estimated'],
-                           undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['GuOptVsGest']['G1_opt_WRT_GuOptVsGest'], item['general']['GT'], undirected=False,
-                           normalized=True)[err_criteria][1]])
+        Err.extend(cal_mean_error(item,err_criteria,1))
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U4_PCMCI_fix_bidir', 'U4_PCMCI_fix_bidir', 'U4_PCMCI_fix_bidir'])
+        weights_scheme.extend(['U4_mean_error', 'U4_mean_error', 'U4_mean_error'])
         #################################################################################################
         # ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         # WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
@@ -464,35 +425,25 @@ if __name__ == '__main__':
         #             item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][0],
         #             item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][0]])
         # ErrType.extend(['omm', 'omm', 'omm'])
-        # weights_scheme.extend(['U4_PCMCI_fix_bidir', 'U4_PCMCI_fix_bidir', 'U4_PCMCI_fix_bidir'])
+        # weights_scheme.extend(['U4_mean_error', 'U4_mean_error', 'U4_mean_error'])
         # ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         # WRT.extend(['GuOptVsGTu', 'GuOptVsGTu', 'GuOptVsGTu'])
         # Err.extend([item['GuOptVsGTu']['Gu_opt_errors_network_GT_U_WRT_GuOptVsGTu'][1],
         #             item['GuOptVsGTu']['Gu_opt_errors_g_estimated_WRT_GuOptVsGTu'][1],
         #             item['GuOptVsGTu']['G1_opt_error_GT_WRT_GuOptVsGTu'][1]])
         # ErrType.extend(['comm', 'comm', 'comm'])
-        # weights_scheme.extend(['U4_PCMCI_fix_bidir', 'U4_PCMCI_fix_bidir', 'U4_PCMCI_fix_bidir'])
+        # weights_scheme.extend(['U4_mean_error', 'U4_mean_error', 'U4_mean_error'])
         #################################################################################################
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
-        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
-                           undirected=False, normalized=True)[err_criteria][0],
-                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False,
-                           normalized=True)[err_criteria][0],
-                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
-                           normalized=True)[err_criteria][0]])
+        Err.extend(cal_mean_error(item,err_criteria,0))
         ErrType.extend(['omm', 'omm', 'omm'])
-        weights_scheme.extend(['U4_PCMCI_fix_bidir', 'U4_PCMCI_fix_bidir', 'U4_PCMCI_fix_bidir'])
+        weights_scheme.extend(['U4_mean_error', 'U4_mean_error', 'U4_mean_error'])
         ErrVs.extend(['GuVsGTu', 'GuVsGest', 'G1VsGT'])
         WRT.extend(['G1OptVsGT', 'G1OptVsGT', 'G1OptVsGT'])
-        Err.extend([gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['G1OptVsGT']['network_GT_U_WRT_G1OptVsGT'],
-                           undirected=False, normalized=True)[err_criteria][1],
-                    gk.OCE(item['G1OptVsGT']['Gu_opt_WRT_G1OptVsGT'], item['general']['g_estimated'], undirected=False,
-                           normalized=True)[err_criteria][1],
-                    gk.OCE(item['G1OptVsGT']['G1_opt_WRT_G1OptVsGT'], item['general']['GT'], undirected=False,
-                           normalized=True)[err_criteria][1]])
+        Err.extend(cal_mean_error(item,err_criteria,1))
         ErrType.extend(['comm', 'comm', 'comm'])
-        weights_scheme.extend(['U4_PCMCI_fix_bidir', 'U4_PCMCI_fix_bidir', 'U4_PCMCI_fix_bidir'])
+        weights_scheme.extend(['U4_mean_error', 'U4_mean_error', 'U4_mean_error'])
 
     df['Err'] = Err
     df['ErrVs'] = ErrVs
@@ -525,4 +476,4 @@ if __name__ == '__main__':
             ax.set_ylim(0, 1)
     plt.suptitle("calculating " + err_criteria + " errors ", x=0.45, y=1, fontsize=20)
     # plt.show()
-    plt.savefig("figs/PCMCI_my_weights_pr42531_VS_fix_bidir__" + err_criteria + "_error.png")
+    plt.savefig("figs/old_errror_cal_VS_mean_error_" + err_criteria + "_error.png")
