@@ -116,7 +116,7 @@ Gu_opt_errors_network_GT_U_com = []
 Gu_opt_errors_g_estimated_om = []
 Gu_opt_errors_g_estimated_com = []
 
-err_criteria = 'bidirected'
+err_criteria = 'total'
 
 if __name__ == '__main__':
     df = pd.DataFrame()
@@ -525,4 +525,4 @@ if __name__ == '__main__':
             ax.set_ylim(0, 1)
     plt.suptitle("calculating " + err_criteria + " errors ", x=0.45, y=1, fontsize=20)
     # plt.show()
-    plt.savefig("figs/PCMCI_my_weights_pr42531_VS_fix_bidir__" + err_criteria + "_error.png")
+    plt.savefig("figs/PCMCI_my_weights_pr42531_VS_fix_bidir__" + err_criteria + "_error_full_results.png")
