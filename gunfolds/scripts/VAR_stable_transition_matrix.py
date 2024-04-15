@@ -279,17 +279,17 @@ if False:
     g_estimated, A, B = Glag2CG(results)
 
 
-# DD = (np.abs((np.abs(A/np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1))*MAXCOST)).astype(int)
-# BD = (np.abs((np.abs(B/np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1))*MAXCOST)).astype(int)
+DD = (np.abs((np.abs(A/np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1))*MAXCOST)).astype(int)
+BD = (np.abs((np.abs(B/np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1))*MAXCOST)).astype(int)
 
 
-dir_present = normalize_non_zero_elems_matrix((cv.graph2adj(g_estimated))*(np.abs(A)))
-dir_absent = normalize_non_zero_elems_matrix(-np.abs((cv.graph2adj(g_estimated) - 1))*(np.abs(A)))
-DD = ((dir_present + dir_absent) * MAXCOST).astype(int)
-
-bidir_present = normalize_non_zero_elems_matrix((cv.graph2badj(g_estimated))*(np.abs(B)))
-bidir_absent = normalize_non_zero_elems_matrix(-np.abs((cv.graph2badj(g_estimated) - 1))*(np.abs(B)))
-BD = ((bidir_present + bidir_absent) * MAXCOST).astype(int)
+# dir_present = normalize_non_zero_elems_matrix((cv.graph2adj(g_estimated))*(np.abs(A)))
+# dir_absent = normalize_non_zero_elems_matrix(-np.abs((cv.graph2adj(g_estimated) - 1))*(np.abs(A)))
+# DD = ((dir_present + dir_absent) * MAXCOST).astype(int)
+#
+# bidir_present = normalize_non_zero_elems_matrix((cv.graph2badj(g_estimated))*(np.abs(B)))
+# bidir_absent = normalize_non_zero_elems_matrix(-np.abs((cv.graph2badj(g_estimated) - 1))*(np.abs(B)))
+# BD = ((bidir_present + bidir_absent) * MAXCOST).astype(int)
 
 GT_at_actual_U = bfutils.undersample(GT, u_rate)
 
