@@ -16,7 +16,7 @@ from progressbar import ProgressBar, Percentage
 from numpy import linalg as la
 import networkx as nx
 from math import log
-
+from gunfolds.viz import gtool as gt
 
 CLINGO_LIMIT = 64
 PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
@@ -34,8 +34,11 @@ parser.add_argument("-d", "--DEN", default=0.14, help="density of graph", type=s
 parser.add_argument("-g", "--GTYPE", default="f", help="true for ringmore graph, false for random graph", type=str)
 parser.add_argument("-t", "--TIMEOUT", default=120, help="timeout in hours", type=int)
 parser.add_argument("-r", "--THRESHOLD", default=5, help="threshold for SVAR", type=int)
-parser.add_argument("-s", "--SCC", default="t", help="true to use SCC structure, false to not", type=str)
-parser.add_argument("-m", "--SCCMEMBERS", default="t", help="true for using g_estimate SCC members, false for using "
+parser.add_argument("-z", "--NOISE", default=10, help="noise str multiplied by 100", type=int)
+parser.add_argument("-i", "--GMIN", default=3, help="min of random nitialization gor g mask multiplied by 10", type=int)
+parser.add_argument("-a", "--GMAX", default=7, help="max of random nitialization gor g mask multiplied by 10", type=int)
+parser.add_argument("-s", "--SCC", default="f", help="true to use SCC structure, false to not", type=str)
+parser.add_argument("-m", "--SCCMEMBERS", default="f", help="true for using g_estimate SCC members, false for using "
                                                             "GT SCC members", type=str)
 parser.add_argument("-u", "--UNDERSAMPLING", default=2, help="sampling rate in generated data", type=int)
 parser.add_argument("-x", "--MAXU", default=15, help="maximum number of undersampling to look for solution.", type=int)
@@ -50,18 +53,10 @@ SCC = True if SCC_members else SCC
 u_rate = args.UNDERSAMPLING
 k_threshold = args.THRESHOLD
 EDGE_CUTOFF = 0.01
-noise_svar = 0.1
+noise_svar = args.NOISE / 100
+GMIN = args.GMIN / 10
+GMAX = args.GMAX / 10
 
-drop_bd_normed_errors_comm = []
-drop_bd_normed_errors_omm = []
-dir_errors_omm = []
-dir_errors_comm = []
-opt_dir_errors_omm = []
-opt_dir_errors_comm = []
-g_dir_errors_omm = []
-g_dir_errors_comm = []
-Gu_opt_dir_errors_omm = []
-Gu_opt_dir_errors_comm = []
 error_normalization = True
 
 def round_tuple_elements(input_tuple, decimal_points=3):
@@ -142,23 +137,7 @@ def rmBidirected(gu):
 
 
 def transitionMatrix4(g, minstrength=0.1, distribution='normal', maxtries=1000):
-    """
-    :param g: ``gunfolds`` graph
-    :type g: dictionary (``gunfolds`` graph)
 
-    :param minstrength:
-    :type minstrength: float
-
-    :param distribution: (GUESS)distribution from which to sample the weights. Available
-     options are flat, flatsigned, beta, normal, uniform
-    :type distribution: string
-
-    :param maxtries:
-    :type maxtries: (guess)integer
-
-    :returns:
-    :rtype:
-    """
     A = cv.graph2adj(g)
     edges = np.where(A == 1)
     s = 2.0
@@ -185,41 +164,7 @@ def transitionMatrix4(g, minstrength=0.1, distribution='normal', maxtries=1000):
 
 # def genData(A, rate=2, burnin=100, ssize=2000, noise=0.1, dist='beta'):
 def genData(A, rate=2, burnin=100, ssize=5000, noise=0.1, dist='normal'):
-    """
-    Given a number of nodes this function randomly generates a ring
-    SCC and the corresponding stable transition matrix. It tries until
-    succeeds and for some graph densities and parameters of the
-    distribution of transition matrix values it may take
-    forever. Please play with the dist parameter to stableVAR. Then
-    using this transition matrix it generates `ssize` samples of data
-    and undersamples them by `rate` discarding the `burnin` number of
-    samples at the beginning.
 
-    :param n: number of nodes in the desired graph
-    :type n: (guess)integer
-
-    :param rate: undersampling rate (1 - no undersampling)
-    :type rate: integer
-
-    :param density: density of the graph to be generted
-    :type density: (guess) float
-
-    :param burnin: number of samples to discard since the beginning of VAR sampling
-    :type burnin: integer
-
-    :param ssize: how many samples to keep at the causal sampling rate
-    :type ssize: (guess)integer
-
-    :param noise: noise standard deviation for the VAR model
-    :type noise: (guess)float
-
-    :param dist: (GUESS)distribution from which to sample the weights. Available
-     options are flat, flatsigned, beta, normal, uniform
-    :type dist: (guess)string
-
-    :returns:
-    :rtype:
-    """
     Agt = A
     data = drawsamplesLG(Agt, samples=burnin + (ssize * rate), nstd=noise)
     data = data[:, burnin:]
@@ -227,19 +172,7 @@ def genData(A, rate=2, burnin=100, ssize=5000, noise=0.1, dist='normal'):
 
 
 def drawsamplesLG(A, nstd=0.1, samples=100):
-    """
-    :param A:
-    :type A:
 
-    :param nstd:
-    :type nstd: float
-
-    :param samples:
-    :type samples: integer
-
-    :returns:
-    :rtype:
-    """
     n = A.shape[0]
     data = np.zeros([n, samples])
     data[:, 0] = nstd * np.random.randn(A.shape[0])
@@ -249,22 +182,7 @@ def drawsamplesLG(A, nstd=0.1, samples=100):
 
 
 def drawsamplesMA(A, nstd=0.1, samples=100, order=5):
-    """
-    :param A:
-    :type A:
 
-    :param nstd:
-    :type nstd: float
-
-    :param samples:
-    :type samples: integer
-
-    :param order:
-    :type order: integer
-
-    :returns:
-    :rtype:
-    """
     n = A.shape[0]
     data = scipy.zeros([n, samples])
     data[:, 0] = nstd * scipy.random.randn(A.shape[0])
@@ -282,19 +200,7 @@ def drawsamplesMA(A, nstd=0.1, samples=100, order=5):
 
 
 def AB2intAB_1(A, B, th=0.09):
-    """
-    :param A:
-    :type A:
 
-    :param B:
-    :type B:
-
-    :param th: (GUESS)threshold for discarding edges in A and B
-    :type th: float
-
-    :returns:
-    :rtype:
-    """
 
     A[amap(lambda x: abs(x) > th, A)] = 1
     A[amap(lambda x: abs(x) < 1, A)] = 0
@@ -305,16 +211,7 @@ def AB2intAB_1(A, B, th=0.09):
 
 
 def amap(f, a):
-    """
-    :param f:
-    :type f:
 
-    :param a:
-    :type a:
-
-    :returns:
-    :rtype:
-    """
     v = np.vectorize(f)
     return v(a)
 
@@ -333,24 +230,25 @@ but this function will be bad for singleton nodes - it will add a self loop to a
  :slightly_smiling_face: Please do not apply it to singleton SCCs
 '''
 print('_____________________________________________')
-dataset = zkl.load('datasets/ringmore_n10d13.zkl')
+dataset = zkl.load('datasets/ringmore_n8d14.zkl')
 GT = dataset[args.BATCH-1]
 mask = cv.graph2adj(GT)
-
-G = np.clip(np.random.randn(*mask.shape) * 0.2 + 0.5, 0.3, 0.7)
+G2= lm.transitionMatrix(GT,0.5)
+G = np.clip(np.random.randn(*mask.shape) * 0.2 + 0.5, GMIN, GMAX)
 Con_mat = G * mask
-
+# Con_mat =  mask
 w, v = la.eig(Con_mat)
 res = all(ele <= 1 for ele in abs(w))
 
 while not res:
-    G = np.clip(np.random.randn(*mask.shape) * 0.2 + 0.5, 0.3, 0.7)
+    G = np.clip(np.random.randn(*mask.shape) * 0.2 + 0.5, GMIN, GMAX)
     Con_mat = G * mask
     w, v = la.eig(Con_mat)
     res = all(ele <= 1 for ele in abs(w))
 
 '''SVAR'''
-dd = genData(Con_mat, rate=u_rate, ssize=2000*u_rate, noise=noise_svar)  # data.values
+dd = genData(Con_mat, rate=u_rate, ssize=8000, noise=noise_svar)  # data.values
+dd2 = genData(Con_mat, rate=u_rate, ssize=8000, noise=noise_svar*100)
 
 # if Using_SVAR:
 MAXCOST = 10000
@@ -540,6 +438,7 @@ results = {'general':{'method': PreFix,
            'graphType': graphType,
            'intended_u_rate': u_rate,
            'noise_svar': noise_svar,
+           'full_sols':r_estimated,
            'jaccard_similarity': jaccard_similarity,
            'g_estimated_errors_GT_at_actual_U': g_estimated_errors_GT_at_actual_U,
            'num_edges': gk.density(GT) * len(GT) * len(GT),
@@ -574,10 +473,11 @@ results = {'general':{'method': PreFix,
            }}
 
 '''saving files'''
-filename = 'nodes_' + str(args.NODE) + '_density_' + str(DENSITY) + '_undersampling_' + str(args.UNDERSAMPLING) + \
+filename = 'full_sols_nodes_' + str(args.NODE) + '_density_' + str(DENSITY) + '_undersampling_' + str(args.UNDERSAMPLING) + \
            '_' + PreFix + '_optN_gt_den_priority2_dataset_' + POSTFIX + '_' + graphType + '_CAPSIZE_' + str(args.CAPSIZE) + '_batch_' + \
            str(args.BATCH) + '_pnum_' + str(args.PNUM) + '_timeout_' + str(args.TIMEOUT) + '_threshold_' + \
-           str(args.THRESHOLD) + '_maxu_' + str(args.MAXU) + '_sccMember_' + str(SCC_members) + '_SCC_' + str(SCC)
+           str(args.THRESHOLD) + '_noise_' + str(args.NOISE) + '_GMIN' + str(args.GMIN) + '_GMAX_' + str(args.GMAX) + \
+           '_maxu_' + str(args.MAXU) + '_sccMember_' + str(SCC_members) + '_SCC_' + str(SCC)
 folder = 'res_simulation'
 if not os.path.exists(folder):
     os.makedirs(folder)

@@ -12,17 +12,19 @@ from gunfolds.utils import graphkit as gk
 from gunfolds.utils.calc_procs import get_process_count
 from gunfolds.estimation import linear_model as lm
 from gunfolds import conversions as cv
-from progressbar import ProgressBar, Percentage
 from numpy import linalg as la
 import networkx as nx
 from math import log
-
+from gunfolds.viz import gtool as gt
+import scipy.sparse as sp
+from scipy.sparse.linalg import eigs
+from matplotlib import pyplot as plt
+from matplotlib import cm
 
 CLINGO_LIMIT = 64
 PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
-POSTFIX = 'linear_simu_continous_weights_dataset_ringmore'
+POSTFIX = 'VAR_stable_trans_mat_nonlinear'
 Using_SVAR = True
-Using_VAR = False
 PreFix = 'SVAR' if Using_SVAR else 'GC'
 parser = argparse.ArgumentParser(description='Run settings.')
 parser.add_argument("-c", "--CAPSIZE", default=0,
@@ -34,8 +36,10 @@ parser.add_argument("-d", "--DEN", default=0.14, help="density of graph", type=s
 parser.add_argument("-g", "--GTYPE", default="f", help="true for ringmore graph, false for random graph", type=str)
 parser.add_argument("-t", "--TIMEOUT", default=120, help="timeout in hours", type=int)
 parser.add_argument("-r", "--THRESHOLD", default=5, help="threshold for SVAR", type=int)
-parser.add_argument("-s", "--SCC", default="t", help="true to use SCC structure, false to not", type=str)
-parser.add_argument("-m", "--SCCMEMBERS", default="t", help="true for using g_estimate SCC members, false for using "
+parser.add_argument("-l", "--MINLINK", default=2, help=" lower threshold transition matrix abs value x10", type=int)
+parser.add_argument("-z", "--NOISE", default=10, help="noise str multiplied by 100", type=int)
+parser.add_argument("-s", "--SCC", default="f", help="true to use SCC structure, false to not", type=str)
+parser.add_argument("-m", "--SCCMEMBERS", default="f", help="true for using g_estimate SCC members, false for using "
                                                             "GT SCC members", type=str)
 parser.add_argument("-u", "--UNDERSAMPLING", default=2, help="sampling rate in generated data", type=int)
 parser.add_argument("-x", "--MAXU", default=15, help="maximum number of undersampling to look for solution.", type=int)
@@ -50,46 +54,61 @@ SCC = True if SCC_members else SCC
 u_rate = args.UNDERSAMPLING
 k_threshold = args.THRESHOLD
 EDGE_CUTOFF = 0.01
-noise_svar = 0.1
+noise_svar = args.NOISE / 100
 
-drop_bd_normed_errors_comm = []
-drop_bd_normed_errors_omm = []
-dir_errors_omm = []
-dir_errors_comm = []
-opt_dir_errors_omm = []
-opt_dir_errors_comm = []
-g_dir_errors_omm = []
-g_dir_errors_comm = []
-Gu_opt_dir_errors_omm = []
-Gu_opt_dir_errors_comm = []
 error_normalization = True
 
 def round_tuple_elements(input_tuple, decimal_points=3):
     return tuple(round(elem, decimal_points) if isinstance(elem, (int, float)) else elem for elem in input_tuple)
 
 
-def partition_distance(G1, G2):
-    # Get strongly connected components of the graphs
-    scc1 = list(nx.strongly_connected_components(G1))
-    scc2 = list(nx.strongly_connected_components(G2))
 
-    # Calculate variation of information
-    vi = 0
-    for s1 in scc1:
-        for s2 in scc2:
-            intersection = len(s1.intersection(s2))
-            if intersection > 0:
-                vi += intersection * (log(intersection) - log(len(s1)) - log(len(s2)))
+def check_matrix_powers(W, A, powers, threshold):
+    for n in powers:
+        W_n = np.linalg.matrix_power(W, n)
+        non_zero_indices = np.nonzero(W_n)
+        if (np.abs(W_n[non_zero_indices]) < threshold).any():
+            return False
+    return True
 
-    # Multiply by 2 because we considered each pair twice
-    vi *= 2
 
-    # Normalize by log of the total number of nodes (assuming the graphs have the same nodes)
-    vi /= log(len(G1.nodes))
+def create_stable_weighted_matrix(
+    A,
+    threshold=0.1,
+    powers=[1, 2, 3, 4],
+    max_attempts=100000,
+    damping_factor=0.99,
+    random_state=None,
+):
+    np.random.seed(
+        random_state
+    )  # Set random seed for reproducibility if provided
+    attempts = 0
 
-    # Return partition distance as the variation of information
-    return vi
+    while attempts < max_attempts:
+        # Generate a random matrix with the same sparsity pattern as A
+        random_weights = np.random.randn(*A.shape)
+        weighted_matrix = A * random_weights
 
+        # Convert to sparse format for efficient eigenvalue computation
+        weighted_sparse = sp.csr_matrix(weighted_matrix)
+
+        # Compute the largest eigenvalue in magnitude
+        eigenvalues, _ = eigs(weighted_sparse, k=1, which="LM")
+        max_eigenvalue = np.abs(eigenvalues[0])
+
+        # Scale the matrix so that the spectral radius is slightly less than 1
+        if max_eigenvalue > 0:
+            weighted_matrix *= damping_factor / max_eigenvalue
+            # Check if the powers of the matrix preserve the threshold for non-zero entries of A
+            if check_matrix_powers(weighted_matrix, A, powers, threshold):
+                return weighted_matrix
+
+        attempts += 1
+
+    raise ValueError(
+        f"Unable to create a matrix satisfying the condition after {max_attempts} attempts."
+    )
 
 def get_strongly_connected_components(graph):
     return [c for c in nx.strongly_connected_components(graph)]
@@ -118,128 +137,23 @@ def quantify_graph_difference(graph1, graph2):
     return jaccard_similarity
 
 
-def makeConnected(G):
-    # Get weakly connected components of the graph
-    weakly_connected_components = list(nx.weakly_connected_components(G))
-
-    # Connect weakly connected components
-    for i in range(len(weakly_connected_components) - 1):
-        # Add edge between first nodes of consecutive components
-        G.add_edge(list(weakly_connected_components[i])[0], list(weakly_connected_components[i + 1])[0])
-
-    return G
 
 
-def rmBidirected(gu):
-    g = copy.deepcopy(gu)
-    for v in g:
-        for w in list(g[v]):
-            if g[v][w] == 2:
-                del g[v][w]
-            elif g[v][w] == 3:
-                g[v][w] = 1
-    return g
 
 
-def transitionMatrix4(g, minstrength=0.1, distribution='normal', maxtries=1000):
-    """
-    :param g: ``gunfolds`` graph
-    :type g: dictionary (``gunfolds`` graph)
-
-    :param minstrength:
-    :type minstrength: float
-
-    :param distribution: (GUESS)distribution from which to sample the weights. Available
-     options are flat, flatsigned, beta, normal, uniform
-    :type distribution: string
-
-    :param maxtries:
-    :type maxtries: (guess)integer
-
-    :returns:
-    :rtype:
-    """
-    A = cv.graph2adj(g)
-    edges = np.where(A == 1)
-    s = 2.0
-    c = 0
-    pbar = ProgressBar(widgets=['Searching for weights: ',
-                                Percentage(), ' '],
-                       maxval=maxtries).start()
-    while s > 1.0:
-        minstrength -= 0.001
-        A = lm.initRandomMatrix(A, edges, distribution=distribution)
-        x = A[edges]
-        delta = minstrength / np.min(np.abs(x))
-        A[edges] = delta * x
-        l = lm.linalg.eig(A)[0]
-        s = np.max(np.real(l * scipy.conj(l)))
-        c += 1
-        if c > maxtries:
-            return None
-        pbar.update(c)
-    pbar.finish()
-
-    return A
 
 
 # def genData(A, rate=2, burnin=100, ssize=2000, noise=0.1, dist='beta'):
 def genData(A, rate=2, burnin=100, ssize=5000, noise=0.1, dist='normal'):
-    """
-    Given a number of nodes this function randomly generates a ring
-    SCC and the corresponding stable transition matrix. It tries until
-    succeeds and for some graph densities and parameters of the
-    distribution of transition matrix values it may take
-    forever. Please play with the dist parameter to stableVAR. Then
-    using this transition matrix it generates `ssize` samples of data
-    and undersamples them by `rate` discarding the `burnin` number of
-    samples at the beginning.
 
-    :param n: number of nodes in the desired graph
-    :type n: (guess)integer
-
-    :param rate: undersampling rate (1 - no undersampling)
-    :type rate: integer
-
-    :param density: density of the graph to be generted
-    :type density: (guess) float
-
-    :param burnin: number of samples to discard since the beginning of VAR sampling
-    :type burnin: integer
-
-    :param ssize: how many samples to keep at the causal sampling rate
-    :type ssize: (guess)integer
-
-    :param noise: noise standard deviation for the VAR model
-    :type noise: (guess)float
-
-    :param dist: (GUESS)distribution from which to sample the weights. Available
-     options are flat, flatsigned, beta, normal, uniform
-    :type dist: (guess)string
-
-    :returns:
-    :rtype:
-    """
-    Agt = A
-    data = drawsamplesLG(Agt, samples=burnin + (ssize * rate), nstd=noise)
+    Agt = np.linalg.matrix_power(A, rate)
+    data = drawsamplesLG(Agt, samples=burnin + (ssize), nstd=noise)
     data = data[:, burnin:]
-    return data[:, ::rate]
+    return data
 
 
 def drawsamplesLG(A, nstd=0.1, samples=100):
-    """
-    :param A:
-    :type A:
 
-    :param nstd:
-    :type nstd: float
-
-    :param samples:
-    :type samples: integer
-
-    :returns:
-    :rtype:
-    """
     n = A.shape[0]
     data = np.zeros([n, samples])
     data[:, 0] = nstd * np.random.randn(A.shape[0])
@@ -248,75 +162,10 @@ def drawsamplesLG(A, nstd=0.1, samples=100):
     return data
 
 
-def drawsamplesMA(A, nstd=0.1, samples=100, order=5):
-    """
-    :param A:
-    :type A:
-
-    :param nstd:
-    :type nstd: float
-
-    :param samples:
-    :type samples: integer
-
-    :param order:
-    :type order: integer
-
-    :returns:
-    :rtype:
-    """
-    n = A.shape[0]
-    data = scipy.zeros([n, samples])
-    data[:, 0] = nstd * scipy.random.randn(A.shape[0])
-    for i in range(1, samples):
-        if i > order:
-            result = 0
-            for j in range(order):
-                result += np.dot(1 / (j + 1) * A, data[:, i - 1 - j]) \
-                          + nstd * np.dot(1 / (j + 1) * A, scipy.random.randn(A.shape[0]))
-            data[:, i] = result
-        else:
-            data[:, i] = scipy.dot(A, data[:, i - 1]) \
-                         + nstd * scipy.random.randn(A.shape[0])
-    return data
 
 
-def AB2intAB_1(A, B, th=0.09):
-    """
-    :param A:
-    :type A:
-
-    :param B:
-    :type B:
-
-    :param th: (GUESS)threshold for discarding edges in A and B
-    :type th: float
-
-    :returns:
-    :rtype:
-    """
-
-    A[amap(lambda x: abs(x) > th, A)] = 1
-    A[amap(lambda x: abs(x) < 1, A)] = 0
-    B[amap(lambda x: abs(x) > th, B)] = 1
-    B[amap(lambda x: np.abs(x) < 1, B)] = 0
-    np.fill_diagonal(B, 0)
-    return A, B
 
 
-def amap(f, a):
-    """
-    :param f:
-    :type f:
-
-    :param a:
-    :type a:
-
-    :returns:
-    :rtype:
-    """
-    v = np.vectorize(f)
-    return v(a)
 
 '''
 if you get a graph G_1 that is a DAG (directed acyclic graph), i.e. all SCCs are singletons (each node is its own SCC)
@@ -333,37 +182,32 @@ but this function will be bad for singleton nodes - it will add a self loop to a
  :slightly_smiling_face: Please do not apply it to singleton SCCs
 '''
 print('_____________________________________________')
-dataset = zkl.load('datasets/ringmore_n10d13.zkl')
+dataset = zkl.load('datasets/ringmore_n8d14.zkl')
 GT = dataset[args.BATCH-1]
-mask = cv.graph2adj(GT)
+A = cv.graph2adj(GT)
+W = create_stable_weighted_matrix(A, threshold=args.MINLINK/10, powers=[2, 3, 4])
 
-G = np.clip(np.random.randn(*mask.shape) * 0.2 + 0.5, 0.3, 0.7)
-Con_mat = G * mask
-
-w, v = la.eig(Con_mat)
-res = all(ele <= 1 for ele in abs(w))
-
-while not res:
-    G = np.clip(np.random.randn(*mask.shape) * 0.2 + 0.5, 0.3, 0.7)
-    Con_mat = G * mask
-    w, v = la.eig(Con_mat)
-    res = all(ele <= 1 for ele in abs(w))
+for i in range(1,10):
+    plt.subplot(3,3,i)
+    M = np.linalg.matrix_power(W,i)
+    plt.imshow(M,interpolation="none",cmap=cm.seismic)
+    plt.colorbar()
+    plt.axis('off')
+    plt.clim([-np.abs(M).max(),np.abs(M).max()])
+    plt.title('u='+str(i))
+plt.show()
 
 '''SVAR'''
-dd = genData(Con_mat, rate=u_rate, ssize=2000*u_rate, noise=noise_svar)  # data.values
+dd = genData(W, rate=u_rate, ssize=8000, noise=noise_svar)  # data.values
 
-# if Using_SVAR:
+
 MAXCOST = 10000
 g_estimated, A, B = lm.data2graph(dd, th=EDGE_CUTOFF * k_threshold)
 DD = (np.abs((np.abs(A/np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1))*MAXCOST)).astype(int)
 BD = (np.abs((np.abs(B/np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1))*MAXCOST)).astype(int)
-# else:
-#     g_estimated = gc.gc(dd.T, pval=0.005)
 
 GT_at_actual_U = bfutils.undersample(GT, u_rate)
-# g = {1: {2: 1}, 2: {3: 1}, 3: {4: 1, 1: 1}, 4: {5: 1}, 5: {6: 1, 1: 1}, 6: {1: 1, 5: 1}, 7: {8: 1}, 8: {9: 1, 12: 1}, 9: {10: 1, 8: 1}, 10: {11: 1}, 11: {12: 1}, 12: {7: 1, 12: 1}, 13: {14: 1, 17: 1}, 14: {15: 1, 18: 1}, 15: {16: 1, 17: 1}, 16: {17: 1}, 17: {18: 1}, 18: {13: 1}, 19: {20: 1}, 20: {21: 1, 8: 1}, 21: {22: 1, 23: 1, 40: 1}, 22: {23: 1}, 23: {24: 1, 22: 1, 20: 1, 39: 1}, 24: {19: 1}, 25: {26: 1}, 26: {27: 1}, 27: {28: 1, 25: 1}, 28: {29: 1}, 29: {30: 1, 25: 1, 28: 1}, 30: {25: 1}, 31: {32: 1}, 32: {33: 1, 36: 1}, 33: {34: 1, 1: 1, 30: 1}, 34: {35: 1, 28: 1}, 35: {36: 1, 31: 1}, 36: {31: 1, 35: 1}, 37: {38: 1, 41: 1}, 38: {39: 1, 42: 1}, 39: {40: 1, 38: 1}, 40: {41: 1}, 41: {42: 1}, 42: {37: 1}, 43: {44: 1}, 44: {45: 1, 48: 1, 13: 1, 37: 1}, 45: {46: 1, 47: 1}, 46: {47: 1, 17: 1, 34: 1}, 47: {48: 1, 46: 1, 36: 1, 42: 1}, 48: {43: 1}, 49: {50: 1}, 50: {51: 1, 49: 1}, 51: {52: 1}, 52: {53: 1, 54: 1}, 53: {54: 1, 50: 1, 28: 1}, 54: {49: 1, 25: 1}}
-# XX = gk.graph2nx(g)
-# partition_distance(XX, XX)
+
 jaccard_similarity = quantify_graph_difference(gk.graph2nx(g_estimated), gk.graph2nx(GT_at_actual_U))
 g_estimated_errors_GT_at_actual_U = \
     gk.OCE(g_estimated, GT_at_actual_U, undirected=False, normalized=error_normalization)['total']
@@ -381,7 +225,7 @@ if SCC_members:
 else:
     members = nx.strongly_connected_components(gk.graph2nx(GT_at_actual_U))
 startTime = int(round(time.time() * 1000))
-# if Using_SVAR:
+
 r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,
                     urate=min(args.MAXU, (3 * len(g_estimated) + 1)),
                     dm=[DD],
@@ -390,9 +234,7 @@ r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,
                     scc_members=members,
                     GT_density=int(1000*gk.density(GT)),
                     edge_weights=(1, 1), pnum=args.PNUM, optim='optN')
-# else:
-#     r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,
-#                         urate=args.MAXU, edge_weights=(1, 1))
+
 endTime = int(round(time.time() * 1000))
 sat_time = endTime - startTime
 
@@ -529,6 +371,7 @@ F = 2 * (gk.density(GT) * len(GT) * len(GT) - min_norm_err['total'][0]) / (
         2 * gk.density(GT) * len(GT) * len(GT) - min_norm_err['total'][0] + min_norm_err['total'][1])
 results = {'general':{'method': PreFix,
            'g_estimated': g_estimated,
+           'W': W,
            'dm': DD,
            'bdm': BD,
            'optim_cost': sorted_data[-1][1],
@@ -540,6 +383,7 @@ results = {'general':{'method': PreFix,
            'graphType': graphType,
            'intended_u_rate': u_rate,
            'noise_svar': noise_svar,
+           'full_sols':r_estimated,
            'jaccard_similarity': jaccard_similarity,
            'g_estimated_errors_GT_at_actual_U': g_estimated_errors_GT_at_actual_U,
            'num_edges': gk.density(GT) * len(GT) * len(GT),
@@ -574,10 +418,11 @@ results = {'general':{'method': PreFix,
            }}
 
 '''saving files'''
-filename = 'nodes_' + str(args.NODE) + '_density_' + str(DENSITY) + '_undersampling_' + str(args.UNDERSAMPLING) + \
+filename = 'full_sols_nodes_' + str(args.NODE) + '_density_' + str(DENSITY) + '_undersampling_' + str(args.UNDERSAMPLING) + \
            '_' + PreFix + '_optN_gt_den_priority2_dataset_' + POSTFIX + '_' + graphType + '_CAPSIZE_' + str(args.CAPSIZE) + '_batch_' + \
            str(args.BATCH) + '_pnum_' + str(args.PNUM) + '_timeout_' + str(args.TIMEOUT) + '_threshold_' + \
-           str(args.THRESHOLD) + '_maxu_' + str(args.MAXU) + '_sccMember_' + str(SCC_members) + '_SCC_' + str(SCC)
+           str(args.THRESHOLD) + '_noise_' + str(args.NOISE)  + '_MINLINK_' +str(args.MINLINK) + \
+           '_maxu_' + str(args.MAXU) + '_sccMember_' + str(SCC_members) + '_SCC_' + str(SCC)
 folder = 'res_simulation'
 if not os.path.exists(folder):
     os.makedirs(folder)
