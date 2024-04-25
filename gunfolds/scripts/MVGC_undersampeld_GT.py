@@ -1,3 +1,5 @@
+import os
+
 from gunfolds.viz import gtool as gt
 import pickle
 import distutils.util
@@ -199,7 +201,24 @@ def precision_recall_2cycles(graph1, graph2):
 
     return precision, recall
 
-for nn in [2]:
+
+def remove_bidir_edges(input_dict):
+    result_dict = {}
+    for key, inner_dict in input_dict.items():
+        result_dict[key] = {}
+        for inner_key, value in inner_dict.items():
+            if value == 1:
+                result_dict[key][inner_key] = 1
+            elif value == 2:
+                pass  # Skip adding this key-value pair
+            elif value == 3:
+                result_dict[key][inner_key] = 1
+            else:
+                raise ValueError("Invalid value encountered: {}".format(value))
+    return result_dict
+
+
+for nn in [1]:
     save_results = {}
     args.NUMBER = nn
     SL_undir_normed_errors_omm = []
@@ -296,7 +315,10 @@ for nn in [2]:
         network_GT = no_selfloops[args.NUMBER - 1]
         '''SVAR'''
         dd = np.transpose(data.values)
-        savemat('expo_to_mat/expo_to_mat_'+str(fl)+'.mat', {'dd': dd})
+        folder = 'expo_to_mat/expo_to_mat_n'+str(nn)
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        savemat(folder+'/expo_to_mat_'+str(fl)+'.mat', {'dd': dd})
 
     for fl in range(1, 61):
         #######presision and recall (orintattion)
@@ -309,19 +331,19 @@ for nn in [2]:
         MVGC = cv.adjs2graph(mat, np.zeros((5, 5)))
         res_graph = MVGC
         gt.plotg(MVGC, output='./figs/Gopt_GC_' + str(fl) + '.pdf')
-        GT_nx = gk.graph2nx(network_GT_selfloop)
+        new_GT= bfutils.all_undersamples(network_GT_selfloop)[1]
+        new_GT = remove_bidir_edges(new_GT)
+        GT_nx = gk.graph2nx(new_GT)
         res_nx = gk.graph2nx(res_graph)
         TP, FP, FN = 0, 0, 0
         for edge in GT_nx.edges():
-            if (edge[1] != edge[0]):
-                if edge in res_nx.edges():
-                    TP += 1
-                else:
-                    FN += 1
+            if edge in res_nx.edges():
+                TP += 1
+            else:
+                FN += 1
         for edge in res_nx.edges():
-            if (edge[1] != edge[0]):
-                if edge not in GT_nx.edges():
-                    FP += 1
+            if edge not in GT_nx.edges():
+                FP += 1
         if (TP + FP) != 0 and (TP + FN) != 0:
             Precision_O.append(TP / (TP + FP))
             Recall_O.append(TP / (TP + FN))
@@ -329,24 +351,22 @@ for nn in [2]:
         #######presision and recall (adjacency)
         TP, FP, FN = 0, 0, 0
         for edge in GT_nx.edges() :
-            if (edge[1] != edge[0]):
-                if edge in res_nx.edges() or (edge[1], edge[0]) in res_nx.edges():
-                    if ( (edge[1], edge[0]) in GT_nx.edges()) and (edge[1] != edge[0]):
-                        TP += 0.5
-                    else:
-                        TP += 1
+            if edge in res_nx.edges() or (edge[1], edge[0]) in res_nx.edges():
+                if ( (edge[1], edge[0]) in GT_nx.edges()) and (edge[1] != edge[0]):
+                    TP += 0.5
                 else:
-                    if (edge[1], edge[0]) in GT_nx.edges() and (edge[1] != edge[0]):
-                        FN += 0.5
-                    else:
-                        FN += 1
+                    TP += 1
+            else:
+                if (edge[1], edge[0]) in GT_nx.edges() and (edge[1] != edge[0]):
+                    FN += 0.5
+                else:
+                    FN += 1
         for edge in res_nx.edges():
-            if (edge[1] != edge[0]):
-                if not(edge in GT_nx.edges() or (edge[1], edge[0]) in GT_nx.edges()):
-                    if  ((edge[1], edge[0]) in res_nx.edges()) and (edge[1] != edge[0]):
-                        FP += 0.5
-                    else:
-                        FP += 1
+            if not(edge in GT_nx.edges() or (edge[1], edge[0]) in GT_nx.edges()):
+                if  ((edge[1], edge[0]) in res_nx.edges()) and (edge[1] != edge[0]):
+                    FP += 0.5
+                else:
+                    FP += 1
         if not (FP%1 == 0 and TP%1 == 0 and FN%1 == 0):
             print('see why')
         if (TP + FP) != 0 and (TP + FN) != 0:
@@ -386,7 +406,7 @@ for nn in [2]:
     now = now[:-7].replace(' ', '_')
 
     ###saving files
-    filename = PreFix + '_res_MVGC_no_selfloop' + str(args.NUMBER) + '_' + now
+    filename = PreFix + '_res_MVGC_undersampled' + str(args.NUMBER) + '_' + now
 
 
     precision_mean = sum(Precision_O) / len(Precision_O)
@@ -421,21 +441,6 @@ for nn in [2]:
     plt.savefig(filename + '_adjacency.png')
     plt.close()
 
-    #####
-    # precision_mean = sum(Precision_A2) / len(Precision_A2)
-    # recall_mean = sum(Recall_A2) / len(Recall_A2)
-    # # Names for the bars
-    # names = ['Precision', 'Recall']
-    # # Mean values for the bars
-    # means = [precision_mean, recall_mean]
-    # # Plotting the bar plot
-    # plt.bar(names, means, color=['blue', 'green'])
-    # plt.ylim(0, 1)
-    # plt.xlabel('Metrics')
-    # plt.ylabel('Mean')
-    # plt.title('Mean of Precision and Recall (adjacency22)')
-    # plt.savefig(filename + '_adjacency22.png')
-    # plt.close()
     #######
 
     precision_mean = sum(Precision_C) / len(Precision_C)
@@ -452,16 +457,4 @@ for nn in [2]:
     plt.title('Mean of Precision and Recall (2 cycle)')
     plt.savefig(filename + '_2_cycle.png')
 
-    # precision_mean = sum(Precision_C2) / len(Precision_C2)
-    # recall_mean = sum(Recall_C2) / len(Recall_C2)
-    # # Names for the bars
-    # names = ['Precision', 'Recall']
-    # # Mean values for the bars
-    # means = [precision_mean, recall_mean]
-    # # Plotting the bar plot
-    # plt.bar(names, means, color=['blue', 'green'])
-    # plt.ylim(0, 1)
-    # plt.xlabel('Metrics')
-    # plt.ylabel('Mean')
-    # plt.title('Mean of Precision and Recall (2 cycle22)')
-    # plt.savefig(filename + '_2_cycle22.png')
+

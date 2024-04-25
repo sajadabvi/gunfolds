@@ -19,16 +19,19 @@ from gunfolds.viz.dbn2latex import output_graph_figure
 from gunfolds import conversions as cv
 import matplotlib.pyplot as plt
 from datetime import datetime
+from tigramite.pcmci import PCMCI
+from tigramite.independence_tests.parcorr import ParCorr
+import tigramite.data_processing as pp
+from gunfolds.conversions import Glag2CG
 
 CLINGO_LIMIT = 64
 PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
-POSTFIX = 'Ruben_data_concat'
-Using_SVAR = True
-PreFix = 'SVAR' if Using_SVAR else 'GC'
+POSTFIX = 'Ruben_data_'
+PreFix = 'PCMCI_'
 parser = argparse.ArgumentParser(description='Run settings.')
-parser.add_argument("-c", "--CAPSIZE", default=10000,
+parser.add_argument("-c", "--CAPSIZE", default=0,
                     help="stop traversing after growing equivalence class to this size.", type=int)
-parser.add_argument("-b", "--BATCH", default=10, help="slurm batch.", type=int)
+parser.add_argument("-b", "--BATCH", default=1, help="slurm batch.", type=int)
 parser.add_argument("-n", "--NUMBER", default=1, help="simple network index.", type=int)
 parser.add_argument("-p", "--PNUM", default=PNUM, help="number of CPUs in machine.", type=int)
 parser.add_argument("-t", "--TIMEOUT", default=12, help="timeout in hours", type=int)
@@ -65,8 +68,11 @@ opt_SL_undir_normed_errors_comm = []
 opt_undir_errors_omm = []
 opt_undir_errors_comm = []
 
+
 def round_tuple_elements(input_tuple, decimal_points=3):
     return tuple(round(elem, decimal_points) if isinstance(elem, (int, float)) else elem for elem in input_tuple)
+
+
 def rmBidirected(gu):
     g = copy.deepcopy(gu)
     for v in g:
@@ -77,6 +83,7 @@ def rmBidirected(gu):
                 g[v][w] = 1
     return g
 
+
 def get_strongly_connected_components(graph):
     return [c for c in nx.strongly_connected_components(graph)]
 
@@ -85,6 +92,7 @@ def calculate_jaccard_similarity(set1, set2):
     intersection = len(set1.intersection(set2))
     union = len(set1.union(set2))
     return intersection / union if union > 0 else 0
+
 
 def quantify_graph_difference(graph1, graph2):
     # Step 1: Find the strongly connected components in both graphs
@@ -102,58 +110,79 @@ def quantify_graph_difference(graph1, graph2):
 
     return jaccard_similarity
 
-def Glag2CG(results):
-    """Converts lag graph format to gunfolds graph format,
-   and A and B matrices representing directed and bidirected edges weights.
 
-   Args:
-       results (dict): A dictionary containing:
-           - 'graph': A 3D NumPy array of shape [N, N, 2] representing the graph structure.
-           - 'val_matrix': A NumPy array of shape [N, N, 2] storing edge weights.
+def precision_recall(answer, network_GT_selfloop):
+    # Precision = True Positives / (True Positives + False Positives)
+    # Recall = True Positives /  (True Positives + False Negatives)
+    results = {}
+    res_graph = bfutils.num2CG(answer[0][0], len(network_GT_selfloop))
+    GT_nx = gk.graph2nx(network_GT_selfloop)
+    res_nx = gk.graph2nx(res_graph)
 
-   Returns:
-       tuple: (graph_dict, A_matrix, B_matrix)
-   """
+    #######precision and recall (orientation)
+    TP, FP, FN = 0, 0, 0
+    for edge in GT_nx.edges():
+        if edge in res_nx.edges():
+            TP += 1
+        else:
+            FN += 1
+    for edge in res_nx.edges():
+        if edge not in GT_nx.edges():
+            FP += 1
+    p_O = (TP / (TP + FP)) if (TP + FP) else 0
+    r_O = (TP / (TP + FN)) if (TP + FN) else 0
+    f1_O = (2 * TP) / (2 * TP + FP + FN) if 2 * TP + FP + FN else 0
 
-    graph_array = results['graph']
-    bidirected_edges = np.where(graph_array == 'o-o', 1, 0).astype(int)
-    directed_edges = np.where(graph_array == '-->', 1, 0).astype(int)
+    #######precision and recall (adjacency)
+    TP, FP, FN = 0, 0, 0
+    for edge in GT_nx.edges():
+        if edge in res_nx.edges() or (edge[1], edge[0]) in res_nx.edges():
+            if ((edge[1], edge[0]) in GT_nx.edges()) and (edge[1] != edge[0]):
+                TP += 0.5
+            else:
+                TP += 1
+        else:
+            if (edge[1], edge[0]) in GT_nx.edges() and (edge[1] != edge[0]):
+                FN += 0.5
+            else:
+                FN += 1
+    for edge in res_nx.edges():
+        if not (edge in GT_nx.edges() or (edge[1], edge[0]) in GT_nx.edges()):
+            if ((edge[1], edge[0]) in res_nx.edges()) and (edge[1] != edge[0]):
+                FP += 0.5
+            else:
+                FP += 1
+    p_A = (TP / (TP + FP)) if (TP + FP) else 0
+    r_A = (TP / (TP + FN)) if (TP + FN) else 0
+    f1_A = (2 * TP) / (2 * TP + FP + FN) if 2 * TP + FP + FN else 0
 
-    graph_dict = cv.adjs2graph(directed_edges[:, :, 1], bidirected_edges[:, :, 0])
-    A_matrix = results['val_matrix'][:, :, 1]
-    B_matrix = results['val_matrix'][:, :, 0]
+    #######precision and recall (2-cycle)
 
-    return graph_dict, A_matrix, B_matrix
+    TP, FP, FN = 0, 0, 0
+    for edge in GT_nx.edges():
+        if not edge[1] == edge[0]:
+            if (edge[1], edge[0]) in GT_nx.edges():
+                if edge in res_nx.edges() and (edge[1], edge[0]) in res_nx.edges():
+                    TP += 1
+                else:
+                    FN += 1
+    for edge in res_nx.edges():
+        if not edge[1] == edge[0]:
+            if (edge[1], edge[0]) in res_nx.edges():
+                if not (edge in GT_nx.edges() and (edge[1], edge[0]) in GT_nx.edges()):
+                    FP += 1
+    p_C = (TP / (TP + FP)) if (TP + FP) else 0
+    r_C = (TP / (TP + FN)) if (TP + FN) else 0
+    f1_C = (2 * TP) / (2 * TP + FP + FN) if 2 * TP + FP + FN else 0
 
-def precision_recall(graph1, graph2):
-    # Convert both graphs to undirected
-    graph1_undirected = graph1.to_undirected()
-    graph2_undirected = graph2.to_undirected()
+    results = {'orientation': {'precision': p_O, 'recall': r_O, 'F1': f1_O},
+               'adjacency': {'precision': p_A, 'recall': r_A, 'F1': f1_A},
+               'cycle': {'precision': p_C, 'recall': r_C, 'F1': f1_C}}
 
-    # Get adjacency matrices
-    adj_matrix1 = nx.adjacency_matrix(graph1_undirected).todense()
-    adj_matrix2 = nx.adjacency_matrix(graph2_undirected).todense()
-
-    # Calculate true positives (intersection of edges)
-    true_positives = np.sum(np.logical_and(adj_matrix1, adj_matrix2))
-
-    # Calculate false positives (edges in graph2 but not in graph1)
-    false_positives = np.sum(np.logical_and(adj_matrix2, np.logical_not(adj_matrix1)))
-
-    # Calculate false negatives (edges in graph1 but not in graph2)
-    false_negatives = np.sum(np.logical_and(adj_matrix1, np.logical_not(adj_matrix2)))
-
-    # Calculate precision
-    precision = true_positives / (true_positives + false_positives) if true_positives + false_positives > 0 else 0
-
-    # Calculate recall
-    recall = true_positives / (true_positives + false_negatives) if true_positives + false_negatives > 0 else 0
-
-    return precision, recall
+    return results
 
 
 for nn in [2]:
-    save_results = {}
     args.NUMBER = nn
     SL_undir_normed_errors_omm = []
     SL_undir_normed_errors_comm = []
@@ -170,9 +199,18 @@ for nn in [2]:
     Recall_A = []
     Precision_C = []
     Recall_C = []
+    Precision_O2 = []
+    Recall_O2 = []
+    Precision_A2 = []
+    Recall_A2 = []
+    Precision_C2 = []
+    Recall_C2 = []
     for fl in range(1, 61):
         num = str(fl) if fl > 9 else '0' + str(fl)
         print('reading file:' + num)
+        if fl == 21:
+            print('skipping file')
+            continue
         data = pd.read_csv(
             './DataSets_Feedbacks/1. Simple_Networks/Network' + str(
                 args.NUMBER) + '_amp/data_fslfilter/BOLDfslfilter_{0}.txt'.format(
@@ -243,89 +281,15 @@ for nn in [2]:
 
         network_GT_selfloop = selfloops[args.NUMBER - 1]
         network_GT = no_selfloops[args.NUMBER - 1]
-        '''SVAR'''
-        dd = np.transpose(data.values)
-        if Using_SVAR:
-            g_estimated, A, B = lm.data2graph(dd, th=EDGE_CUTOFF * k_threshold)
-        else:
-            g_estimated = gc.gc(dd.T, pval=0.005)
-        '''task 1'''  # Compare with Networks as is, dropping bidirected in H_*
-        '''
-        g_noBidirect = rmBidirected(g_gc)
-        drop_bd_errors = gk.OCE(network_GT, g_noBidirect)
-        drop_bd_normed_errors = gk.OCE(network_GT, g_noBidirect, normalized=True)
+        '''PCMCI'''
 
-        SL_drop_bd_errors = gk.OCE(network_GT_selfloop, g_noBidirect)
-        SL_drop_bd_normed_errors = gk.OCE(network_GT_selfloop, g_noBidirect, normalized=True)
-        print(drop_bd_errors, drop_bd_normed_errors, SL_drop_bd_errors,SL_drop_bd_normed_errors)
+        dataframe = pp.DataFrame(data.values)
+        cond_ind_test = ParCorr()
+        pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
+        results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.05)
 
-        SL_drop_bd_normed_errors_omm.append(SL_drop_bd_normed_errors['total'][0])
-        SL_drop_bd_normed_errors_comm.append(SL_drop_bd_normed_errors['total'][1])
-        drop_bd_normed_errors_omm.append(drop_bd_normed_errors['total'][0])
-        drop_bd_normed_errors_comm.append(drop_bd_normed_errors['total'][1])
-        '''
-        '''task 2'''  # Compare with Networks skeleton turning all including bidirected to just undirected edges in H_*
-        '''
+        g_estimated, A, B = Glag2CG(results)
 
-        undir_errors = gk.OCE(g_gc, network_GT, undirected=True, normalized=True)
-        SL_undir_errors =gk.OCE(g_gc, network_GT_selfloop, undirected=True, normalized=True)
-
-        SL_undir_normed_errors_omm.append(SL_undir_errors['undirected'][0])
-        SL_undir_normed_errors_comm.append(SL_undir_errors['undirected'][1])
-        undir_errors_omm.append(undir_errors['undirected'][0])
-        undir_errors_comm.append(undir_errors['undirected'][1])
-        '''
-        '''task 3'''  # Do this after applying sRASL to H_*
-        '''
-        A, B = lm.data2AB(dd.T)
-        DD = (np.abs(cv.graph2adj(g_gc) * A) * 100).astype(int)
-        BD = (np.abs(cv.graph2badj(g_gc) * B) * 100).astype(int)
-        startTime = int(round(time.time() * 1000))
-        r_estimated = drasl([g_gc], weighted=True, dm=[DD], bdm=[BD], capsize=args.CAPSIZE, timeout=TIMEOUT, urate=args.MAXU)
-        endTime = int(round(time.time() * 1000))
-        G1_opt = bfutils.num2CG(r_estimated[0], len(g_gc))
-        Gu_opt = bfutils.undersample(G1_opt, r_estimated[1][0])
-        network_GT_U = bfutils.undersample(network_GT, r_estimated[1][0])
-        network_GT_U_SL = bfutils.undersample(network_GT_selfloop, r_estimated[1][0])
-        print('U rate found to be:' + str(r_estimated[1][0]))
-        undir_error = gk.OCE(Gu_opt, network_GT_U, undirected=True, normalized=True)
-        undir_error_SL = gk.OCE(Gu_opt, network_GT_U_SL, undirected=True, normalized=True)
-
-        SL_undir_normed_errors_omm.append(undir_error_SL['undirected'][0])
-        SL_undir_normed_errors_comm.append(undir_error_SL['undirected'][1])
-        undir_errors_omm.append(undir_error['undirected'][0])
-        undir_errors_comm.append(undir_error['undirected'][1])
-        '''
-        '''task 4'''  # Compute all undersampled versions of Networks
-        # (version with and without self loops everywhere separately)
-        # and compare each with H_* using both procedures above
-
-        '''all_network = bfutils.all_undersamples(network_GT)
-        all_network_SL = bfutils.all_undersamples(network_GT_selfloop)
-        g_noBidirect = rmBidirected(g_estimated)
-        min_error = 10
-        for i in range(len(all_network)):
-            curr_no_bi = rmBidirected(all_network[i])
-            drop_bd_normed_errors = gk.OCE(g_noBidirect, curr_no_bi, normalized=True, undirected=False)
-            if (drop_bd_normed_errors['total'][0] + drop_bd_normed_errors['total'][1]) < min_error:
-                min_error = (drop_bd_normed_errors['total'][0] + drop_bd_normed_errors['total'][1])
-                error_comp = drop_bd_normed_errors
-                min_err_index = i
-        undir_errors_omm.append(error_comp['total'][0])
-        undir_errors_comm.append(error_comp['total'][1])
-
-        min_error2 = 10
-        for j in range(len(all_network_SL)):
-            curr_no_bi = rmBidirected(all_network_SL[j])
-            SL_drop_bd_normed_errors = gk.OCE(g_noBidirect, curr_no_bi, normalized=True, undirected=False)
-            if (SL_drop_bd_normed_errors['total'][0] + SL_drop_bd_normed_errors['total'][1]) < min_error2:
-                min_error2 = (SL_drop_bd_normed_errors['total'][0] + SL_drop_bd_normed_errors['total'][1])
-                error_comp2 = SL_drop_bd_normed_errors
-                min_err_index = j
-        SL_undir_normed_errors_omm.append(error_comp2['total'][0])
-        SL_undir_normed_errors_comm.append(error_comp2['total'][1])'''
-
-        '''task 5''' # full sRASL optimization
         MAXCOST = 10000
         DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
         BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
@@ -334,7 +298,6 @@ for nn in [2]:
             members = nx.strongly_connected_components(gk.graph2nx(g_estimated))
         else:
             members = nx.strongly_connected_components(gk.graph2nx(network_GT_selfloop))
-        startTime = int(round(time.time() * 1000))
 
         startTime = int(round(time.time() * 1000))
         r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,
@@ -354,10 +317,12 @@ for nn in [2]:
         min_val = 1000000
         min_cost = 10000000
         for answer in r_estimated:
-            curr_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(network_GT_selfloop)), answer[0][1][0]),
-                                 g_estimated)
-            curr_normed_errors = gk.OCE(bfutils.undersample(bfutils.num2CG(answer[0][0], len(network_GT_selfloop)), answer[0][1][0]),
-                                        g_estimated, normalized=True)
+            curr_errors = gk.OCE(
+                bfutils.undersample(bfutils.num2CG(answer[0][0], len(network_GT_selfloop)), answer[0][1][0]),
+                g_estimated)
+            curr_normed_errors = gk.OCE(
+                bfutils.undersample(bfutils.num2CG(answer[0][0], len(network_GT_selfloop)), answer[0][1][0]),
+                g_estimated, normalized=True)
             curr_cost = answer[1]
             if (curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
                 min_err = curr_errors
@@ -382,19 +347,18 @@ for nn in [2]:
         network_GT_U_WRT_GuOptVsGest = bfutils.undersample(network_GT_selfloop, min_answer_WRT_GuOptVsGest[0][1][0])
 
         Gu_opt_errors_network_GT_U_WRT_GuOptVsGest = \
-        gk.OCE(Gu_opt_WRT_GuOptVsGest, network_GT_U_WRT_GuOptVsGest, undirected=False, normalized=True)[
-            'total']
+            gk.OCE(Gu_opt_WRT_GuOptVsGest, network_GT_U_WRT_GuOptVsGest, undirected=False, normalized=True)[
+                'total']
         Gu_opt_errors_g_estimated_WRT_GuOptVsGest = \
-        gk.OCE(Gu_opt_WRT_GuOptVsGest, g_estimated, undirected=False, normalized=True)['total']
+            gk.OCE(Gu_opt_WRT_GuOptVsGest, g_estimated, undirected=False, normalized=True)['total']
         G1_opt_error_GT_WRT_GuOptVsGest = \
-        gk.OCE(G1_opt_WRT_GuOptVsGest, network_GT_selfloop, undirected=False, normalized=True)['total']
+            gk.OCE(G1_opt_WRT_GuOptVsGest, network_GT_selfloop, undirected=False, normalized=True)['total']
         print('*******************************************')
         print('results with respect to Gu_opt Vs. G_estimate ')
         print('U rate found to be:' + str(min_answer_WRT_GuOptVsGest[0][1][0]))
         print('Gu_opt_errors_network_GT_U = ', round_tuple_elements(Gu_opt_errors_network_GT_U_WRT_GuOptVsGest))
         print('Gu_opt_errors_g_estimated', round_tuple_elements(Gu_opt_errors_g_estimated_WRT_GuOptVsGest))
         print('G1_opt_error_GT', round_tuple_elements(G1_opt_error_GT_WRT_GuOptVsGest))
-
 
         SL_undir_normed_errors_omm.append(G1_opt_error_GT_WRT_GuOptVsGest[0])
         SL_undir_normed_errors_comm.append(G1_opt_error_GT_WRT_GuOptVsGest[1])
@@ -406,7 +370,8 @@ for nn in [2]:
         min_cost = 10000000
         for answer in r_estimated:
             curr_errors = gk.OCE(bfutils.num2CG(answer[0][0], len(network_GT_selfloop)), network_GT_selfloop)
-            curr_normed_errors = gk.OCE(bfutils.num2CG(answer[0][0], len(network_GT_selfloop)), network_GT_selfloop, normalized=True)
+            curr_normed_errors = gk.OCE(bfutils.num2CG(answer[0][0], len(network_GT_selfloop)), network_GT_selfloop,
+                                        normalized=True)
             curr_cost = answer[1]
             if (curr_errors['total'][0] + curr_errors['total'][1]) < min_val:
                 min_err = curr_errors
@@ -431,12 +396,12 @@ for nn in [2]:
         network_GT_U_WRT_G1OptVsGT = bfutils.undersample(network_GT_selfloop, min_answer_WRT_G1OptVsGT[0][1][0])
 
         Gu_opt_errors_network_GT_U_WRT_G1OptVsGT = \
-        gk.OCE(Gu_opt_WRT_G1OptVsGT, network_GT_U_WRT_G1OptVsGT, undirected=False, normalized=True)[
-            'total']
+            gk.OCE(Gu_opt_WRT_G1OptVsGT, network_GT_U_WRT_G1OptVsGT, undirected=False, normalized=True)[
+                'total']
         Gu_opt_errors_g_estimated_WRT_G1OptVsGT = \
-        gk.OCE(Gu_opt_WRT_G1OptVsGT, g_estimated, undirected=False, normalized=True)['total']
+            gk.OCE(Gu_opt_WRT_G1OptVsGT, g_estimated, undirected=False, normalized=True)['total']
         G1_opt_error_GT_WRT_G1OptVsGT = \
-        gk.OCE(G1_opt_WRT_G1OptVsGT, network_GT_selfloop, undirected=False, normalized=True)['total']
+            gk.OCE(G1_opt_WRT_G1OptVsGT, network_GT_selfloop, undirected=False, normalized=True)['total']
         print('*******************************************')
         print('results of minimizing with respect to G1_opt Vs. GT')
         print('U rate found to be:' + str(min_answer_WRT_G1OptVsGT[0][1][0]))
@@ -455,13 +420,13 @@ for nn in [2]:
         res_nx = gk.graph2nx(res_graph)
         TP, FP, FN = 0, 0, 0
         for edge in GT_nx.edges():
-                if edge in res_nx.edges():
-                    TP += 1
-                else:
-                    FN += 1
+            if edge in res_nx.edges():
+                TP += 1
+            else:
+                FN += 1
         for edge in res_nx.edges():
-                if edge not in GT_nx.edges():
-                    FP += 1
+            if edge not in GT_nx.edges():
+                FP += 1
         if (TP + FP) != 0 and (TP + FN) != 0:
             Precision_O.append(TP / (TP + FP))
             Recall_O.append(TP / (TP + FN))
@@ -469,22 +434,22 @@ for nn in [2]:
         #######presision and recall (adjacency)
         TP, FP, FN = 0, 0, 0
         for edge in GT_nx.edges():
-                if edge in res_nx.edges() or (edge[1], edge[0]) in res_nx.edges():
-                    if ((edge[1], edge[0]) in GT_nx.edges()) and (edge[1] != edge[0]):
-                        TP += 0.5
-                    else:
-                        TP += 1
+            if edge in res_nx.edges() or (edge[1], edge[0]) in res_nx.edges():
+                if ((edge[1], edge[0]) in GT_nx.edges()) and (edge[1] != edge[0]):
+                    TP += 0.5
                 else:
-                    if (edge[1], edge[0]) in GT_nx.edges():
-                        FN += 0.5
-                    else:
-                        FN += 1
+                    TP += 1
+            else:
+                if (edge[1], edge[0]) in GT_nx.edges() and (edge[1] != edge[0]):
+                    FN += 0.5
+                else:
+                    FN += 1
         for edge in res_nx.edges():
-                if not (edge in GT_nx.edges() or (edge[1], edge[0]) in GT_nx.edges()):
-                    if ((edge[1], edge[0]) in res_nx.edges()) and (edge[1] != edge[0]):
-                        FP += 0.5
-                    else:
-                        FP += 1
+            if not (edge in GT_nx.edges() or (edge[1], edge[0]) in GT_nx.edges()):
+                if ((edge[1], edge[0]) in res_nx.edges()) and (edge[1] != edge[0]):
+                    FP += 0.5
+                else:
+                    FP += 1
         if not (FP % 1 == 0 and TP % 1 == 0 and FN % 1 == 0):
             print('see why')
         if (TP + FP) != 0 and (TP + FN) != 0:
@@ -492,7 +457,6 @@ for nn in [2]:
             Recall_A.append(TP / (TP + FN))
         else:
             print('see how')
-
 
         #######presision and recall (2-cycle)
 
@@ -513,6 +477,82 @@ for nn in [2]:
             Precision_C.append(TP / (TP + FP))
             Recall_C.append(TP / (TP + FN))
 
+        ###optimizing with respect to F1 scores max
+        max_f1_score = 0
+        max_answer_WRT_f1 = None
+        for answer in r_estimated:
+            #######presision and recall (orintattion)
+            # Precision = True Positives / (True Positives + False Positives)
+            # Recall = True Positives /  (True Positives + False Negatives)
+
+            res_graph = bfutils.num2CG(answer[0][0], len(g_estimated))
+            GT_nx = gk.graph2nx(network_GT_selfloop)
+            res_nx = gk.graph2nx(res_graph)
+            TP, FP, FN = 0, 0, 0
+            for edge in GT_nx.edges():
+                if edge in res_nx.edges():
+                    TP += 1
+                else:
+                    FN += 1
+            for edge in res_nx.edges():
+                if edge not in GT_nx.edges():
+                    FP += 1
+
+            f1_O = (2 * TP) / (2 * TP + FP + FN) if 2 * TP + FP + FN else 0
+            #######presision and recall (adjacency)
+            TP, FP, FN = 0, 0, 0
+            for edge in GT_nx.edges():
+                if edge in res_nx.edges() or (edge[1], edge[0]) in res_nx.edges():
+                    if ((edge[1], edge[0]) in GT_nx.edges()) and (edge[1] != edge[0]):
+                        TP += 0.5
+                    else:
+                        TP += 1
+                else:
+                    if (edge[1], edge[0]) in GT_nx.edges() and (edge[1] != edge[0]):
+                        FN += 0.5
+                    else:
+                        FN += 1
+            for edge in res_nx.edges():
+                if not (edge in GT_nx.edges() or (edge[1], edge[0]) in GT_nx.edges()):
+                    if ((edge[1], edge[0]) in res_nx.edges()) and (edge[1] != edge[0]):
+                        FP += 0.5
+                    else:
+                        FP += 1
+            f1_A = (2 * TP) / (2 * TP + FP + FN) if 2 * TP + FP + FN else 0
+
+            #######presision and recall (2-cycle)
+
+            TP, FP, FN = 0, 0, 0
+            for edge in GT_nx.edges():
+                if not edge[1] == edge[0]:
+                    if (edge[1], edge[0]) in GT_nx.edges():
+                        if edge in res_nx.edges() and (edge[1], edge[0]) in res_nx.edges():
+                            TP += 1
+                        else:
+                            FN += 1
+            for edge in res_nx.edges():
+                if not edge[1] == edge[0]:
+                    if (edge[1], edge[0]) in res_nx.edges():
+                        if not (edge in GT_nx.edges() and (edge[1], edge[0]) in GT_nx.edges()):
+                            FP += 1
+            f1_C = (2 * TP) / (2 * TP + FP + FN) if 2 * TP + FP + FN else 0
+
+            curr_f1 = f1_C + f1_A + f1_O
+
+            if curr_f1 > max_f1_score:
+                max_f1_score = curr_f1
+                max_answer_WRT_f1 = answer
+
+        optim_PR = precision_recall(max_answer_WRT_f1, network_GT_selfloop)
+        Precision_O2.append(optim_PR['orientation']['precision'])
+        Recall_O2.append(optim_PR['orientation']['recall'])
+
+        Precision_A2.append(optim_PR['adjacency']['precision'])
+        Recall_A2.append(optim_PR['adjacency']['recall'])
+
+        Precision_C2.append(optim_PR['cycle']['precision'])
+        Recall_C2.append(optim_PR['cycle']['recall'])
+
         sorted_data = sorted(r_estimated, key=lambda x: x[1], reverse=True)
         # add to lists for dict
         results = {'general': {'method': PreFix,
@@ -526,6 +566,9 @@ for nn in [2]:
                                'threshold': EDGE_CUTOFF * k_threshold,
                                'timeout': TIMEOUT,
                                'full_sols': r_estimated,
+                               'adjacency_(P,R)': (Precision_A[-1], Recall_A[-1]),
+                               'orientation_(P,R)': (Precision_O[-1], Recall_O[-1]),
+                               '2cycle_(P,R)': (Precision_C[-1], Recall_C[-1]),
                                'total_time': round(((sat_time) / 60000), 3)},
                    'GuOptVsGest': {
                        'min_answer_WRT_GuOptVsGest': min_answer_WRT_GuOptVsGest,
@@ -535,7 +578,7 @@ for nn in [2]:
                        'Gu_opt_errors_network_GT_U_WRT_GuOptVsGest': Gu_opt_errors_network_GT_U_WRT_GuOptVsGest,
                        'Gu_opt_errors_g_estimated_WRT_GuOptVsGest': Gu_opt_errors_g_estimated_WRT_GuOptVsGest,
                        'G1_opt_error_GT_WRT_GuOptVsGest': G1_opt_error_GT_WRT_GuOptVsGest,
-                       'U_found':min_answer_WRT_GuOptVsGest[0][1][0]
+                       'U_found': min_answer_WRT_GuOptVsGest[0][1][0]
                    },
                    'G1OptVsGT': {
                        'min_answer_WRT_G1OptVsGT': min_answer_WRT_G1OptVsGT,
@@ -562,7 +605,7 @@ for nn in [2]:
     fig.set_figwidth(35)
     fig.set_figheight(20)
     fig.suptitle('Network' + str(
-        args.NUMBER) + ' on ' + PreFix + ':Om and comm err after comparing G1 to H1. individual data. no selfloop')
+        args.NUMBER) + ' on ' + PreFix + ':Om and comm err after comparing G1 to H1. individual data. with selfloop')
     # axs[0].plot(errors_omm,label="ommition error")
     axs[0].plot(SL_undir_normed_errors_omm, c='red', label="not knowing GT", linewidth=5)
     # axs[0].plot(undir_errors_omm, c='green', label="omm: sRASL", linewidth=5)
@@ -579,7 +622,7 @@ for nn in [2]:
     # plt.show()
 
     ###saving files
-    filename = PreFix + '_results_with_directions_Optim_vs_OPTsRASL_error_on_G1_H1' + str(args.NUMBER) + '_' + now
+    filename = PreFix + '_results_error_on_G1_H1' + str(args.NUMBER) + '_' + now
     plt.savefig(filename + '_.png')
     plt.close()
     zkl.save(save_results, filename + '_.zkl')
@@ -590,44 +633,95 @@ for nn in [2]:
 
     precision_mean = sum(Precision_O) / len(Precision_O)
     recall_mean = sum(Recall_O) / len(Recall_O)
+    precision_mean2 = sum(Precision_O2) / len(Precision_O2)
+    recall_mean2 = sum(Recall_O2) / len(Recall_O2)
+
     # Names for the bars
     names = ['Precision', 'Recall']
+
     # Mean values for the bars
     means = [precision_mean, recall_mean]
+    means2 = [precision_mean2, recall_mean2]
+
+    # Width of each bar
+    bar_width = 0.35
+
+    # Position of bars on x-axis
+    x = np.arange(len(names))
+
     # Plotting the bar plot
-    plt.bar(names, means, color=['blue', 'green'])
+    plt.bar(x - bar_width / 2, means, bar_width, color=['blue', 'blue'], label='min error')
+    plt.bar(x + bar_width / 2, means2, bar_width, color=['orange', 'orange'], label='max F1')
+
     plt.ylim(0, 1)
     plt.xlabel('Metrics')
     plt.ylabel('Mean')
-    plt.title('Mean of Precision and Recall (orientation)')
-    plt.savefig(filename + '_orintation.png')
+    plt.title('Mean of Precision and Recall (orientation) 2 ways of finding best answer')
+    plt.xticks(x, names)
+    plt.legend()
+    plt.savefig(filename + '_orientation.png')
     plt.close()
 
     precision_mean = sum(Precision_A) / len(Precision_A)
     recall_mean = sum(Recall_A) / len(Recall_A)
+    precision_mean2 = sum(Precision_A2) / len(Precision_A2)
+    recall_mean2 = sum(Recall_A2) / len(Recall_A2)
+
     # Names for the bars
     names = ['Precision', 'Recall']
+
     # Mean values for the bars
     means = [precision_mean, recall_mean]
+    means2 = [precision_mean2, recall_mean2]
+
+    # Width of each bar
+    bar_width = 0.35
+
+    # Position of bars on x-axis
+    x = np.arange(len(names))
+
     # Plotting the bar plot
-    plt.bar(names, means, color=['blue', 'green'])
+    plt.bar(x - bar_width / 2, means, bar_width, color=['blue', 'blue'], label='min error')
+    plt.bar(x + bar_width / 2, means2, bar_width, color=['orange', 'orange'], label='max F1')
+
     plt.ylim(0, 1)
     plt.xlabel('Metrics')
     plt.ylabel('Mean')
-    plt.title('Mean of Precision and Recall (adjacency)')
+    plt.title('Mean of Precision and Recall (adjacency) 2 ways of finding best answer')
+    plt.xticks(x, names)
+    plt.legend()
     plt.savefig(filename + '_adjacency.png')
     plt.close()
 
+
+    # Calculate means
     precision_mean = sum(Precision_C) / len(Precision_C)
     recall_mean = sum(Recall_C) / len(Recall_C)
+    precision_mean2 = sum(Precision_C2) / len(Precision_C2)
+    recall_mean2 = sum(Recall_C2) / len(Recall_C2)
+
     # Names for the bars
     names = ['Precision', 'Recall']
+
     # Mean values for the bars
     means = [precision_mean, recall_mean]
+    means2 = [precision_mean2, recall_mean2]
+
+    # Width of each bar
+    bar_width = 0.35
+
+    # Position of bars on x-axis
+    x = np.arange(len(names))
+
     # Plotting the bar plot
-    plt.bar(names, means, color=['blue', 'green'])
+    plt.bar(x - bar_width / 2, means, bar_width, color=['blue', 'blue'], label='min error')
+    plt.bar(x + bar_width / 2, means2, bar_width, color=['orange', 'orange'], label='max F1')
+
     plt.ylim(0, 1)
     plt.xlabel('Metrics')
     plt.ylabel('Mean')
-    plt.title('Mean of Precision and Recall (2 cycle)')
+    plt.title('Mean of Precision and Recall (2 cycles) 2 ways of finding best answer')
+    plt.xticks(x, names)
+    plt.legend()
     plt.savefig(filename + '_2_cycle.png')
+

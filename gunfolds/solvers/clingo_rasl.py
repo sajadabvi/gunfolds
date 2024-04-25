@@ -112,7 +112,7 @@ drasl_program += """
     """
 
 
-def weighted_drasl_program(directed, bidirected,no_directed, no_bidirected):
+def weighted_drasl_program(directed, bidirected, no_directed, no_bidirected):
     """
     Adjusts the optimization code based on the directed and bidirected priority
 

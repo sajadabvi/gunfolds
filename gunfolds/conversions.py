@@ -334,6 +334,28 @@ def vec2g(v, n):
     A, B = vec2adj(v, n)
     return adjs2graph(A, B)
 
+def Glag2CG(results):
+    """Converts lag graph format to gunfolds graph format,
+   and A and B matrices representing directed and bidirected edges weights.
+
+   Args:
+       results (dict): A dictionary containing:
+           - 'graph': A 3D NumPy array of shape [N, N, 2] representing the graph structure.
+           - 'val_matrix': A NumPy array of shape [N, N, 2] storing edge weights.
+
+   Returns:
+       tuple: (graph_dict, A_matrix, B_matrix)
+   """
+
+    graph_array = results['graph']
+    bidirected_edges = np.where(graph_array == 'o-o', 1, 0).astype(int)
+    directed_edges = np.where(graph_array == '-->', 1, 0).astype(int)
+
+    graph_dict = adjs2graph(np.transpose(directed_edges[:, :, 1]), np.transpose((bidirected_edges[:, :, 0])))
+    A_matrix = results['val_matrix'][:, :, 1]
+    B_matrix = results['val_matrix'][:, :, 0]
+
+    return graph_dict, A_matrix, B_matrix
 
 def rate(u):
     """
