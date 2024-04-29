@@ -90,3 +90,18 @@ def precision_recall(answer, network_GT_selfloop):
 
 def round_tuple_elements(input_tuple, decimal_points=3):
     return tuple(round(elem, decimal_points) if isinstance(elem, (int, float)) else elem for elem in input_tuple)
+
+def find_two_cycles(graph):
+    # Find all 2-cycles in the graph
+    two_cycles = set()
+    visited = set()
+    for node in graph.nodes():
+        for neighbor in graph.neighbors(node):
+            # Check for a directed edge in both directions and ensure it's not a self-loop
+            if node != neighbor and graph.has_edge(node, neighbor) and graph.has_edge(neighbor, node):
+                # Ensure we count each 2-cycle only once
+                edge_pair = tuple(sorted([node, neighbor]))
+                if edge_pair not in visited:
+                    two_cycles.add(edge_pair)
+                    visited.add(edge_pair)
+    return two_cycles
