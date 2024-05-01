@@ -55,7 +55,7 @@ F1_C2 = []
 F1_O3 = []
 F1_A3 = []
 F1_C3 = []
-for nn in [1,2,3,4,5,6]:
+for nn in [1]:
 
     for fl in range(1, 61):
         num = str(fl) if fl > 9 else '0' + str(fl)
@@ -123,21 +123,30 @@ for nn in [1,2,3,4,5,6]:
 
         nx_MVGC = gk.graph2nx(MVGC)
         two_cycle = mf.find_two_cycles(nx_MVGC)
-        DD = np.ones((len(network_GT), len(network_GT))) * 5000
-        BD = np.ones((len(network_GT), len(network_GT))) * 10000
         for cycle in two_cycle:
-            DD[cycle[0]-1][cycle[1]-1] = 2500
-            DD[cycle[1]-1][cycle[0]-1] = 2500
             B[cycle[0] - 1][cycle[1] - 1] = 1
             B[cycle[1] - 1][cycle[0] - 1] = 1
-        for i in range(len(network_GT)):
-            DD[i][i] = 10000
+        answer_set = set()
+        for cycle in two_cycle:
+            for i in [(0,1),(1,0),(1,1)]:
+                mat[cycle[0] - 1][cycle[1] - 1] = i[0]
+                mat[cycle[1] - 1][cycle[0] - 1] = i[1]
+                curr_MVGC = cv.adjs2graph(mat,B)
+                r_estimated = drasl([MVGC_bi], weighted=True, capsize=0,
+                                    urate=min(5, (3 * len(MVGC_bi) + 1)),
+                                    scc=False,
+                                    GT_density=int(1000 * gk.density(network_GT)),
+                                    edge_weights=[2, 3, 2, 3, 1], pnum=PNUM, optim='optN')
+                for answer in r_estimated:
+                    answer_set.add(answer)
+
+
+
+
         MVGC_bi = cv.adjs2graph(mat, B)
         r_estimated = drasl([MVGC_bi], weighted=True, capsize=0,
                             urate=min(5, (3 * len(MVGC_bi) + 1)),
                             scc=False,
-                            dm=[DD],
-                            bdm=[BD],
                             GT_density=int(1000 * gk.density(network_GT)),
                             edge_weights=[2, 3, 2, 3, 1], pnum=PNUM, optim='optN')
 
