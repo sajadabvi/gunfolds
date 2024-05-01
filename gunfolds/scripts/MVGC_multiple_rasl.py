@@ -15,7 +15,7 @@ from gunfolds.solvers.clingo_rasl import drasl
 from gunfolds.utils import graphkit as gk
 from gunfolds.utils.calc_procs import get_process_count
 
-PNUM = int(get_process_count(1))
+PNUM = 8
 
 PreFix = 'MVGC_hardcode_selfloop_add_bidir_rasl'
 concat = True
