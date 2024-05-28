@@ -333,7 +333,8 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
 
 
 def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False, scc_members=None, dm=None,
-          bdm=None, pnum=PNUM, GT_density= None, edge_weights=[1, 1, 1, 1, 1], configuration="crafty", optim='optN'):
+          bdm=None, pnum=PNUM, GT_density= None, edge_weights=[1, 1, 1, 1, 1], configuration="crafty", optim='optN',
+          multi_individual=False):
     """
     Compute all candidate causal time-scale graphs that could have
     generated all undersampled graphs at all possible undersampling
@@ -405,7 +406,12 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
             - ``ignore`` : Ignore optimize statements
         - <bound> : Set initial bound for objective function(s)
     :type optim: string
-    
+
+    :param multi_individual: if True, can pass multiple estimated graphs from several individuals
+        and optimize for making them similar and get a single graph output
+    :type multi_individual: boolean
+
+
     :returns: results of parsed equivalent class
     :rtype: dictionary
     """
@@ -413,8 +419,9 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
         dm = [nd.astype('int') for nd in dm]
     if bdm is not None:
         bdm = [nd.astype('int') for nd in bdm]
-    if not isinstance(glist, list):
-        glist = [glist]
+    if not (isinstance(glist, list) and all(isinstance(item, list) for item in glist)):
+        raise ValueError("glist must be a list of lists")
+
     return clingo(drasl_command(glist, max_urate=urate, weighted=weighted,
                                 scc=scc, scc_members=scc_members, dm=dm, bdm=bdm, edge_weights=edge_weights,GT_density=GT_density),
                   capsize=capsize, convert=drasl_jclingo2g, configuration=configuration,
