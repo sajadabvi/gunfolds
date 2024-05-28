@@ -17,7 +17,7 @@ from gunfolds.utils.calc_procs import get_process_count
 
 PNUM = 4
 
-PreFix = 'MVGC_hardcode_selfloop_add_bidir_rasl'
+PreFix = 'MVAR_hardcode_selfloop_add_bidir_rasl'
 concat = True
 POSTFIX = 'Ruben_data' + 'concat' if concat else 'individual'
 
@@ -77,7 +77,7 @@ F1_A5 = []
 F1_C5 = []
 
 
-for nn in [1,2,3,4,5,6]:
+for nn in [1,2,3,5,6]:
 
     # for fl in range(1, 61):
     #     num = str(fl) if fl > 9 else '0' + str(fl)
@@ -105,7 +105,7 @@ for nn in [1,2,3,4,5,6]:
     for fl in range(1, 61):
         print('processing file:' + str(fl))
 
-        folder_read = 'expo_to_mat/expo_to_py_n' + str(nn) + '_' + ('concat' if concat else 'individual')
+        folder_read = 'expo_to_mat/MVAR_expo_to_py_n' + str(nn) + '_' + ('concat' if concat else 'individual')
         mat_data = loadmat(folder_read + '/mat_file_' + str(fl) + '.mat')
         mat = mat_data['sig']
         for i in range(len(network_GT)):

@@ -3,6 +3,7 @@ from gunfolds.viz import gtool as gt
 from gunfolds.utils import bfutils
 import numpy as np
 import pandas as pd
+import csv
 from gunfolds import conversions as cv
 import matplotlib.pyplot as plt
 from datetime import datetime
@@ -17,7 +18,7 @@ from gunfolds.utils.calc_procs import get_process_count
 
 PNUM = 4
 
-PreFix = 'MVGC_hardcode_selfloop_add_bidir_rasl'
+PreFix = 'GIMME_hardcode_selfloop_add_bidir_rasl'
 concat = True
 POSTFIX = 'Ruben_data' + 'concat' if concat else 'individual'
 
@@ -76,42 +77,44 @@ F1_O5 = []
 F1_A5 = []
 F1_C5 = []
 
+def read_csv_files(path,size):
+    data = []
+    files = sorted(os.listdir(path))  # Sort the files
+    for filename in files:
+        if filename.endswith('.csv'):
+            file_path = os.path.join(path, filename)
+            with open(file_path, 'r') as file:
+                csv_reader = csv.reader(file)
+                next(csv_reader)  # Skip header if exists
+                rows = []
+                for row in csv_reader:
+                    rows.append(row[0:2*size])
+                mat = np.array(rows, dtype=np.float32)
+                matrix1 = np.array(mat[:, 0:size])
+                matrix2 = np.array(mat[:, size:2*size])
+                sum_matrix = matrix1 + matrix2
+                binary_matrix = (sum_matrix != 0).astype(int)
+                data.append(binary_matrix)
+    return binary_matrix
 
 for nn in [1,2,3,4,5,6]:
 
-    # for fl in range(1, 61):
-    #     num = str(fl) if fl > 9 else '0' + str(fl)
-    #     print('reading file:' + num)
-    #     if not concat:
-    #         data = pd.read_csv(
-    #             './DataSets_Feedbacks/1. Simple_Networks/Network' + str(
-    #                 nn) + '_amp/data_fslfilter/BOLDfslfilter_{0}.txt'.format(
-    #                 num), delimiter='\t')
-    #     else:
-    #         data = pd.read_csv(
-    #             './DataSets_Feedbacks/1. Simple_Networks/Network' + str(
-    #                 nn) + '_amp/data_fslfilter_concat/concat_BOLDfslfilter_{0}.txt'.format(
-    #                 num), delimiter='\t')
-    #
-    #     network_GT = simp_nets(nn, True)
-    #
-    #     dd = np.transpose(data.values)
-        # folder = 'expo_to_mat/expo_to_mat_n' + str(nn) + '_' + ('concat' if concat else 'individual')
-        # if not os.path.exists(folder):
-        #     os.makedirs(folder)
-        # savemat(folder + '/expo_to_mat_' + str(fl) + '.mat', {'dd': dd})
 
     network_GT = simp_nets(nn, True)
-    for fl in range(1, 61):
+    for fl in range(1, 2):
+        path = "/Users/sajad/GSU Dropbox Dropbox/Mohammadsajad Abavisani/Mac/" \
+               "Documents/PhD/Research/code/GIMME/gimme-master/gimme-master/" \
+               +str(nn)+"_05VARfalse/sum"
+        csv_data = read_csv_files(path,len(network_GT))
         print('processing file:' + str(fl))
 
-        folder_read = 'expo_to_mat/expo_to_py_n' + str(nn) + '_' + ('concat' if concat else 'individual')
-        mat_data = loadmat(folder_read + '/mat_file_' + str(fl) + '.mat')
-        mat = mat_data['sig']
-        for i in range(len(network_GT)):
-            mat[i, i] = 1
+        # folder_read = 'expo_to_mat/MVAR_expo_to_py_n' + str(nn) + '_' + ('concat' if concat else 'individual')
+        # mat_data = loadmat(folder_read + '/mat_file_' + str(fl) + '.mat')
+        # mat = mat_data['sig']
+        # for i in range(len(network_GT)):
+        #     csv_data[i, i] = 1
         B = np.zeros((len(network_GT), len(network_GT))).astype(int)
-        MVGC = cv.adjs2graph(mat, np.zeros((len(network_GT), len(network_GT))))
+        MVGC = cv.adjs2graph(csv_data.T, B)
         normal_GT = mf.precision_recall(MVGC, network_GT)
         Precision_O.append(normal_GT['orientation']['precision'])
         Recall_O.append(normal_GT['orientation']['recall'])
@@ -141,7 +144,9 @@ for nn in [1,2,3,4,5,6]:
         Precision_C2.append(undersampled_GT['cycle']['precision'])
         Recall_C2.append(undersampled_GT['cycle']['recall'])
         F1_C2.append(undersampled_GT['cycle']['F1'])
+        edge_weights = [1, 3, 1, 3, 2]
 
+        ''' 
         # ###trying sRASL
 
         nx_MVGC = gk.graph2nx(MVGC)
@@ -156,7 +161,7 @@ for nn in [1,2,3,4,5,6]:
 
         for i in range(len(network_GT)):
             DD[i][i] = 10000
-        MVGC_bi = cv.adjs2graph(mat, B)
+        MVGC_bi = cv.adjs2graph(csv_data.T, B)
         # gt.plotg(MVGC_bi, output='./figs/cycle_removed/Gopt_GC_' + str(nn*1000+fl) + '.pdf')
         edge_weights = [1, 3, 1, 3, 2]
         r_estimated = drasl([MVGC_bi], weighted=True, capsize=0,
@@ -246,7 +251,7 @@ for nn in [1,2,3,4,5,6]:
 
         Precision_C5.append(least_err_sol['cycle']['precision'])
         Recall_C5.append(least_err_sol['cycle']['recall'])
-        F1_C5.append(least_err_sol['cycle']['F1'])
+        F1_C5.append(least_err_sol['cycle']['F1'])'''
 
 now = str(datetime.now())
 now = now[:-7].replace(' ', '_')
@@ -269,7 +274,7 @@ data_group2 = [
     [Precision_C2, Recall_C2, F1_C2]
 ]
 
-data_group3 = [
+'''data_group3 = [
     [Precision_O3, Recall_O3, F1_O3],
     [Precision_A3, Recall_A3, F1_A3],
     [Precision_C3, Recall_C3, F1_C3]
@@ -285,7 +290,7 @@ data_group5 = [
     [Precision_O5, Recall_O5, F1_O5],
     [Precision_A5, Recall_A5, F1_A5],
     [Precision_C5, Recall_C5, F1_C5]
-]
+]'''
 
 # Labels and titles for subplots
 titles = ['Orientation', 'Adjacency', '2 cycles']
@@ -293,8 +298,15 @@ colors = ['blue', 'orange', 'red', 'yellow', 'green']
 
 fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 5))
 
-for i, (data1, data2, data3, data4, data5, title) in enumerate(zip(data_group1, data_group2, data_group3,
-                                                                   data_group4, data_group5, titles)):
+for i, (data1, data2,
+        # data3,
+        # data4,
+        # data5,
+        title) in enumerate(zip(data_group1, data_group2,
+                                                                   # data_group3,
+                                                                   # data_group4,
+                                                                   # data_group5,
+                                                                   titles)):
     ax1 = axes[i]
     # ax2 = ax1.twinx()
     # ax3 = ax1.twinx()
@@ -304,12 +316,12 @@ for i, (data1, data2, data3, data4, data5, title) in enumerate(zip(data_group1, 
                 boxprops=dict(facecolor=colors[0]), widths=0.3)
     ax1.boxplot(data2, positions=np.array(range(len(data2))) * 2.0 - 0.3, patch_artist=True, showmeans=True,
                 boxprops=dict(facecolor=colors[1]), widths=0.3)
-    ax1.boxplot(data3, positions=np.array(range(len(data3))) * 2.0 , patch_artist=True, showmeans=True,
-                boxprops=dict(facecolor=colors[2]), widths=0.3)
-    ax1.boxplot(data4, positions=np.array(range(len(data4))) * 2.0 + 0.3, patch_artist=True, showmeans=True,
-                boxprops=dict(facecolor=colors[3]), widths=0.3)
-    ax1.boxplot(data5, positions=np.array(range(len(data5))) * 2.0 + 0.6, patch_artist=True, showmeans=True,
-                boxprops=dict(facecolor=colors[4]), widths=0.3)
+    # ax1.boxplot(data3, positions=np.array(range(len(data3))) * 2.0 , patch_artist=True, showmeans=True,
+    #             boxprops=dict(facecolor=colors[2]), widths=0.3)
+    # ax1.boxplot(data4, positions=np.array(range(len(data4))) * 2.0 + 0.3, patch_artist=True, showmeans=True,
+    #             boxprops=dict(facecolor=colors[3]), widths=0.3)
+    # ax1.boxplot(data5, positions=np.array(range(len(data5))) * 2.0 + 0.6, patch_artist=True, showmeans=True,
+    #             boxprops=dict(facecolor=colors[4]), widths=0.3)
 
     ax1.set_xticks(range(0, len(data1) * 2, 2))
     ax1.set_xticklabels(['Precision', 'Recall', 'F1-score'])
@@ -328,7 +340,11 @@ orange_patch = mpatches.Patch(color='orange', label='GT^2')
 red_patch = mpatches.Patch(color='red', label='MVGC+bi+sRASL')
 yellow_patch = mpatches.Patch(color='yellow', label='mean error')
 green_patch = mpatches.Patch(color='green', label='least cost sol')
-plt.legend(handles=[blue_patch, orange_patch, red_patch, yellow_patch, green_patch], loc='upper right')
+plt.legend(handles=[blue_patch, orange_patch,
+                    # red_patch,
+                    # yellow_patch,
+                    # green_patch],
+           ],loc='upper right')
 
 plt.tight_layout()
 

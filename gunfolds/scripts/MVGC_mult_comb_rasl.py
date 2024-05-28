@@ -14,6 +14,7 @@ from gunfolds.scripts import my_functions as mf
 from gunfolds.solvers.clingo_rasl import drasl
 from gunfolds.utils import graphkit as gk
 from gunfolds.utils.calc_procs import get_process_count
+import itertools
 
 PNUM = int(get_process_count(1))
 
@@ -121,6 +122,23 @@ for nn in [1]:
         F1_C2.append(undersampled_GT['cycle']['F1'])
 
         # ###trying sRASL
+        nx_MVGC = gk.graph2nx(MVGC)
+        two_cycle = mf.find_two_cycles(nx_MVGC)
+        for cycle_pair in two_cycle:
+            # Remove edges in the cycles
+            nx_MVGC.remove_edge(*cycle_pair)
+            nx_MVGC.remove_edge(*cycle_pair[::-1])
+        count =0
+        # Generate all possible combinations of adding back edges
+        for combination in itertools.product([0, 1], repeat=len(two_cycle)):
+            temp_graph = nx_MVGC.copy()
+            for add_edge, edge in zip(combination, two_cycle):
+                if add_edge:
+                    temp_graph.add_edge(*edge)
+            print(temp_graph.edges())
+            count += 1
+            print(count)
+
 
         nx_MVGC = gk.graph2nx(MVGC)
         two_cycle = mf.find_two_cycles(nx_MVGC)
@@ -133,7 +151,7 @@ for nn in [1]:
                 mat[cycle[0] - 1][cycle[1] - 1] = i[0]
                 mat[cycle[1] - 1][cycle[0] - 1] = i[1]
                 curr_MVGC = cv.adjs2graph(mat,B)
-                r_estimated = drasl([MVGC_bi], weighted=True, capsize=0,
+                r_estimated = drasl([curr_MVGC], weighted=True, capsize=0,
                                     urate=min(5, (3 * len(MVGC_bi) + 1)),
                                     scc=False,
                                     GT_density=int(1000 * gk.density(network_GT)),

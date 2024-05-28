@@ -146,9 +146,9 @@ def weighted_drasl_program(directed, bidirected, no_directed, no_bidirected):
     nonempty(L) :- directed(X, Y, L), u(L,_).
     nonempty(L) :- bidirected(X, Y, L), u(L,_).
     :- not nonempty(L), u(L,_).
-    
+    :- not edge1(X,X), node(X).
     """)
-    #:- not edge1(X,X), node(X).
+
     return t.substitute(directed=directed, bidirected=bidirected,no_directed=no_directed,no_bidirected=no_bidirected)
 
 
