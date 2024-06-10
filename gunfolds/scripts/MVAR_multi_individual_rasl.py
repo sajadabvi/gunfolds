@@ -384,7 +384,7 @@ red_patch = mpatches.Patch(color='red', label='MVGC+bi+sRASL')
 yellow_patch = mpatches.Patch(color='yellow', label='mean error')
 green_patch = mpatches.Patch(color='green', label='least cost sol')
 purple_patch = mpatches.Patch(color='purple', label='multi indiv rasl')
-plt.legend(handles=[blue_patch, orange_patch, red_patch, yellow_patch, green_patch,purple_patch], loc='upper right')
+plt.legend(handles=[blue_patch, orange_patch, red_patch, yellow_patch, green_patch, purple_patch], loc='upper right')
 
 plt.tight_layout()
 

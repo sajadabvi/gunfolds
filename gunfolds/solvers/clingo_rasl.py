@@ -305,6 +305,7 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
         bdm = [nd.astype('int') for nd in bdm]
 
     assert len({len(g) for g in g_list}) == 1, "Input graphs have variable number of nodes!"
+    # assert len({len(g) for g2 in g_list for g in g2}) == 1, "Input graphs have variable number of nodes!"
 
     if not max_urate:
         max_urate = 1+3*len(g_list[0])
@@ -320,6 +321,7 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
         command += f':~ abs_diff(Diff). [Diff@{density}]\n'
     if scc:
         command += encode_list_sccs(g_list, scc_members)
+        print("edit this function later to adjust")
     command += f"dagl({len(g_list[0])-1}). "
     command += glist2str(g_list, weighted=weighted, dm=dm, bdm=bdm) + ' '   # generate all graphs
     command += 'uk(1..'+str(max_urate)+').' + ' '
@@ -419,8 +421,8 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
         dm = [nd.astype('int') for nd in dm]
     if bdm is not None:
         bdm = [nd.astype('int') for nd in bdm]
-    if not (isinstance(glist, list) and all(isinstance(item, list) for item in glist)):
-        raise ValueError("glist must be a list of lists")
+    if not isinstance(glist, list):
+        glist = [glist]
 
     return clingo(drasl_command(glist, max_urate=urate, weighted=weighted,
                                 scc=scc, scc_members=scc_members, dm=dm, bdm=bdm, edge_weights=edge_weights,GT_density=GT_density),

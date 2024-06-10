@@ -146,7 +146,7 @@ for nn in [1,2,3,4,5,6]:
         F1_C2.append(undersampled_GT['cycle']['F1'])
         edge_weights = [1, 3, 1, 3, 2]
 
-        ''' 
+
         # ###trying sRASL
 
         nx_MVGC = gk.graph2nx(MVGC)
@@ -164,11 +164,11 @@ for nn in [1,2,3,4,5,6]:
         MVGC_bi = cv.adjs2graph(csv_data.T, B)
         # gt.plotg(MVGC_bi, output='./figs/cycle_removed/Gopt_GC_' + str(nn*1000+fl) + '.pdf')
         edge_weights = [1, 3, 1, 3, 2]
-        r_estimated = drasl([MVGC_bi], weighted=True, capsize=0,
+        r_estimated = drasl([MVGC_bi,MVGC_bi], weighted=True, capsize=0,
                             urate=min(5, (3 * len(MVGC_bi) + 1)),
                             scc=False,
-                            dm=[DD],
-                            bdm=[BD],
+                            # dm=[DD,DD],
+                            # bdm=[BD,BD],
                             GT_density=int(1000 * gk.density(network_GT)),
                             edge_weights=edge_weights, pnum=PNUM, optim='optN')
 
@@ -251,7 +251,7 @@ for nn in [1,2,3,4,5,6]:
 
         Precision_C5.append(least_err_sol['cycle']['precision'])
         Recall_C5.append(least_err_sol['cycle']['recall'])
-        F1_C5.append(least_err_sol['cycle']['F1'])'''
+        F1_C5.append(least_err_sol['cycle']['F1'])
 
 now = str(datetime.now())
 now = now[:-7].replace(' ', '_')
