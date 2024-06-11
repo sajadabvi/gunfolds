@@ -18,7 +18,7 @@ from gunfolds.utils.calc_procs import get_process_count
 PNUM = 4
 
 PreFix = 'MVAR_hardcode_selfloop_add_bidir_multi_indiv_rasl'
-concat = True
+concat = False
 POSTFIX = 'Ruben_data' + 'concat' if concat else 'individual'
 
 save_results = []
@@ -86,7 +86,7 @@ F1_O6 = []
 F1_A6 = []
 F1_C6 = []
 
-for nn in [1,2,3,5,6]:
+for nn in [1,2,3,4,5,6]:
 
     # for fl in range(1, 61):
     #     num = str(fl) if fl > 9 else '0' + str(fl)
@@ -115,7 +115,7 @@ for nn in [1,2,3,5,6]:
     for fl in range(1, 61):
         print('processing file:' + str(fl))
 
-        folder_read = 'expo_to_mat/MVAR_expo_to_py_n' + str(nn) + '_' + ('concat' if concat else 'individual')
+        folder_read = 'expo_to_mat/MVAR_expo_to_py_n' + str(nn) + '_' + ('concat' if concat else 'individual') + '_new1'
         mat_data = loadmat(folder_read + '/mat_file_' + str(fl) + '.mat')
         mat = mat_data['sig']
         for i in range(len(network_GT)):
@@ -260,40 +260,42 @@ for nn in [1,2,3,5,6]:
         F1_C5.append(least_err_sol['cycle']['F1'])
 
     ### multi individual sRASL
-    individuals = individuals[0:30]
-    r_estimated = drasl(individuals, weighted=True, capsize=0,
-                        urate=min(5, (3 * len(MVGC_bi) + 1)),
-                        scc=False,
-                        # dm=[DD],
-                        # bdm=[BD],
-                        GT_density=int(1000 * gk.density(network_GT)),
-                        edge_weights=edge_weights, pnum=PNUM, optim='optN')
+    individuals = mf.divide_into_batches(individuals, 6)
+    for i, batch in enumerate(individuals):
+        print(f"Processing batch {i + 1}")
+        r_estimated = drasl(batch, weighted=True, capsize=0,
+                            urate=min(5, (3 * len(MVGC_bi) + 1)),
+                            scc=False,
+                            # dm=[DD],
+                            # bdm=[BD],
+                            GT_density=int(1000 * gk.density(network_GT)),
+                            edge_weights=edge_weights, pnum=PNUM, optim='optN')
 
-    max_f1_score = 0
-    for answer in r_estimated:
-        res_rasl = bfutils.num2CG(answer[0][0], len(network_GT))
+        max_f1_score = 0
+        for answer in r_estimated:
+            res_rasl = bfutils.num2CG(answer[0][0], len(network_GT))
+            rasl_sol = mf.precision_recall(res_rasl, network_GT)
+
+            curr_f1 = ((rasl_sol['orientation']['F1']))
+            # curr_f1 = (rasl_sol['orientation']['F1']) + (rasl_sol['adjacency']['F1']) + (rasl_sol['cycle']['F1'])
+
+            if curr_f1 > max_f1_score:
+                max_f1_score = curr_f1
+                max_answer = answer
+
+        res_rasl = bfutils.num2CG(max_answer[0][0], len(network_GT))
         rasl_sol = mf.precision_recall(res_rasl, network_GT)
+        Precision_O6.append(rasl_sol['orientation']['precision'])
+        Recall_O6.append(rasl_sol['orientation']['recall'])
+        F1_O6.append(rasl_sol['orientation']['F1'])
 
-        curr_f1 = ((rasl_sol['orientation']['F1']))
-        # curr_f1 = (rasl_sol['orientation']['F1']) + (rasl_sol['adjacency']['F1']) + (rasl_sol['cycle']['F1'])
+        Precision_A6.append(rasl_sol['adjacency']['precision'])
+        Recall_A6.append(rasl_sol['adjacency']['recall'])
+        F1_A6.append(rasl_sol['adjacency']['F1'])
 
-        if curr_f1 > max_f1_score:
-            max_f1_score = curr_f1
-            max_answer = answer
-
-    res_rasl = bfutils.num2CG(max_answer[0][0], len(network_GT))
-    rasl_sol = mf.precision_recall(res_rasl, network_GT)
-    Precision_O6.append(rasl_sol['orientation']['precision'])
-    Recall_O6.append(rasl_sol['orientation']['recall'])
-    F1_O6.append(rasl_sol['orientation']['F1'])
-
-    Precision_A6.append(rasl_sol['adjacency']['precision'])
-    Recall_A6.append(rasl_sol['adjacency']['recall'])
-    F1_A6.append(rasl_sol['adjacency']['F1'])
-
-    Precision_C6.append(rasl_sol['cycle']['precision'])
-    Recall_C6.append(rasl_sol['cycle']['recall'])
-    F1_C6.append(rasl_sol['cycle']['F1'])
+        Precision_C6.append(rasl_sol['cycle']['precision'])
+        Recall_C6.append(rasl_sol['cycle']['recall'])
+        F1_C6.append(rasl_sol['cycle']['F1'])
 
 now = str(datetime.now())
 now = now[:-7].replace(' ', '_')

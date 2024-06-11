@@ -105,3 +105,20 @@ def find_two_cycles(graph):
                     two_cycles.add(edge_pair)
                     visited.add(edge_pair)
     return two_cycles
+
+
+def divide_into_batches(lst, n):
+    # Calculate the size of each batch
+    batch_size = len(lst) // n
+    batches = []
+
+    for i in range(n):
+        # Calculate the start and end indices for each batch
+        start = i * batch_size
+        if i == n - 1:  # Last batch takes the remaining elements
+            end = len(lst)
+        else:
+            end = start + batch_size
+        batches.append(lst[start:end])
+
+    return batches
