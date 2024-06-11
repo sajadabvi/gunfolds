@@ -235,6 +235,7 @@ for nn in [1,2,3,4,5,6]:
             curr_pc += mean_err_sol['cycle']['precision']
             curr_rc += mean_err_sol['cycle']['recall']
             curr_fc += mean_err_sol['cycle']['F1']
+
         if not len(sorted_data) ==0:
             Precision_O4.append(curr_po/len(sorted_data))
             Recall_O4.append(curr_ro/len(sorted_data))
@@ -248,20 +249,20 @@ for nn in [1,2,3,4,5,6]:
             Recall_C4.append(curr_rc/len(sorted_data))
             F1_C4.append(curr_fc/len(sorted_data))
 
-        ### least cost answer
-        least_err = bfutils.num2CG(sorted_data[-1][0][0], len(network_GT))
-        least_err_sol = mf.precision_recall(least_err, network_GT)
-        Precision_O5.append(least_err_sol['orientation']['precision'])
-        Recall_O5.append(least_err_sol['orientation']['recall'])
-        F1_O5.append(least_err_sol['orientation']['F1'])
+            ### least cost answer
+            least_err = bfutils.num2CG(sorted_data[-1][0][0], len(network_GT))
+            least_err_sol = mf.precision_recall(least_err, network_GT)
+            Precision_O5.append(least_err_sol['orientation']['precision'])
+            Recall_O5.append(least_err_sol['orientation']['recall'])
+            F1_O5.append(least_err_sol['orientation']['F1'])
 
-        Precision_A5.append(least_err_sol['adjacency']['precision'])
-        Recall_A5.append(least_err_sol['adjacency']['recall'])
-        F1_A5.append(least_err_sol['adjacency']['F1'])
+            Precision_A5.append(least_err_sol['adjacency']['precision'])
+            Recall_A5.append(least_err_sol['adjacency']['recall'])
+            F1_A5.append(least_err_sol['adjacency']['F1'])
 
-        Precision_C5.append(least_err_sol['cycle']['precision'])
-        Recall_C5.append(least_err_sol['cycle']['recall'])
-        F1_C5.append(least_err_sol['cycle']['F1'])
+            Precision_C5.append(least_err_sol['cycle']['precision'])
+            Recall_C5.append(least_err_sol['cycle']['recall'])
+            F1_C5.append(least_err_sol['cycle']['F1'])
 
 
 now = str(datetime.now())
