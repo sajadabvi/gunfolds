@@ -147,7 +147,7 @@ for nn in [1,2,3,4,5,6]:
 
         # ###trying sRASL
 
-'''        nx_MVGC = gk.graph2nx(MVGC)
+        nx_MVGC = gk.graph2nx(MVGC)
         two_cycle = mf.find_two_cycles(nx_MVGC)
         DD = np.ones((len(network_GT), len(network_GT))) * 5000
         BD = np.ones((len(network_GT), len(network_GT))) * 10000
@@ -197,7 +197,19 @@ for nn in [1,2,3,4,5,6]:
         F1_C3.append(rasl_sol['cycle']['F1'])
 
         sorted_data = sorted(r_estimated, key=lambda x: x[1], reverse=True)
-        sorted_data = sorted_data[int(3*len(sorted_data)/4):-1]
+
+        # Determine the number of elements
+        num_elements = len(sorted_data)
+
+        if num_elements < 10:
+            # Store the smallest half if the number of elements is less than 10
+            smallest_half = sorted_data[int(num_elements / 2):]
+            sorted_data = smallest_half
+        else:
+            # Store the smallest quarter otherwise
+            smallest_quarter = sorted_data[int(3 * num_elements / 4):]
+            sorted_data = smallest_quarter
+
 
         curr_po= 0
         curr_ro= 0
@@ -249,7 +261,7 @@ for nn in [1,2,3,4,5,6]:
 
         Precision_C5.append(least_err_sol['cycle']['precision'])
         Recall_C5.append(least_err_sol['cycle']['recall'])
-        F1_C5.append(least_err_sol['cycle']['F1'])'''
+        F1_C5.append(least_err_sol['cycle']['F1'])
 
 
 now = str(datetime.now())
@@ -273,38 +285,38 @@ data_group2 = [
     [Precision_C2, Recall_C2, F1_C2]
 ]
 
-# data_group3 = [
-#     [Precision_O3, Recall_O3, F1_O3],
-#     [Precision_A3, Recall_A3, F1_A3],
-#     [Precision_C3, Recall_C3, F1_C3]
-# ]
-#
-# data_group4 = [
-#     [Precision_O4, Recall_O4, F1_O4],
-#     [Precision_A4, Recall_A4, F1_A4],
-#     [Precision_C4, Recall_C4, F1_C4]
-# ]
-#
-# data_group5 = [
-#     [Precision_O5, Recall_O5, F1_O5],
-#     [Precision_A5, Recall_A5, F1_A5],
-#     [Precision_C5, Recall_C5, F1_C5]
-# ]
+data_group3 = [
+    [Precision_O3, Recall_O3, F1_O3],
+    [Precision_A3, Recall_A3, F1_A3],
+    [Precision_C3, Recall_C3, F1_C3]
+]
+
+data_group4 = [
+    [Precision_O4, Recall_O4, F1_O4],
+    [Precision_A4, Recall_A4, F1_A4],
+    [Precision_C4, Recall_C4, F1_C4]
+]
+
+data_group5 = [
+    [Precision_O5, Recall_O5, F1_O5],
+    [Precision_A5, Recall_A5, F1_A5],
+    [Precision_C5, Recall_C5, F1_C5]
+]
 
 # Labels and titles for subplots
 titles = ['Orientation', 'Adjacency', '2 cycles']
 colors = ['blue', 'orange', 'red'
-    # , 'yellow', 'green'
+    , 'yellow', 'green'
           ]
 
 fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 5))
 
 for i, (data1, data2
-        # , data3
-        # , data4, data5
+        , data3
+        , data4, data5
         , title) in enumerate(zip(data_group1, data_group2
-                                                            # , data_group3,
-                                                            #        data_group4, data_group5
+                                                            , data_group3,
+                                                                   data_group4, data_group5
                                                                         , titles)):
     ax1 = axes[i]
     # ax2 = ax1.twinx()
@@ -315,12 +327,12 @@ for i, (data1, data2
                 boxprops=dict(facecolor=colors[0]), widths=0.3)
     ax1.boxplot(data2, positions=np.array(range(len(data2))) * 2.0 - 0.3, patch_artist=True, showmeans=True,
                 boxprops=dict(facecolor=colors[1]), widths=0.3)
-    # ax1.boxplot(data3, positions=np.array(range(len(data3))) * 2.0 , patch_artist=True, showmeans=True,
-    #             boxprops=dict(facecolor=colors[2]), widths=0.3)
-    # ax1.boxplot(data4, positions=np.array(range(len(data4))) * 2.0 + 0.3, patch_artist=True, showmeans=True,
-    #             boxprops=dict(facecolor=colors[3]), widths=0.3)
-    # ax1.boxplot(data5, positions=np.array(range(len(data5))) * 2.0 + 0.6, patch_artist=True, showmeans=True,
-    #             boxprops=dict(facecolor=colors[4]), widths=0.3)
+    ax1.boxplot(data3, positions=np.array(range(len(data3))) * 2.0 , patch_artist=True, showmeans=True,
+                boxprops=dict(facecolor=colors[2]), widths=0.3)
+    ax1.boxplot(data4, positions=np.array(range(len(data4))) * 2.0 + 0.3, patch_artist=True, showmeans=True,
+                boxprops=dict(facecolor=colors[3]), widths=0.3)
+    ax1.boxplot(data5, positions=np.array(range(len(data5))) * 2.0 + 0.6, patch_artist=True, showmeans=True,
+                boxprops=dict(facecolor=colors[4]), widths=0.3)
 
     ax1.set_xticks(range(0, len(data1) * 2, 2))
     ax1.set_xticklabels(['Precision', 'Recall', 'F1-score'])
@@ -340,7 +352,7 @@ red_patch = mpatches.Patch(color='red', label='MVGC+bi+sRASL')
 yellow_patch = mpatches.Patch(color='yellow', label='mean error')
 green_patch = mpatches.Patch(color='green', label='least cost sol')
 plt.legend(handles=[blue_patch, orange_patch
-    # , red_patch, yellow_patch, green_patch
+    , red_patch, yellow_patch, green_patch
                     ], loc='upper right')
 
 plt.tight_layout()
