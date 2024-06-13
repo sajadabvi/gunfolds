@@ -385,7 +385,7 @@ for i, (data0, data1, data2
                 boxprops=dict(facecolor=colors[2]), widths=0.2)
     ax1.boxplot(data3, positions=np.array(range(len(data3))) * 2.0 , patch_artist=True, showmeans=True,
                 boxprops=dict(facecolor=colors[3]), widths=0.2)
-    ax1.boxplot(data4, positions=np.array(range(len(data4))) * 2.0 + 0.5, patch_artist=True, showmeans=True,
+    ax1.boxplot(data4, positions=np.array(range(len(data4))) * 2.0 + 0.2, patch_artist=True, showmeans=True,
                 boxprops=dict(facecolor=colors[4]), widths=0.2)
     ax1.boxplot(data5, positions=np.array(range(len(data5))) * 2.0 + 0.4, patch_artist=True, showmeans=True,
                 boxprops=dict(facecolor=colors[5]), widths=0.2)
