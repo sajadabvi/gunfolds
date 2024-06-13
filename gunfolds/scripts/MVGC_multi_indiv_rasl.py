@@ -370,7 +370,7 @@ fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 5))
 for i, (data0, data1, data2
         , data3, data4, data5, data6
         , title) in enumerate(zip(data_group0, data_group1, data_group2
-                                  # , data_group3, data_group4, data_group5, data_group6
+                                  , data_group3, data_group4, data_group5, data_group6
                                      , titles)):
     ax1 = axes[i]
     # ax2 = ax1.twinx()
