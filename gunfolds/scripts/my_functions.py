@@ -18,7 +18,7 @@ def remove_bidir_edges(input_dict):
     return result_dict
 
 
-def precision_recall(answer, network_GT_selfloop):
+def precision_recall(answer, network_GT_selfloop, include_selfloop=True):
     # Precision = True Positives / (True Positives + False Positives)
     # Recall = True Positives /  (True Positives + False Negatives)
     res_graph = answer
@@ -28,13 +28,15 @@ def precision_recall(answer, network_GT_selfloop):
     #######precision and recall (orientation)
     TP, FP, FN = 0, 0, 0
     for edge in GT_nx.edges():
-        if edge in res_nx.edges():
-            TP += 1
-        else:
-            FN += 1
+        if include_selfloop or edge[1] != edge[0]:
+            if edge in res_nx.edges():
+                TP += 1
+            else:
+                FN += 1
     for edge in res_nx.edges():
         if edge not in GT_nx.edges():
-            FP += 1
+            if include_selfloop or edge[1] != edge[0]:
+                FP += 1
     p_O = (TP / (TP + FP)) if (TP + FP) else 0
     r_O = (TP / (TP + FN)) if (TP + FN) else 0
     f1_O = (2 * TP) / (2 * TP + FP + FN) if 2 * TP + FP + FN else 0
@@ -42,22 +44,24 @@ def precision_recall(answer, network_GT_selfloop):
     #######precision and recall (adjacency)
     TP, FP, FN = 0, 0, 0
     for edge in GT_nx.edges():
-        if edge in res_nx.edges() or (edge[1], edge[0]) in res_nx.edges():
-            if ((edge[1], edge[0]) in GT_nx.edges()) and (edge[1] != edge[0]):
-                TP += 0.5
+        if include_selfloop or edge[1] != edge[0]:
+            if edge in res_nx.edges() or (edge[1], edge[0]) in res_nx.edges():
+                if ((edge[1], edge[0]) in GT_nx.edges()) and (edge[1] != edge[0]):
+                    TP += 0.5
+                else:
+                    TP += 1
             else:
-                TP += 1
-        else:
-            if (edge[1], edge[0]) in GT_nx.edges() and (edge[1] != edge[0]):
-                FN += 0.5
-            else:
-                FN += 1
+                if (edge[1], edge[0]) in GT_nx.edges() and (edge[1] != edge[0]):
+                    FN += 0.5
+                else:
+                    FN += 1
     for edge in res_nx.edges():
-        if not (edge in GT_nx.edges() or (edge[1], edge[0]) in GT_nx.edges()):
-            if ((edge[1], edge[0]) in res_nx.edges()) and (edge[1] != edge[0]):
-                FP += 0.5
-            else:
-                FP += 1
+        if include_selfloop or edge[1] != edge[0]:
+            if not (edge in GT_nx.edges() or (edge[1], edge[0]) in GT_nx.edges()):
+                if ((edge[1], edge[0]) in res_nx.edges()) and (edge[1] != edge[0]):
+                    FP += 0.5
+                else:
+                    FP += 1
     p_A = (TP / (TP + FP)) if (TP + FP) else 0
     r_A = (TP / (TP + FN)) if (TP + FN) else 0
     f1_A = (2 * TP) / (2 * TP + FP + FN) if 2 * TP + FP + FN else 0
@@ -66,17 +70,19 @@ def precision_recall(answer, network_GT_selfloop):
 
     TP, FP, FN = 0, 0, 0
     for edge in GT_nx.edges():
-        if not edge[1] == edge[0]:
-            if (edge[1], edge[0]) in GT_nx.edges():
-                if edge in res_nx.edges() and (edge[1], edge[0]) in res_nx.edges():
-                    TP += 1
-                else:
-                    FN += 1
+        if include_selfloop or edge[1] != edge[0]:
+            if not edge[1] == edge[0]:
+                if (edge[1], edge[0]) in GT_nx.edges():
+                    if edge in res_nx.edges() and (edge[1], edge[0]) in res_nx.edges():
+                        TP += 1
+                    else:
+                        FN += 1
     for edge in res_nx.edges():
-        if not edge[1] == edge[0]:
-            if (edge[1], edge[0]) in res_nx.edges():
-                if not (edge in GT_nx.edges() and (edge[1], edge[0]) in GT_nx.edges()):
-                    FP += 1
+        if include_selfloop or edge[1] != edge[0]:
+            if not edge[1] == edge[0]:
+                if (edge[1], edge[0]) in res_nx.edges():
+                    if not (edge in GT_nx.edges() and (edge[1], edge[0]) in GT_nx.edges()):
+                        FP += 1
     p_C = (TP / (TP + FP)) if (TP + FP) else 0
     r_C = (TP / (TP + FN)) if (TP + FN) else 0
     f1_C = (2 * TP) / (2 * TP + FP + FN) if 2 * TP + FP + FN else 0
@@ -122,3 +128,8 @@ def divide_into_batches(lst, n):
         batches.append(lst[start:end])
 
     return batches
+
+def calculate_f1_score(precision, recall):
+    if precision + recall == 0:
+        return 0.0
+    return 2 * (precision * recall) / (precision + recall)
