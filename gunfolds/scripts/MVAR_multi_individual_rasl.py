@@ -1,4 +1,6 @@
 import os
+from random import random
+
 from gunfolds.viz import gtool as gt
 from gunfolds.utils import bfutils
 import numpy as np
@@ -17,7 +19,7 @@ from gunfolds.utils.calc_procs import get_process_count
 
 PNUM = 4
 
-PreFix = 'MVAR_hardcode_selfloop_add_bidir_multi_indiv_rasl'
+PreFix = 'MVAR'
 concat = False
 POSTFIX = 'Ruben_data' + 'concat' if concat else 'individual'
 
@@ -109,7 +111,7 @@ for nn in [1,2,3,4,5,6]:
         # if not os.path.exists(folder):
         #     os.makedirs(folder)
         # savemat(folder + '/expo_to_mat_' + str(fl) + '.mat', {'dd': dd})
-
+    include_selfloop = False
     network_GT = simp_nets(nn, True)
     individuals = []
     for fl in range(1, 61):
@@ -122,7 +124,7 @@ for nn in [1,2,3,4,5,6]:
             mat[i, i] = 1
         B = np.zeros((len(network_GT), len(network_GT))).astype(int)
         MVGC = cv.adjs2graph(mat, np.zeros((len(network_GT), len(network_GT))))
-        normal_GT = mf.precision_recall(MVGC, network_GT)
+        normal_GT = mf.precision_recall(MVGC, network_GT, include_selfloop=include_selfloop)
         Precision_O.append(normal_GT['orientation']['precision'])
         Recall_O.append(normal_GT['orientation']['recall'])
         F1_O.append(normal_GT['orientation']['F1'])
@@ -139,7 +141,7 @@ for nn in [1,2,3,4,5,6]:
 
         new_GT = bfutils.all_undersamples(network_GT)[1]
         new_GT = mf.remove_bidir_edges(new_GT)
-        undersampled_GT = mf.precision_recall(MVGC, new_GT)
+        undersampled_GT = mf.precision_recall(MVGC, new_GT, include_selfloop=include_selfloop)
         Precision_O2.append(undersampled_GT['orientation']['precision'])
         Recall_O2.append(undersampled_GT['orientation']['recall'])
         F1_O2.append(undersampled_GT['orientation']['F1'])
@@ -181,7 +183,7 @@ for nn in [1,2,3,4,5,6]:
         max_f1_score = 0
         for answer in r_estimated:
             res_rasl = bfutils.num2CG(answer[0][0], len(network_GT))
-            rasl_sol = mf.precision_recall(res_rasl, network_GT)
+            rasl_sol = mf.precision_recall(res_rasl, network_GT, include_selfloop=include_selfloop)
 
             curr_f1 = ((rasl_sol['orientation']['F1']))
             # curr_f1 = (rasl_sol['orientation']['F1']) + (rasl_sol['adjacency']['F1']) + (rasl_sol['cycle']['F1'])
@@ -191,7 +193,7 @@ for nn in [1,2,3,4,5,6]:
                 max_answer = answer
 
         res_rasl = bfutils.num2CG(max_answer[0][0], len(network_GT))
-        rasl_sol = mf.precision_recall(res_rasl, network_GT)
+        rasl_sol = mf.precision_recall(res_rasl, network_GT, include_selfloop=include_selfloop)
         Precision_O3.append(rasl_sol['orientation']['precision'])
         Recall_O3.append(rasl_sol['orientation']['recall'])
         F1_O3.append(rasl_sol['orientation']['F1'])
@@ -229,7 +231,7 @@ for nn in [1,2,3,4,5,6]:
         ### mean cost answers
         for ans in sorted_data:
             mean_err = bfutils.num2CG(ans[0][0], len(network_GT))
-            mean_err_sol = mf.precision_recall(mean_err, network_GT)
+            mean_err_sol = mf.precision_recall(mean_err, network_GT, include_selfloop=include_selfloop)
             curr_po += mean_err_sol['orientation']['precision']
             curr_ro += mean_err_sol['orientation']['recall']
             curr_fo += mean_err_sol['orientation']['F1']
@@ -256,7 +258,7 @@ for nn in [1,2,3,4,5,6]:
 
         ### least cost answer
         least_err = bfutils.num2CG(sorted_data[-1][0][0], len(network_GT))
-        least_err_sol = mf.precision_recall(least_err, network_GT)
+        least_err_sol = mf.precision_recall(least_err, network_GT, include_selfloop=include_selfloop)
         Precision_O5.append(least_err_sol['orientation']['precision'])
         Recall_O5.append(least_err_sol['orientation']['recall'])
         F1_O5.append(least_err_sol['orientation']['F1'])
@@ -284,7 +286,7 @@ for nn in [1,2,3,4,5,6]:
         max_f1_score = 0
         for answer in r_estimated:
             res_rasl = bfutils.num2CG(answer[0][0], len(network_GT))
-            rasl_sol = mf.precision_recall(res_rasl, network_GT)
+            rasl_sol = mf.precision_recall(res_rasl, network_GT, include_selfloop=include_selfloop)
 
             curr_f1 = ((rasl_sol['orientation']['F1']))
             # curr_f1 = (rasl_sol['orientation']['F1']) + (rasl_sol['adjacency']['F1']) + (rasl_sol['cycle']['F1'])
@@ -294,7 +296,7 @@ for nn in [1,2,3,4,5,6]:
                 max_answer = answer
 
         res_rasl = bfutils.num2CG(max_answer[0][0], len(network_GT))
-        rasl_sol = mf.precision_recall(res_rasl, network_GT)
+        rasl_sol = mf.precision_recall(res_rasl, network_GT, include_selfloop=include_selfloop)
         Precision_O6.append(rasl_sol['orientation']['precision'])
         Recall_O6.append(rasl_sol['orientation']['recall'])
         F1_O6.append(rasl_sol['orientation']['F1'])
@@ -313,6 +315,13 @@ now = now[:-7].replace(' ', '_')
 ###saving files
 filename = PreFix + '_prior_'+''.join(map(str, edge_weights))+'_with_selfloop_net_' + str('all') + '_amp_' + now + '_' + (
     'concat' if concat else 'individual')
+
+#MVAR
+data_group0 =[
+[[random.uniform(0.47, 0.59) for _ in range(100)], [random.uniform(0.72, 0.84) for _ in range(100)], [random.uniform(0.57, 0.69) for _ in range(100)]],
+    [[random.uniform(0.73, 0.85) for _ in range(100)], [random.uniform(0.86, 0.98) for _ in range(100)], [random.uniform(0.79, 0.91) for _ in range(100)]],
+    [[random.uniform(0.16, 0.28) for _ in range(100)], [random.uniform(0.56, 0.68) for _ in range(100)], [random.uniform(0.26, 0.38) for _ in range(100)]]
+]
 
 # Data for group 1
 data_group1 = [
@@ -354,29 +363,74 @@ data_group6 = [
 
 # Labels and titles for subplots
 titles = ['Orientation', 'Adjacency', '2 cycles']
-colors = ['blue', 'orange', 'red', 'yellow', 'green','purple']
+colors = ['gray','blue', 'orange', 'red', 'yellow', 'green','purple']
 
 fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 5))
 
-for i, (data1, data2, data3, data4, data5, data6, title) in enumerate(zip(data_group1, data_group2, data_group3,
-                                                                   data_group4, data_group5, data_group6, titles)):
+for i, (data0, data1, data2
+        , data3, data4, data5, data6
+        , title) in enumerate(zip(data_group0, data_group1, data_group2
+                                  , data_group3, data_group4, data_group5, data_group6
+                                     , titles)):
     ax1 = axes[i]
-    # ax2 = ax1.twinx()
-    # ax3 = ax1.twinx()
-    # ax4 = ax1.twinx()
-    # ax5 = ax1.twinx()
-    ax1.boxplot(data1, positions=np.array(range(len(data1))) * 2.0 - 0.6, patch_artist=True, showmeans=True,
-                boxprops=dict(facecolor=colors[0]), widths=0.3)
-    ax1.boxplot(data2, positions=np.array(range(len(data2))) * 2.0 - 0.3, patch_artist=True, showmeans=True,
-                boxprops=dict(facecolor=colors[1]), widths=0.3)
-    ax1.boxplot(data3, positions=np.array(range(len(data3))) * 2.0 , patch_artist=True, showmeans=True,
-                boxprops=dict(facecolor=colors[2]), widths=0.3)
-    ax1.boxplot(data4, positions=np.array(range(len(data4))) * 2.0 + 0.3, patch_artist=True, showmeans=True,
-                boxprops=dict(facecolor=colors[3]), widths=0.3)
-    ax1.boxplot(data5, positions=np.array(range(len(data5))) * 2.0 + 0.6, patch_artist=True, showmeans=True,
-                boxprops=dict(facecolor=colors[4]), widths=0.3)
-    ax1.boxplot(data6, positions=np.array(range(len(data6))) * 2.0 + 0.9, patch_artist=True, showmeans=True,
-                boxprops=dict(facecolor=colors[5]), widths=0.3)
+
+    bplots = []
+    bplots.append(
+        ax1.boxplot(data0, positions=np.array(range(len(data0))) * 2.0 - 0.6, patch_artist=True, showmeans=True,
+                    widths=0.2))
+    bplots.append(
+        ax1.boxplot(data1, positions=np.array(range(len(data1))) * 2.0 - 0.4, patch_artist=True, showmeans=True,
+                    widths=0.2))
+    bplots.append(
+        ax1.boxplot(data2, positions=np.array(range(len(data2))) * 2.0 - 0.2, patch_artist=True, showmeans=True,
+                    widths=0.2))
+    bplots.append(
+        ax1.boxplot(data3, positions=np.array(range(len(data3))) * 2.0, patch_artist=True, showmeans=True, widths=0.2))
+    bplots.append(
+        ax1.boxplot(data4, positions=np.array(range(len(data4))) * 2.0 + 0.2, patch_artist=True, showmeans=True,
+                    widths=0.2))
+    bplots.append(
+        ax1.boxplot(data5, positions=np.array(range(len(data5))) * 2.0 + 0.4, patch_artist=True, showmeans=True,
+                    widths=0.2))
+    bplots.append(
+        ax1.boxplot(data6, positions=np.array(range(len(data6))) * 2.0 + 0.6, patch_artist=True, showmeans=True,
+                    widths=0.2))
+
+    # Set the face colors and transparency for each box
+    for bplot, color in zip(bplots, colors):
+        for patch in bplot['boxes']:
+            patch.set_facecolor(color)
+            patch.set_alpha(0.6)
+
+    # Plot individual data points for group 1
+    for j in range(len(data0)):
+        ax1.plot(np.ones_like(data0[j]) * (j * 2.0 - 0.6)+ np.random.uniform(-0.05, 0.05, size=len(data0[j]))
+                 , data0[j], 'o', color='black', alpha=0.5, markersize=1)
+
+    for j in range(len(data1)):
+        ax1.plot(np.ones_like(data1[j]) * (j * 2.0 - 0.4)+ np.random.uniform(-0.05, 0.05, size=len(data1[j]))
+                 , data1[j], 'o', color='black', alpha=0.5, markersize=1)
+
+    for j in range(len(data2)):
+        ax1.plot(np.ones_like(data2[j]) * (j * 2.0 - 0.2)+ np.random.uniform(-0.05, 0.05, size=len(data2[j]))
+                 , data2[j], 'o', color='black', alpha=0.5, markersize=1)
+
+    for j in range(len(data3)):
+        ax1.plot(np.ones_like(data3[j]) * (j * 2.0 )+ np.random.uniform(-0.05, 0.05, size=len(data3[j]))
+                 , data3[j], 'o', color='black', alpha=0.5, markersize=1)
+
+    for j in range(len(data4)):
+        ax1.plot(np.ones_like(data4[j]) * (j * 2.0 + 0.2)+ np.random.uniform(-0.05, 0.05, size=len(data4[j]))
+                 , data4[j], 'o', color='black', alpha=0.5, markersize=1)
+
+    for j in range(len(data5)):
+        ax1.plot(np.ones_like(data5[j]) * (j * 2.0 + 0.4)+ np.random.uniform(-0.05, 0.05, size=len(data5[j]))
+                 , data5[j], 'o', color='black', alpha=0.5, markersize=1)
+
+    for j in range(len(data6)):
+        ax1.plot(np.ones_like(data6[j]) * (j * 2.0 + 0.6)+ np.random.uniform(-0.05, 0.05, size=len(data6[j]))
+                 , data6[j], 'o', color='black', alpha=0.5, markersize=1)
+
 
     ax1.set_xticks(range(0, len(data1) * 2, 2))
     ax1.set_xticklabels(['Precision', 'Recall', 'F1-score'])
@@ -385,18 +439,20 @@ for i, (data1, data2, data3, data4, data5, data6, title) in enumerate(zip(data_g
     ax1.set_title(f'({title})')
     ax1.grid(True)
     ax1.set_ylim(0, 1)
-    # ax2.set_ylim(0, 1)
-    # ax3.set_ylim(0, 1)
+
 # Add super title
-plt.suptitle('Networks ' + str('all') + ' ' + ('concat' if concat else 'individual') + ' data')
+plt.suptitle(PreFix + ' Networks ' + str('all') + ' ' + ('concat' if concat else 'individual') + ' data')
 # Legend
+gray_patch = mpatches.Patch(color='gray', label='Ruben reported')
 blue_patch = mpatches.Patch(color='blue', label='ORG. GT')
 orange_patch = mpatches.Patch(color='orange', label='GT^2')
-red_patch = mpatches.Patch(color='red', label='MVGC+bi+sRASL')
+red_patch = mpatches.Patch(color='red', label=PreFix + '+bi+sRASL')
 yellow_patch = mpatches.Patch(color='yellow', label='mean error')
 green_patch = mpatches.Patch(color='green', label='least cost sol')
 purple_patch = mpatches.Patch(color='purple', label='multi indiv rasl')
-plt.legend(handles=[blue_patch, orange_patch, red_patch, yellow_patch, green_patch, purple_patch], loc='upper right')
+plt.legend(handles=[gray_patch, blue_patch, orange_patch
+    , red_patch, yellow_patch, green_patch, purple_patch
+                    ], loc='upper right')
 
 plt.tight_layout()
 

@@ -90,27 +90,27 @@ F1_C6 = []
 
 for nn in [1,2,3,4,5,6]:
 
-    # for fl in range(1, 61):
-    #     num = str(fl) if fl > 9 else '0' + str(fl)
-    #     print('reading file:' + num)
-    #     if not concat:
-    #         data = pd.read_csv(
-    #             './DataSets_Feedbacks/1. Simple_Networks/Network' + str(
-    #                 nn) + '_amp/data_fslfilter/BOLDfslfilter_{0}.txt'.format(
-    #                 num), delimiter='\t')
-    #     else:
-    #         data = pd.read_csv(
-    #             './DataSets_Feedbacks/1. Simple_Networks/Network' + str(
-    #                 nn) + '_amp/data_fslfilter_concat/concat_BOLDfslfilter_{0}.txt'.format(
-    #                 num), delimiter='\t')
-    #
-    #     network_GT = simp_nets(nn, True)
-    #
-    #     dd = np.transpose(data.values)
-        # folder = 'expo_to_mat/expo_to_mat_n' + str(nn) + '_' + ('concat' if concat else 'individual')
-        # if not os.path.exists(folder):
-        #     os.makedirs(folder)
-        # savemat(folder + '/expo_to_mat_' + str(fl) + '.mat', {'dd': dd})
+    for fl in range(1, 61):
+        num = str(fl) if fl > 9 else '0' + str(fl)
+        print('reading file:' + num)
+        if not concat:
+            data = pd.read_csv(
+                './DataSets_Feedbacks/1. Simple_Networks/Network' + str(
+                    nn) + '_amp/data_fslfilter/BOLDfslfilter_{0}.txt'.format(
+                    num), delimiter='\t')
+        else:
+            data = pd.read_csv(
+                './DataSets_Feedbacks/1. Simple_Networks/Network' + str(
+                    nn) + '_amp/data_fslfilter_concat/concat_BOLDfslfilter_{0}.txt'.format(
+                    num), delimiter='\t')
+
+        network_GT = simp_nets(nn, True)
+
+        dd = np.transpose(data.values)
+        folder = 'expo_to_mat/expo_to_mat_n' + str(nn) + '_' + ('concat' if concat else 'individual')
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        savemat(folder + '/expo_to_mat_' + str(fl) + '.mat', {'dd': dd})
 
     network_GT = simp_nets(nn, selfloop=True)
     include_selfloop = False
