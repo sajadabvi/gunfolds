@@ -167,8 +167,8 @@ for nn in [1,2,3,4,5,6]:
         for cycle in two_cycle:
             DD[cycle[0]-1][cycle[1]-1] = 2500
             DD[cycle[1]-1][cycle[0]-1] = 2500
-            B[cycle[0] - 1][cycle[1] - 1] = 1
-            B[cycle[1] - 1][cycle[0] - 1] = 1
+            # B[cycle[0] - 1][cycle[1] - 1] = 1
+            # B[cycle[1] - 1][cycle[0] - 1] = 1
 
         for i in range(len(network_GT)):
             DD[i][i] = 10000
