@@ -415,12 +415,12 @@ data_group7 = [
 ]
 if not os.path.exists('data_group'):
     os.makedirs('data_group')
-zkl.save(data_group1,'data_group/data_group1_data_batch' + str(args.BATCH) + TR + '_' + str(concat)+'.zkl')
-zkl.save(data_group2,'data_group/data_group2_data_batch' + str(args.BATCH) + TR + '_' + str(concat)+'.zkl')
-zkl.save(data_group3,'data_group/data_group3_data_batch' + str(args.BATCH) + TR + '_' + str(concat)+'.zkl')
-zkl.save(data_group4,'data_group/data_group4_data_batch' + str(args.BATCH) + TR + '_' + str(concat)+'.zkl')
-zkl.save(data_group5,'data_group/data_group5_data_batch' + str(args.BATCH) + TR + '_' + str(concat)+'.zkl')
-zkl.save(data_group7,'data_group/data_group7_data_batch' + str(args.BATCH) + TR + '_' + str(concat)+'.zkl')
+zkl.save(data_group1,'data_group/'+filename+'data_group1_data_batch' + str(args.BATCH) + TR + '_' + str(concat)+'.zkl')
+zkl.save(data_group2,'data_group/'+filename+'data_group2_data_batch' + str(args.BATCH) + TR + '_' + str(concat)+'.zkl')
+zkl.save(data_group3,'data_group/'+filename+'data_group3_data_batch' + str(args.BATCH) + TR + '_' + str(concat)+'.zkl')
+zkl.save(data_group4,'data_group/'+filename+'data_group4_data_batch' + str(args.BATCH) + TR + '_' + str(concat)+'.zkl')
+zkl.save(data_group5,'data_group/'+filename+'data_group5_data_batch' + str(args.BATCH) + TR + '_' + str(concat)+'.zkl')
+zkl.save(data_group7,'data_group/'+filename+'data_group7_data_batch' + str(args.BATCH) + TR + '_' + str(concat)+'.zkl')
 
 # # Labels and titles for subplots
 # titles = ['Orientation', 'Adjacency', '2 cycles']
