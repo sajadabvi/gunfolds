@@ -149,10 +149,12 @@ for nn in [4]:
         print('processing file:' + str(fl))
         if concat:
             folder_read = 'expo_to_mat/GIMME_TR'+ TR +'_expo_to_py' + '_' + ('concat' if concat else 'individual') \
-                          + '/individual/StdErrors/concat_BOLDfslfilter_' + num + 'StdErrors.csv'
+                          + '/individual/StdErrors/concat_BOLD' + ('fslfilter_' if TR == '1.20s' else '3TRfilt_') \
+                          + num + 'StdErrors.csv'
         else:
             folder_read = 'expo_to_mat/GIMME_TR' + TR + '_expo_to_py' + '_' + ('concat' if concat else 'individual') \
-                          + '/individual/StdErrors/BOLDfslfilter_' + num + 'StdErrors.csv'
+                          + '/individual/StdErrors/BOLD' + ('fslfilter_' if TR == '1.20s' else '3TRfilt_') \
+                          + num + 'StdErrors.csv'
 
 
         csv_data, B = read_csv_files(folder_read, len(network_GT))
