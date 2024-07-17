@@ -111,25 +111,25 @@ F1_C7 = []
 
 for nn in [4]:
 
-    # for fl in range(1, 61):
-    #     num = str(fl) if fl > 9 else '0' + str(fl)
-    #     print('reading file:' + num)
-    #     if not concat:
-    #         data = pd.read_csv(
-    #             './DataSets_Feedbacks/4. Temporal_Undersampling_Data/data_'+TR+'TR_individual/BOLD' +
-    #             ('fslfilter' if TR == '1.20s' else '3TRfilt') + '_{0}.txt'.format(
-    #                 num), delimiter='\t')
-    #     else:
-    #         data = pd.read_csv(
-    #             './DataSets_Feedbacks/4. Temporal_Undersampling_Data/data_'+TR+'TR_concatenated/concat_BOLD' +
-    #             ('fslfilter' if TR == '1.20s' else '3TRfilt') + '_{0}.txt'.format(
-    #                 num), delimiter='\t')
-    #
-    #     dd = np.transpose(data.values)
-    #     folder = 'expo_to_mat/expo_to_mat_' + ('concat' if concat else 'individual') + '_' + TR
-    #     if not os.path.exists(folder):
-    #         os.makedirs(folder)
-    #     savemat(folder + '/expo_to_mat_' + str(fl) + '.mat', {'dd': dd})
+    for fl in range(1, 61):
+        num = str(fl) if fl > 9 else '0' + str(fl)
+        print('reading file:' + num)
+        # if not concat:
+        #     data = pd.read_csv(
+        #         './DataSets_Feedbacks/4. Temporal_Undersampling_Data/data_'+TR+'TR_individual/BOLD' +
+        #         ('fslfilter' if TR == '1.20s' else '3TRfilt') + '_{0}.txt'.format(
+        #             num), delimiter='\t')
+        # else:
+        #     data = pd.read_csv(
+        #         './DataSets_Feedbacks/4. Temporal_Undersampling_Data/data_'+TR+'TR_concatenated/concat_BOLD' +
+        #         ('fslfilter' if TR == '1.20s' else '3TRfilt') + '_{0}.txt'.format(
+        #             num), delimiter='\t')
+        #
+        # dd = np.transpose(data.values)
+        # folder = 'expo_to_mat/expo_to_mat_' + ('concat' if concat else 'individual') + '_' + TR
+        # if not os.path.exists(folder):
+        #     os.makedirs(folder)
+        # savemat(folder + '/expo_to_mat_' + str(fl) + '.mat', {'dd': dd})
 
     network_GT = simp_nets(nn, selfloop=True)
     include_selfloop = True
