@@ -20,10 +20,10 @@ import glob
 
 
 parser = argparse.ArgumentParser(description='Run settings.')
-parser.add_argument("-b", "--BATCH", default=2, help="slurm batch.", type=int)
+parser.add_argument("-b", "--BATCH", default=1, help="slurm batch.", type=int)
 parser.add_argument("-p", "--PNUM", default=4, help="number of CPUs in machine.", type=int)
-parser.add_argument("-c", "--CONCAT", default="f", help="true to use concat data", type=str)
-parser.add_argument("-u", "--UNDERSAMPLED", default="f", help="true to use tr 3 time scale", type=str)
+parser.add_argument("-c", "--CONCAT", default="t", help="true to use concat data", type=str)
+parser.add_argument("-u", "--UNDERSAMPLED", default="t", help="true to use tr 3 time scale", type=str)
 parser.add_argument("-m", "--MANUAL", default="t", help="true to manually undersample 3 time scale", type=str)
 args = parser.parse_args()
 PNUM = args.PNUM
@@ -159,7 +159,7 @@ for nn in [4]:
                           + '/individual/StdErrors/concat_BOLD' + ('fslfilter_' if TR == '1.20s' else '3TRfilt_') \
                           + num + 'StdErrors.csv'
         else:
-            folder_read = 'expo_to_mat/GIMME_TR' + TR + '_expo_to_py' + '_' + ('concat' if concat else 'individual') \
+            folder_read = 'expo_to_mat/'+('manual/' if MANUAL else '')+'GIMME_TR' + TR + '_expo_to_py' + '_' + ('concat' if concat else 'individual') \
                           + '/individual/StdErrors/BOLD' + ('fslfilter_' if TR == '1.20s' else '3TRfilt_') \
                           + num + 'StdErrors.csv'
 
