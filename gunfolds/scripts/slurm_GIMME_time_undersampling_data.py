@@ -319,6 +319,8 @@ for nn in [4]:
 
         if glob.glob(pattern):
             data_group7 = zkl.load(glob.glob(pattern)[0])
+            print('using previous results:')
+            print(glob.glob(pattern)[0])
         else:
             num = str(fl) if fl > 9 else '0' + str(fl)
             if not concat:
@@ -343,9 +345,6 @@ for nn in [4]:
             DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
             BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
 
-            # g_estimated = gk.ringmore(5, 2)
-            # BD = np.ones((5, 5))
-            # DD = np.ones((5, 5))
             r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=0,
                                 urate=min(5, (3 * len(g_estimated) + 1)),
                                 dm=[DD],
@@ -443,13 +442,13 @@ data_group5 = [
 
 
 
-zkl.save(data_group1,'data_group/'+filename+'data_group1_data_batch' + str(args.BATCH) + '_' + TR + '_' + str(concat)+ '_MANUAL_' + str(MANUAL)+'.zkl')
-zkl.save(data_group2,'data_group/'+filename+'data_group2_data_batch' + str(args.BATCH) + '_' + TR + '_' + str(concat)+'_MANUAL_' + str(MANUAL)+'.zkl')
-zkl.save(data_group3,'data_group/'+filename+'data_group3_data_batch' + str(args.BATCH) + '_' + TR + '_' + str(concat)+'_MANUAL_' + str(MANUAL)+'.zkl')
-zkl.save(data_group4,'data_group/'+filename+'data_group4_data_batch' + str(args.BATCH) + '_' + TR + '_' + str(concat)+'_MANUAL_' + str(MANUAL)+'.zkl')
-zkl.save(data_group5,'data_group/'+filename+'data_group5_data_batch' + str(args.BATCH) + '_' + TR + '_' + str(concat)+'_MANUAL_' + str(MANUAL)+'.zkl')
+zkl.save(data_group1,'data_group/'+filename+'data_group1_data_batch' + str(args.BATCH) + '_' + TR + '_' + str(concat) + '_MANUAL_' + str(MANUAL)+'.zkl')
+zkl.save(data_group2,'data_group/'+filename+'data_group2_data_batch' + str(args.BATCH) + '_' + TR + '_' + str(concat) + '_MANUAL_' + str(MANUAL)+'.zkl')
+zkl.save(data_group3,'data_group/'+filename+'data_group3_data_batch' + str(args.BATCH) + '_' + TR + '_' + str(concat) + '_MANUAL_' + str(MANUAL)+'.zkl')
+zkl.save(data_group4,'data_group/'+filename+'data_group4_data_batch' + str(args.BATCH) + '_' + TR + '_' + str(concat) + '_MANUAL_' + str(MANUAL)+'.zkl')
+zkl.save(data_group5,'data_group/'+filename+'data_group5_data_batch' + str(args.BATCH) + '_' + TR + '_' + str(concat) + '_MANUAL_' + str(MANUAL)+'.zkl')
 
-zkl.save(data_group7,'data_group/'+filename+'data_group7_data_batch' + str(args.BATCH) + '_' + TR + '_' + str(concat)+'_MANUAL_' + str(MANUAL)+'.zkl')
+zkl.save(data_group7,'data_group/'+filename+'data_group7_data_batch' + str(args.BATCH) + '_' + TR + '_' + str(concat) + '_MANUAL_' + str(MANUAL)+'.zkl')
 
 # # Labels and titles for subplots
 # titles = ['Orientation', 'Adjacency', '2 cycles']

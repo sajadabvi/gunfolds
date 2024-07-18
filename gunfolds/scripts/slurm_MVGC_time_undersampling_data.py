@@ -1,35 +1,32 @@
 import os
-from gunfolds.viz import gtool as gt
 from gunfolds.utils import bfutils
 import numpy as np
 import pandas as pd
 from gunfolds import conversions as cv
-import matplotlib.pyplot as plt
 from datetime import datetime
 from scipy.io import loadmat
-from scipy.io import savemat
-import matplotlib.patches as mpatches
 from gunfolds.scripts.datasets.simple_networks import simp_nets
 from gunfolds.scripts import my_functions as mf
 from gunfolds.solvers.clingo_rasl import drasl
 from gunfolds.utils import graphkit as gk
-from gunfolds.utils.calc_procs import get_process_count
-import random
 import tigramite.data_processing as pp
 from tigramite.pcmci import PCMCI
 from tigramite.independence_tests.parcorr import ParCorr
 import argparse
 import distutils.util
 from gunfolds.utils import zickle  as zkl
+import glob
 
 parser = argparse.ArgumentParser(description='Run settings.')
 parser.add_argument("-b", "--BATCH", default=1, help="slurm batch.", type=int)
 parser.add_argument("-p", "--PNUM", default=4, help="number of CPUs in machine.", type=int)
-parser.add_argument("-c", "--CONCAT", default="f", help="true to use concat data", type=str)
-parser.add_argument("-u", "--UNDERSAMPLED", default="f", help="true to use tr 3 time scale", type=str)
+parser.add_argument("-c", "--CONCAT", default="t", help="true to use concat data", type=str)
+parser.add_argument("-u", "--UNDERSAMPLED", default="t", help="true to use tr 3 time scale", type=str)
+parser.add_argument("-m", "--MANUAL", default="t", help="true to manually undersample 3 time scale", type=str)
 args = parser.parse_args()
 PNUM = args.PNUM
 UNDERSAMPLED = bool(distutils.util.strtobool(args.UNDERSAMPLED))
+MANUAL = bool(distutils.util.strtobool(args.MANUAL))
 TR = '3s' if UNDERSAMPLED else '1.20s'
 PreFix = 'MVGC' + TR
 concat = bool(distutils.util.strtobool(args.CONCAT))
@@ -112,33 +109,13 @@ F1_C7 = []
 
 for nn in [4]:
 
-    # for fl in range(1, 61):
-    #     num = str(fl) if fl > 9 else '0' + str(fl)
-    #     print('reading file:' + num)
-    #     if not concat:
-    #         data = pd.read_csv(
-    #             './DataSets_Feedbacks/4. Temporal_Undersampling_Data/data_'+TR+'TR_individual/BOLD' +
-    #             ('fslfilter' if TR == '1.20s' else '3TRfilt') + '_{0}.txt'.format(
-    #                 num), delimiter='\t')
-    #     else:
-    #         data = pd.read_csv(
-    #             './DataSets_Feedbacks/4. Temporal_Undersampling_Data/data_'+TR+'TR_concatenated/concat_BOLD' +
-    #             ('fslfilter' if TR == '1.20s' else '3TRfilt') + '_{0}.txt'.format(
-    #                 num), delimiter='\t')
-    #
-    #     dd = np.transpose(data.values)
-    #     folder = 'expo_to_mat/expo_to_mat_' + ('concat' if concat else 'individual') + '_' + TR
-    #     if not os.path.exists(folder):
-    #         os.makedirs(folder)
-    #     savemat(folder + '/expo_to_mat_' + str(fl) + '.mat', {'dd': dd})
-
     network_GT = simp_nets(nn, selfloop=True)
     include_selfloop = True
     individuals = []
     for fl in [args.BATCH]:
         print('processing file:' + str(fl))
 
-        folder_read = 'expo_to_mat/MVGC_TR'+ TR +'_expo_to_py' + '_' + ('concat' if concat else 'individual') #+ '_new1'
+        folder_read = 'expo_to_mat/'+('manual/' if MANUAL else '')+'MVGC_TR'+ TR +'_expo_to_py' + '_' + ('concat' if concat else 'individual') #+ '_new1'
         mat_data = loadmat(folder_read + '/mat_file_' + str(fl) + '.mat')
         mat = mat_data['sig']
         for i in range(len(network_GT)):
@@ -192,7 +169,6 @@ for nn in [4]:
             DD[i][i] = 10000
         MVGC_bi = cv.adjs2graph(mat, B)
         individuals.append(MVGC_bi)
-        # gt.plotg(MVGC_bi, output='./figs/cycle_removed/Gopt_GC_' + str(nn*1000+fl) + '.pdf')
         edge_weights = [1, 3, 1, 3, 2]
         r_estimated = drasl([MVGC_bi], weighted=True, capsize=0,
                             urate=min(5, (3 * len(MVGC_bi) + 1)),
@@ -294,66 +270,76 @@ for nn in [4]:
         F1_C5.append(least_err_sol['cycle']['F1'])
 
         ###PCMCI + sRASL
-        num = str(fl) if fl > 9 else '0' + str(fl)
-        if not concat:
-            data = pd.read_csv(
-                './DataSets_Feedbacks/4. Temporal_Undersampling_Data/data_' + TR + 'TR_individual/BOLD' +
-                ('fslfilter' if TR == '1.20s' else '3TRfilt') + '_{0}.txt'.format(
-                    num), delimiter='\t')
+        pattern = f'./data_group/*data_group7_data_batch{args.BATCH}_{TR}_{concat}_MANUAL_{MANUAL}.zkl'
+
+        if glob.glob(pattern):
+            data_group7 = zkl.load(glob.glob(pattern)[0])
+            print('using previous results:')
+            print(glob.glob(pattern)[0])
         else:
-            data = pd.read_csv(
-                './DataSets_Feedbacks/4. Temporal_Undersampling_Data/data_' + TR + 'TR_concatenated/concat_BOLD' +
-                ('fslfilter' if TR == '1.20s' else '3TRfilt') + '_{0}.txt'.format(
-                    num), delimiter='\t')
+            num = str(fl) if fl > 9 else '0' + str(fl)
+            if not concat:
+                data = pd.read_csv(
+                    './DataSets_Feedbacks/4. Temporal_Undersampling_Data/'+('manual/' if MANUAL else '')+'data_' + TR + 'TR_individual/BOLD' +
+                    ('fslfilter' if TR == '1.20s' else '3TRfilt') + '_{0}.txt'.format(
+                        num), delimiter='\t')
+            else:
+                data = pd.read_csv(
+                    './DataSets_Feedbacks/4. Temporal_Undersampling_Data/'+('manual/' if MANUAL else '')+'data_' + TR + 'TR_concatenated/concat_BOLD' +
+                    ('fslfilter' if TR == '1.20s' else '3TRfilt') + '_{0}.txt'.format(
+                        num), delimiter='\t')
 
-        dataframe = pp.DataFrame(data.values)
-        cond_ind_test = ParCorr()
-        pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
-        results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.05)
+            dataframe = pp.DataFrame(data.values)
+            cond_ind_test = ParCorr()
+            pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
+            results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.05)
 
-        g_estimated, A, B = cv.Glag2CG(results)
-        MAXCOST = 10000
-        priprities = [4, 2, 5, 3, 1]
-        DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
-        BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
+            g_estimated, A, B = cv.Glag2CG(results)
+            MAXCOST = 10000
+            priprities = [4, 2, 5, 3, 1]
+            DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
+            BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
 
-        # g_estimated = gk.ringmore(5, 2)
-        # BD = np.ones((5, 5))
-        # DD = np.ones((5, 5))
-        r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=0,
-                            urate=min(5, (3 * len(g_estimated) + 1)),
-                            dm=[DD],
-                            bdm=[BD],
-                            scc=False,
-                            GT_density=int(1000 * gk.density(network_GT)),
-                            edge_weights=priprities, pnum=PNUM, optim='optN')
+            r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=0,
+                                urate=min(5, (3 * len(g_estimated) + 1)),
+                                dm=[DD],
+                                bdm=[BD],
+                                scc=False,
+                                GT_density=int(1000 * gk.density(network_GT)),
+                                edge_weights=priprities, pnum=PNUM, optim='optN')
 
-        print('number of optimal solutions is', len(r_estimated))
-        max_f1_score = 0
-        for answer in r_estimated:
-            res_rasl = bfutils.num2CG(answer[0][0], len(network_GT))
+            print('number of optimal solutions is', len(r_estimated))
+            max_f1_score = 0
+            for answer in r_estimated:
+                res_rasl = bfutils.num2CG(answer[0][0], len(network_GT))
+                rasl_sol = mf.precision_recall(res_rasl, network_GT, include_selfloop=include_selfloop)
+
+                # curr_f1 = ((rasl_sol['orientation']['F1']))
+                curr_f1 = (rasl_sol['orientation']['F1']) + (rasl_sol['adjacency']['F1']) + (rasl_sol['cycle']['F1'])
+
+                if curr_f1 > max_f1_score:
+                    max_f1_score = curr_f1
+                    max_answer = answer
+
+            res_rasl = bfutils.num2CG(max_answer[0][0], len(network_GT))
             rasl_sol = mf.precision_recall(res_rasl, network_GT, include_selfloop=include_selfloop)
+            Precision_O7.append(rasl_sol['orientation']['precision'])
+            Recall_O7.append(rasl_sol['orientation']['recall'])
+            F1_O7.append(rasl_sol['orientation']['F1'])
 
-            # curr_f1 = ((rasl_sol['orientation']['F1']))
-            curr_f1 = (rasl_sol['orientation']['F1']) + (rasl_sol['adjacency']['F1']) + (rasl_sol['cycle']['F1'])
+            Precision_A7.append(rasl_sol['adjacency']['precision'])
+            Recall_A7.append(rasl_sol['adjacency']['recall'])
+            F1_A7.append(rasl_sol['adjacency']['F1'])
 
-            if curr_f1 > max_f1_score:
-                max_f1_score = curr_f1
-                max_answer = answer
+            Precision_C7.append(rasl_sol['cycle']['precision'])
+            Recall_C7.append(rasl_sol['cycle']['recall'])
+            F1_C7.append(rasl_sol['cycle']['F1'])
 
-        res_rasl = bfutils.num2CG(max_answer[0][0], len(network_GT))
-        rasl_sol = mf.precision_recall(res_rasl, network_GT, include_selfloop=include_selfloop)
-        Precision_O7.append(rasl_sol['orientation']['precision'])
-        Recall_O7.append(rasl_sol['orientation']['recall'])
-        F1_O7.append(rasl_sol['orientation']['F1'])
-
-        Precision_A7.append(rasl_sol['adjacency']['precision'])
-        Recall_A7.append(rasl_sol['adjacency']['recall'])
-        F1_A7.append(rasl_sol['adjacency']['F1'])
-
-        Precision_C7.append(rasl_sol['cycle']['precision'])
-        Recall_C7.append(rasl_sol['cycle']['recall'])
-        F1_C7.append(rasl_sol['cycle']['F1'])
+            data_group7 = [
+                [Precision_O7, Recall_O7, F1_O7],
+                [Precision_A7, Recall_A7, F1_A7],
+                [Precision_C7, Recall_C7, F1_C7]
+            ]
 
 
 
@@ -415,12 +401,13 @@ data_group7 = [
 ]
 if not os.path.exists('data_group'):
     os.makedirs('data_group')
-zkl.save(data_group1,'data_group/'+filename+'data_group1_data_batch' + str(args.BATCH) + TR + '_' + str(concat)+'.zkl')
-zkl.save(data_group2,'data_group/'+filename+'data_group2_data_batch' + str(args.BATCH) + TR + '_' + str(concat)+'.zkl')
-zkl.save(data_group3,'data_group/'+filename+'data_group3_data_batch' + str(args.BATCH) + TR + '_' + str(concat)+'.zkl')
-zkl.save(data_group4,'data_group/'+filename+'data_group4_data_batch' + str(args.BATCH) + TR + '_' + str(concat)+'.zkl')
-zkl.save(data_group5,'data_group/'+filename+'data_group5_data_batch' + str(args.BATCH) + TR + '_' + str(concat)+'.zkl')
-zkl.save(data_group7,'data_group/'+filename+'data_group7_data_batch' + str(args.BATCH) + TR + '_' + str(concat)+'.zkl')
+zkl.save(data_group1,'data_group/'+filename+'data_group1_data_batch' + str(args.BATCH) + TR + '_' + str(concat) + '_MANUAL_' + str(MANUAL)+'.zkl')
+zkl.save(data_group2,'data_group/'+filename+'data_group2_data_batch' + str(args.BATCH) + TR + '_' + str(concat) + '_MANUAL_' + str(MANUAL)+'.zkl')
+zkl.save(data_group3,'data_group/'+filename+'data_group3_data_batch' + str(args.BATCH) + TR + '_' + str(concat) + '_MANUAL_' + str(MANUAL)+'.zkl')
+zkl.save(data_group4,'data_group/'+filename+'data_group4_data_batch' + str(args.BATCH) + TR + '_' + str(concat) + '_MANUAL_' + str(MANUAL)+'.zkl')
+zkl.save(data_group5,'data_group/'+filename+'data_group5_data_batch' + str(args.BATCH) + TR + '_' + str(concat) + '_MANUAL_' + str(MANUAL)+'.zkl')
+
+zkl.save(data_group7,'data_group/'+filename+'data_group7_data_batch' + str(args.BATCH) + TR + '_' + str(concat) + '_MANUAL_' + str(MANUAL)+'.zkl')
 
 # # Labels and titles for subplots
 # titles = ['Orientation', 'Adjacency', '2 cycles']
