@@ -421,11 +421,9 @@ data_group5 = [
 #     [Precision_C6, Recall_C6, F1_C6]
 # ]
 
-data_group7 = [
-    [Precision_O7, Recall_O7, F1_O7],
-    [Precision_A7, Recall_A7, F1_A7],
-    [Precision_C7, Recall_C7, F1_C7]
-]
+
+
+
 if not os.path.exists('data_group'):
     os.makedirs('data_group')
 zkl.save(data_group1,'data_group/'+filename+'data_group1_data_batch' + str(args.BATCH) + TR + '_' + str(concat) + '_MANUAL_' + str(MANUAL)+'.zkl')

@@ -111,7 +111,6 @@ for nn in [4]:
 
     network_GT = simp_nets(nn, selfloop=True)
     include_selfloop = True
-    individuals = []
     for fl in [args.BATCH]:
         print('processing file:' + str(fl))
 
@@ -168,7 +167,6 @@ for nn in [4]:
         for i in range(len(network_GT)):
             DD[i][i] = 10000
         MVGC_bi = cv.adjs2graph(mat, B)
-        individuals.append(MVGC_bi)
         edge_weights = [1, 3, 1, 3, 2]
         r_estimated = drasl([MVGC_bi], weighted=True, capsize=0,
                             urate=min(5, (3 * len(MVGC_bi) + 1)),
@@ -351,11 +349,7 @@ now = now[:-7].replace(' ', '_')
 filename = PreFix + '_prior_'+''.join(map(str, edge_weights))+'_with_selfloop_net_' + str('all') + '_amp_' + now + '_' + (
     'concat' if concat else 'individual')
 
-# data_group0 =[
-# [[random.uniform(0.40, 0.52) for _ in range(100)], [random.uniform(0.80, 0.92) for _ in range(100)], [random.uniform(0.54, 0.66) for _ in range(100)]],
-#     [[random.uniform(0.68, 0.80) for _ in range(100)], [random.uniform(0.82, 0.94) for _ in range(100)], [random.uniform(0.74, 0.86) for _ in range(100)]],
-#     [[random.uniform(0.08, 0.2) for _ in range(100)], [random.uniform(0.58, 0.7) for _ in range(100)], [random.uniform(0.18, 0.30) for _ in range(100)]]
-# ]
+
 # Data for group 1
 data_group1 = [
     [Precision_O, Recall_O, F1_O],
@@ -388,17 +382,10 @@ data_group5 = [
     [Precision_C5, Recall_C5, F1_C5]
 ]
 
-# data_group6 = [
-#     [Precision_O6, Recall_O6, F1_O6],
-#     [Precision_A6, Recall_A6, F1_A6],
-#     [Precision_C6, Recall_C6, F1_C6]
-# ]
 
-data_group7 = [
-    [Precision_O7, Recall_O7, F1_O7],
-    [Precision_A7, Recall_A7, F1_A7],
-    [Precision_C7, Recall_C7, F1_C7]
-]
+
+
+
 if not os.path.exists('data_group'):
     os.makedirs('data_group')
 zkl.save(data_group1,'data_group/'+filename+'data_group1_data_batch' + str(args.BATCH) + TR + '_' + str(concat) + '_MANUAL_' + str(MANUAL)+'.zkl')
@@ -408,115 +395,3 @@ zkl.save(data_group4,'data_group/'+filename+'data_group4_data_batch' + str(args.
 zkl.save(data_group5,'data_group/'+filename+'data_group5_data_batch' + str(args.BATCH) + TR + '_' + str(concat) + '_MANUAL_' + str(MANUAL)+'.zkl')
 
 zkl.save(data_group7,'data_group/'+filename+'data_group7_data_batch' + str(args.BATCH) + TR + '_' + str(concat) + '_MANUAL_' + str(MANUAL)+'.zkl')
-
-# # Labels and titles for subplots
-# titles = ['Orientation', 'Adjacency', '2 cycles']
-# colors = ['blue', 'orange', 'red', 'yellow', 'green','pink']
-#
-# fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 5))
-#
-# for i, (
-#         # data0,
-#         data1, data2
-#         , data3, data4, data5,
-#         # data6,
-#         data7
-#         , title) in enumerate(zip(
-#     # data_group0,
-#     data_group1, data_group2
-#                                   , data_group3, data_group4, data_group5,
-#     # data_group6,
-#     data_group7
-#                                      , titles)):
-#     ax1 = axes[i]
-#     bplots = []
-#
-#     # bplots.append(ax1.boxplot(data0, positions=np.array(range(len(data0))) * 2.0 - 0.6, patch_artist=True, showmeans=True,
-#     #             boxprops=dict(facecolor=colors[0]), widths=0.2))
-#     bplots.append(ax1.boxplot(data1, positions=np.array(range(len(data1))) * 2.0 - 0.4, patch_artist=True, showmeans=True,
-#                 boxprops=dict(facecolor=colors[0]), widths=0.2))
-#     bplots.append(ax1.boxplot(data2, positions=np.array(range(len(data2))) * 2.0 - 0.2, patch_artist=True, showmeans=True,
-#                 boxprops=dict(facecolor=colors[1]), widths=0.2))
-#     bplots.append(ax1.boxplot(data3, positions=np.array(range(len(data3))) * 2.0 , patch_artist=True, showmeans=True,
-#                 boxprops=dict(facecolor=colors[2]), widths=0.2))
-#     bplots.append(ax1.boxplot(data4, positions=np.array(range(len(data4))) * 2.0 + 0.2, patch_artist=True, showmeans=True,
-#                 boxprops=dict(facecolor=colors[3]), widths=0.2))
-#     bplots.append(ax1.boxplot(data5, positions=np.array(range(len(data5))) * 2.0 + 0.4, patch_artist=True, showmeans=True,
-#                 boxprops=dict(facecolor=colors[4]), widths=0.2))
-#     # bplots.append(ax1.boxplot(data6, positions=np.array(range(len(data6))) * 2.0 + 0.6, patch_artist=True, showmeans=True,
-#     #             boxprops=dict(facecolor=colors[6]), widths=0.2))
-#     bplots.append(ax1.boxplot(data7, positions=np.array(range(len(data7))) * 2.0 + 0.6, patch_artist=True, showmeans=True,
-#                 boxprops=dict(facecolor=colors[5]), widths=0.2))
-#
-#
-#     for bplot, color in zip(bplots, colors):
-#         for patch in bplot['boxes']:
-#             patch.set_facecolor(color)
-#             patch.set_alpha(0.6)
-#
-#     # Plot individual data points for group 1
-#     # for j in range(len(data0)):
-#     #     ax1.plot(np.ones_like(data0[j]) * (j * 2.0 - 0.6) + np.random.uniform(-0.05, 0.05, size=len(data0[j]))
-#     #              , data0[j], 'o', color='black', alpha=0.5, markersize=1)
-#
-#     for j in range(len(data1)):
-#         ax1.plot(np.ones_like(data1[j]) * (j * 2.0 - 0.4) + np.random.uniform(-0.05, 0.05, size=len(data1[j]))
-#                  , data1[j], 'o', color='black', alpha=0.5, markersize=1)
-#
-#     for j in range(len(data2)):
-#         ax1.plot(np.ones_like(data2[j]) * (j * 2.0 - 0.2) + np.random.uniform(-0.05, 0.05, size=len(data2[j]))
-#                  , data2[j], 'o', color='black', alpha=0.5, markersize=1)
-#
-#     for j in range(len(data3)):
-#         ax1.plot(np.ones_like(data3[j]) * (j * 2.0) + np.random.uniform(-0.05, 0.05, size=len(data3[j]))
-#                  , data3[j], 'o', color='black', alpha=0.5, markersize=1)
-#
-#     for j in range(len(data4)):
-#         ax1.plot(np.ones_like(data4[j]) * (j * 2.0 + 0.2) + np.random.uniform(-0.05, 0.05, size=len(data4[j]))
-#                  , data4[j], 'o', color='black', alpha=0.5, markersize=1)
-#
-#     for j in range(len(data5)):
-#         ax1.plot(np.ones_like(data5[j]) * (j * 2.0 + 0.4) + np.random.uniform(-0.05, 0.05, size=len(data5[j]))
-#                  , data5[j], 'o', color='black', alpha=0.5, markersize=1)
-#
-#     # for j in range(len(data6)):
-#     #     ax1.plot(np.ones_like(data6[j]) * (j * 2.0 + 0.6)+ np.random.uniform(-0.05, 0.05, size=len(data6[j]))
-#     #              , data6[j], 'o', color='black', alpha=0.5, markersize=1)
-#
-#     for j in range(len(data7)):
-#         ax1.plot(np.ones_like(data7[j]) * (j * 2.0 + 0.6) + np.random.uniform(-0.05, 0.05, size=len(data7[j]))
-#                  , data7[j], 'o', color='black', alpha=0.5, markersize=1)
-#
-#     ax1.set_xticks(range(0, len(data1) * 2, 2))
-#     ax1.set_xticklabels(['Precision', 'Recall', 'F1-score'])
-#     ax1.set_xlabel('Metrics')
-#     ax1.set_ylabel('Value')
-#     ax1.set_title(f'({title})')
-#     ax1.grid(True)
-#     ax1.set_ylim(0, 1)
-#     # ax2.set_ylim(0, 1)
-#     # ax3.set_ylim(0, 1)
-# # Add super title
-# plt.suptitle('TR= ' + TR + ' ' + ('concat' if concat else 'individual') + ' data')
-# # Legend
-# gray_patch = mpatches.Patch(color='gray', label='Ruben reported')
-# blue_patch = mpatches.Patch(color='blue', label='ORG. GT')
-# orange_patch = mpatches.Patch(color='orange', label='GT^2')
-# red_patch = mpatches.Patch(color='red', label='MVGC+bi+sRASL')
-# yellow_patch = mpatches.Patch(color='yellow', label='mean error')
-# green_patch = mpatches.Patch(color='green', label='least cost sol')
-# purple_patch = mpatches.Patch(color='purple', label='multi indiv rasl')
-# pink_patch = mpatches.Patch(color='pink', label='PCMCI+sRASL')
-# plt.legend(handles=[
-#     # gray_patch,
-#     blue_patch, orange_patch
-#     , red_patch, yellow_patch, green_patch,
-#     # purple_patch,
-#     pink_patch
-#                     ], loc='upper right')
-#
-# plt.tight_layout()
-#
-# # Save the figure
-# plt.savefig(filename + '_grouped_boxplot.png')
-# plt.close()

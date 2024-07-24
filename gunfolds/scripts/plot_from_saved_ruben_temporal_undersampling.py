@@ -18,15 +18,15 @@ UNDERSAMPLED = bool(distutils.util.strtobool(args.UNDERSAMPLED))
 for TR in['3s', '1.20s']:
     for concat in [True, False]:
 
-        POSTFIX = 'tepmporal_undetsampling_data' + 'concat' if concat else 'individual'
+        POSTFIX = 'tepmporal_undetsampling_data_manual_undersampling' + 'concat' if concat else 'individual'
 
         save_results = []
 
 
         edge_weights = [1, 3, 1, 3, 2]
-        method = 'FASK'
+        method = 'MVAR'
         PreFix = method + TR
-        folder = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/data_group/' + method + '/'
+        folder = '/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/data_group/manual/data_group/' + method + '/'
 
         groups = listdir(folder)
         groups.sort()
@@ -38,7 +38,7 @@ for TR in['3s', '1.20s']:
 
         for i in groups:
             concatenated_data = [[[] for _ in range(3)] for _ in range(3)]
-            pattern = folder  + str(i) + f'/*_{TR}_{concat}.zkl'
+            pattern = folder  + str(i) + f'/*{TR}_{concat}_MANUAL_True.zkl'
             # files = listdir(folder + '/' + str(i) + '/')
             files = glob.glob(pattern) #listdir(folder + '/' + str(i) + '/')
 
@@ -51,7 +51,10 @@ for TR in['3s', '1.20s']:
                 curr = zkl.load(file)
                 for j in range(3):
                     for k in range(3):
-                        concatenated_data[j][k].append(curr[j][k][0])
+                        if len(curr[j]) > k and len(curr[j][k]) > 0:
+                            concatenated_data[j][k].append(curr[j][k][0])
+                        else:
+                            print(f"Index out of range at j: {j}, k: {k}, group: {i}")
 
             exec(f"data_group{i} = concatenated_data")
 
@@ -152,7 +155,7 @@ for TR in['3s', '1.20s']:
             # ax2.set_ylim(0, 1)
             # ax3.set_ylim(0, 1)
         # Add super title
-        plt.suptitle(method + ', TR= ' + TR + ' ' + ('concat' if concat else 'individual') + ' data')
+        plt.suptitle(method + ', TR= ' + TR + ', manual undersampling ' + ('concat' if concat else 'individual') + ' data')
         # Legend
         gray_patch = mpatches.Patch(color='gray', label='Ruben reported')
         blue_patch = mpatches.Patch(color='blue', label='ORG. GT')
