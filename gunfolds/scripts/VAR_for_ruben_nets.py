@@ -108,10 +108,10 @@ if __name__ == "__main__":
 
     args = parse_arguments(PNUM)
     args = convert_str_to_bool(args)
-    for net in range(6,10):
-        for u in range(1,4):
-            print(f'saving net{net} and u rate {u}')
-            args.NET = net
-            args.UNDERSAMPLING = u
-            save_dataset(args)
+    # for net in range(6,10):
+    #     for u in range(1,4):
+    print(f'saving net{args.NET} and u rate {u}')
+    args.NET = args.NET
+    args.UNDERSAMPLING = args.UNDERSAMPLING
+    save_dataset(args)
     # run_analysis(args)
