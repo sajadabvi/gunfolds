@@ -110,7 +110,7 @@ if __name__ == "__main__":
     args = convert_str_to_bool(args)
     # for net in range(6,10):
     #     for u in range(1,4):
-    print(f'saving net{args.NET} and u rate {u}')
+    print(f'saving net{args.NET} and u rate {args.UNDERSAMPLING}')
     args.NET = args.NET
     args.UNDERSAMPLING = args.UNDERSAMPLING
     save_dataset(args)
