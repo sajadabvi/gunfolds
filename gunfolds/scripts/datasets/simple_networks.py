@@ -58,6 +58,8 @@ network9_GT_selfloop = {1: {1: 1, 2: 1}, 2: {2: 1, 3: 1}, 3: {3: 1, 4: 1}, 4: {4
                         6: {6: 1, 7: 1, 9: 1}, 7: {7: 1, 8: 1}, 8: {8: 1, 4: 1}, 9: {9: 1}}
 network9_GT = {1: {2: 1}, 2: {3: 1}, 3: {4: 1}, 4: {5: 1}, 5: {2: 1}, 6: {7: 1, 9: 1}, 7: {8: 1}, 8: {4: 1},
                9: {}}
+selfloops.append(network9_GT_selfloop)
+no_selfloops.append(network9_GT)
 
 
 def simp_nets(nn, selfloop=True):
