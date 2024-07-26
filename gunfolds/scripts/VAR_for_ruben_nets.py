@@ -72,7 +72,14 @@ def initialize_metrics():
     }
 
 def run_analysis(args):
-    metrics = [initialize_metrics() for _ in range(7)]
+    metrics = {key: initialize_metrics() for key in ['MVGC', 'MVAR', 'GIMME', 'FASK', 'RASL', 'mRASL']}
+    for method in metrics.keys():
+        loading = f'datasets/{method}/net{args.NET}' \
+                  f'_undersampled_by_{args.UNDERSAMPLING}_batch{args.BATCH}.*'
+        if not glob.glob(loading):
+            save_dataset(args)
+
+
     GT = simp_nets(args.NET, selfloop=True)
     A = cv.graph2adj(GT)
     W = mf.create_stable_weighted_matrix(A, threshold=args.MINLINK / 10, powers=[2, 3, 4])
@@ -96,8 +103,8 @@ def save_dataset(args):
     for i in range(60):
         data = mf.genData(W, rate=args.UNDERSAMPLING, ssize=5000, noise=args.NOISE)
         dataset.append(data)
-        print(i)
-    zkl.save(dataset,f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}')
+        print(f'generating batch:{i}')
+    zkl.save(dataset,f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl')
 
 if __name__ == "__main__":
     error_normalization = True
@@ -108,10 +115,11 @@ if __name__ == "__main__":
 
     args = parse_arguments(PNUM)
     args = convert_str_to_bool(args)
-    # for net in range(6,10):
-    #     for u in range(1,4):
-    print(f'saving net{args.NET} and u rate {args.UNDERSAMPLING}')
-    args.NET = args.NET
-    args.UNDERSAMPLING = args.UNDERSAMPLING
-    save_dataset(args)
-    # run_analysis(args)
+    omp_num_threads = args.PNUM
+    os.environ['OMP_NUM_THREADS'] = omp_num_threads
+
+    pattern = f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl'
+
+    if not glob.glob(pattern):
+        save_dataset(args)
+    run_analysis(args)
