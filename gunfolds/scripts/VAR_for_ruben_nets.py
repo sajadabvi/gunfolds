@@ -82,9 +82,23 @@ def convert_to_mat(args):
 def convert_to_txt(args):
     data = zkl.load(f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl')
     for i, dd in enumerate(data, start=1):
-        folder = f'./DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/txt'
+        folder = f'./DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/txtSTD'
         if not os.path.exists(folder):
             os.makedirs(folder)
+        variances = np.var(dd, axis=1, ddof=0)  # ddof=0 for population variance
+
+        # Calculate the standard deviation (sqrt of variance) for each row
+        std_devs = np.sqrt(variances)
+
+        # Normalize each row by dividing by its standard deviation
+        normalized_array = dd / std_devs[:, np.newaxis]
+
+        # Calculate the mean of each row in the normalized matrix
+        means = np.mean(normalized_array, axis=1)
+
+        # Zero-mean each row by subtracting the mean from each element
+        zero_mean_array = normalized_array - means[:, np.newaxis]
+
         header = '\t'.join([f'X{j + 1}' for j in range(dd.shape[0])])
 
         with open(f'{folder}/data{i}.txt', 'w') as f:
@@ -92,8 +106,8 @@ def convert_to_txt(args):
             f.write(header + '\n')
 
             # Write the data, one column per line
-            for col in range(dd.shape[1]):
-                line = '\t'.join(map(str, dd[:, col]))
+            for col in range(zero_mean_array.shape[1]):
+                line = '\t'.join(map(str, zero_mean_array[:, col]))
                 f.write(line + '\n')
 
 def run_analysis(args):
