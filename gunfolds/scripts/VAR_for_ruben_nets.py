@@ -25,10 +25,13 @@ import glob
 from gunfolds.viz import gtool as gt
 from gunfolds.utils import zickle as zkl
 import time
+import sys
 import networkx as nx
 import scipy.sparse as sp
 from scipy.sparse.linalg import eigs
-
+import csv
+sys.path.append('/Users/sajad/GSU Dropbox Dropbox/Mohammadsajad Abavisani/Mac/Documents/PhD/Research/code/tread/py-tetrad')
+from py_tetrad.tools import TetradSearch as ts
 
 def parse_arguments(PNUM):
     parser = argparse.ArgumentParser(description='Run settings.')
@@ -62,7 +65,72 @@ def convert_str_to_bool(args):
     return args
 
 
+# Define the functions
+def MVGC(args, network_GT):
+    path = f'./DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/MVGC'
+    mat_data = loadmat(path + f'/mat_file_{args.BATCH}.mat')['sig']
+    for i in range(len(network_GT)):
+        mat_data[i, i] = 1
+    B = np.zeros((len(network_GT), len(network_GT))).astype(int)
+    MVGC = cv.adjs2graph(mat_data, np.zeros((len(network_GT), len(network_GT))))
+    return MVGC
 
+def MVAR(args, network_GT):
+    path = f'./DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/MVAR'
+    mat_data = loadmat(path + f'/mat_file_{args.BATCH}.mat')['sig']
+    for i in range(len(network_GT)):
+        mat_data[i, i] = 1
+    B = np.zeros((len(network_GT), len(network_GT))).astype(int)
+    MVAR = cv.adjs2graph(mat_data, np.zeros((len(network_GT), len(network_GT))))
+    return MVAR
+
+def GIMME(args, network_GT):
+    size = len(network_GT)
+    path = f'./DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/GIMMESTD' \
+           f'/individual/StdErrors/data{args.BATCH}StdErrors.csv'
+    with open(path, 'r') as file:
+        csv_reader = csv.reader(file)
+        next(csv_reader)  # Skip header if exists
+        rows = []
+        for row in csv_reader:
+            rows.append(row[1:2*size+1])
+        mat = np.array(rows, dtype=np.float32)
+        matrix1 = np.array(mat[:, 0:size])
+        matrix2 = np.array(mat[:, size:2*size])
+        binary_matrixA = (matrix1 != 0).astype(int)
+        binary_matrixB = (matrix2 != 0).astype(int)
+    B0 = np.zeros((len(network_GT), len(network_GT))).astype(int)
+    GIMME = cv.adjs2graph(binary_matrixA.T, B0)
+    return GIMME
+
+def FASK(args, network_GT):
+    path = f'./DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/txtSTD/data{args.BATCH}.txt'
+    data = pd.read_csv(path, delimiter='\t')
+    search = ts.TetradSearch(data)
+    search.set_verbose(False)
+    search.use_sem_bic()
+    search.use_fisher_z(alpha=0.05)
+
+    search.run_fask(alpha=0.05, left_right_rule=1)
+
+    graph_string = str(search.get_string())
+    # Parse nodes and edges from the input string
+    nodes = mf.parse_nodes(graph_string)
+    edges = mf.parse_edges(graph_string)
+
+    # Create adjacency matrix
+    adj_matrix = mf.create_adjacency_matrix(edges, nodes)
+    for i in range(len(network_GT)):
+        adj_matrix[i, i] = 1
+    B = np.zeros((len(network_GT), len(network_GT))).astype(int)
+    FASK = cv.adjs2graph(adj_matrix, np.zeros((len(network_GT), len(network_GT))))
+    return FASK
+
+def RASL(args, network_GT):
+    return "RASL result"
+
+def mRASL(args, network_GT):
+    return "mRASL result"
 
 def initialize_metrics():
     return {
@@ -82,7 +150,7 @@ def convert_to_mat(args):
 def convert_to_txt(args):
     data = zkl.load(f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl')
     for i, dd in enumerate(data, start=1):
-        folder = f'./DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/txtSTD'
+        folder = f'./DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/txt'
         if not os.path.exists(folder):
             os.makedirs(folder)
         variances = np.var(dd, axis=1, ddof=0)  # ddof=0 for population variance
@@ -110,13 +178,16 @@ def convert_to_txt(args):
                 line = '\t'.join(map(str, zero_mean_array[:, col]))
                 f.write(line + '\n')
 
-def run_analysis(args):
+def run_analysis(args,network_GT):
     metrics = {key: initialize_metrics() for key in ['MVGC', 'MVAR', 'GIMME', 'FASK', 'RASL', 'mRASL']}
     for method in metrics.keys():
-        loading = f'datasets/{method}/net{args.NET}' \
-                  f'_undersampled_by_{args.UNDERSAMPLING}_batch{args.BATCH}.*'
-        if not glob.glob(loading):
-            save_dataset(args)
+        # loading = f'datasets/{method}/net{args.NET}' \
+        #           f'_undersampled_by_{args.UNDERSAMPLING}_batch{args.BATCH}.*'
+        # if not glob.glob(loading):
+        #     save_dataset(args)
+
+        result = globals()[method](args, network_GT)
+        print(f"Result from {method}: {result}")
 
 
     GT = simp_nets(args.NET, selfloop=True)
@@ -156,15 +227,15 @@ if __name__ == "__main__":
     args = convert_str_to_bool(args)
     omp_num_threads = args.PNUM
     os.environ['OMP_NUM_THREADS'] = str(omp_num_threads)
-
+    network_GT = simp_nets(args.NET, selfloop=True)
     pattern = f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl'
 
-    if not glob.glob(pattern):
-        save_dataset(args)
-    for i in range(1,10):
-        for j in range(1,4):
-            print(f'net {i}, u {j}')
-            args.NET = i
-            args.UNDERSAMPLING = j
-            convert_to_txt(args)
-    # run_analysis(args)
+    # if not glob.glob(pattern):
+    #     save_dataset(args)
+    # for i in range(1,10):
+    #     for j in range(1,4):
+    #         print(f'net {i}, u {j}')
+    #         args.NET = i
+    #         args.UNDERSAMPLING = j
+    #         convert_to_txt(args)
+    run_analysis(args,network_GT)

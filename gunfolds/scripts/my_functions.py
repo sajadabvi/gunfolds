@@ -2,7 +2,7 @@ import networkx as nx
 import numpy as np
 import scipy.sparse as sp
 from scipy.sparse.linalg import eigs
-
+import re
 from gunfolds.utils import graphkit as gk
 
 
@@ -199,3 +199,34 @@ def drawsamplesLG(A, nstd=0.1, samples=100):
     for i in range(1, samples):
         data[:, i] = A @ data[:, i - 1] + nstd * np.random.randn(A.shape[0])
     return data
+
+def parse_nodes(graph_str):
+    pattern = r'Graph Nodes:\n([\w;]+)'
+    match = re.search(pattern, graph_str)
+    if match:
+        nodes = match.group(1).split(';')
+        return nodes
+    return []
+
+
+def parse_edges(graph_str):
+    pattern = r'Graph Edges:\n((?:\d+\.\s\w+\s-->\s\w+\n)+)'
+    match = re.search(pattern, graph_str)
+    if match:
+        edges_str = match.group(1)
+        edge_pattern = r'\d+\.\s(\w+)\s-->\s(\w+)'
+        edges = re.findall(edge_pattern, edges_str)
+        return edges
+    return []
+
+def create_adjacency_matrix(edges, nodes):
+    node_index = {node: idx for idx, node in enumerate(nodes)}
+    size = len(nodes)
+    matrix = np.zeros((size, size), dtype=int)
+
+    for start, end in edges:
+        start_idx = node_index[start]
+        end_idx = node_index[end]
+        matrix[start_idx, end_idx] = 1
+
+    return matrix
