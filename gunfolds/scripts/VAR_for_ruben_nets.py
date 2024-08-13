@@ -50,7 +50,7 @@ def parse_arguments(PNUM):
     parser.add_argument("-x", "--MAXU", default=5, help="maximum number of undersampling to look for solution.",
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
-    parser.add_argument("-y", "--PRIORITY", default="43521", help="string of priorities", type=str)
+    parser.add_argument("-y", "--PRIORITY", default="42531", help="string of priorities", type=str)
     parser.add_argument("-o", "--METHOD", default="MVGC", help="method to run", type=str)
     return parser.parse_args()
 
