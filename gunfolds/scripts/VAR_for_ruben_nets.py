@@ -51,6 +51,7 @@ def parse_arguments(PNUM):
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
     parser.add_argument("-y", "--PRIORITY", default="43521", help="string of priorities", type=str)
+    parser.add_argument("-o", "--METHOD", default="MVGC", help="method to run", type=str)
     return parser.parse_args()
 
 def convert_str_to_bool(args):
@@ -178,8 +179,9 @@ def convert_to_txt(args):
                 line = '\t'.join(map(str, zero_mean_array[:, col]))
                 f.write(line + '\n')
 
-def run_analysis(args,network_GT):
-    metrics = {key: initialize_metrics() for key in ['MVGC', 'MVAR', 'GIMME', 'FASK', 'RASL', 'mRASL']}
+def run_analysis(args,network_GT,include_selfloop):
+    metrics = {key: {args.UNDERSAMPLING: initialize_metrics()} for key in [args.METHOD]}
+
     for method in metrics.keys():
         # loading = f'datasets/{method}/net{args.NET}' \
         #           f'_undersampled_by_{args.UNDERSAMPLING}_batch{args.BATCH}.*'
@@ -188,22 +190,27 @@ def run_analysis(args,network_GT):
 
         result = globals()[method](args, network_GT)
         print(f"Result from {method}: {result}")
+        normal_GT = mf.precision_recall(result, network_GT, include_selfloop=include_selfloop)
+        metrics[method][args.UNDERSAMPLING]['Precision_O'].append(normal_GT['orientation']['precision'])
+        metrics[method][args.UNDERSAMPLING]['Recall_O'].append(normal_GT['orientation']['recall'])
+        metrics[method][args.UNDERSAMPLING]['F1_O'].append(normal_GT['orientation']['F1'])
+
+        metrics[method][args.UNDERSAMPLING]['Precision_A'].append(normal_GT['adjacency']['precision'])
+        metrics[method][args.UNDERSAMPLING]['Recall_A'].append(normal_GT['adjacency']['recall'])
+        metrics[method][args.UNDERSAMPLING]['F1_A'].append(normal_GT['adjacency']['F1'])
+
+        metrics[method][args.UNDERSAMPLING]['Precision_C'].append(normal_GT['cycle']['precision'])
+        metrics[method][args.UNDERSAMPLING]['Recall_C'].append(normal_GT['cycle']['recall'])
+        metrics[method][args.UNDERSAMPLING]['F1_C'].append(normal_GT['cycle']['F1'])
+
+    if not os.path.exists('VAR_ruben'):
+        os.makedirs('VAR_ruben')
+    zkl.save(metrics,
+             f'VAR_ruben/VAR_{args.METHOD}_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}_batch_{args.BATCH}.zkl')
 
 
-    GT = simp_nets(args.NET, selfloop=True)
-    A = cv.graph2adj(GT)
-    W = mf.create_stable_weighted_matrix(A, threshold=args.MINLINK / 10, powers=[2, 3, 4])
-    data = lm.genData(W, rate=args.UNDERSAMPLING, ssize=5000, noise=args.NOISE)
-    MAXCOST = 10000
 
-    dataframe = pp.DataFrame(np.transpose(data))
-    cond_ind_test = ParCorr()
-    pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
-    results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=args.ALPHA)
 
-    g_estimated, A, B = mf.Glag2CG(results)
-    DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
-    BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
 
 def save_dataset(args):
     dataset = []
@@ -228,6 +235,7 @@ if __name__ == "__main__":
     omp_num_threads = args.PNUM
     os.environ['OMP_NUM_THREADS'] = str(omp_num_threads)
     network_GT = simp_nets(args.NET, selfloop=True)
+    include_selfloop = True
     pattern = f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl'
 
     # if not glob.glob(pattern):
@@ -238,4 +246,4 @@ if __name__ == "__main__":
     #         args.NET = i
     #         args.UNDERSAMPLING = j
     #         convert_to_txt(args)
-    run_analysis(args,network_GT)
+    run_analysis(args,network_GT,include_selfloop)
