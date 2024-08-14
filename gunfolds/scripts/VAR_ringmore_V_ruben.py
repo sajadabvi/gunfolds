@@ -242,19 +242,6 @@ def run_analysis(args,network_GT,include_selfloop):
     zkl.save(metrics,
              f'VAR_ruben/VAR_{args.METHOD}_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}_batch_{args.BATCH}.zkl')
 
-
-
-def quadratic_function(x):
-    # Coefficients for the quadratic function
-    a = 0.7
-    b = -8.1
-    c = 30
-
-    # Calculate the output based on the quadratic function
-    y = a * x**2 + b * x + c
-    return x,y-x
-
-
 def save_dataset(args):
     dataset = []
     #graph size and number of edges to match Ruben simple networks
@@ -273,7 +260,7 @@ def save_dataset(args):
             for j in range(6):
                 data = mf.genData(W, rate=args.UNDERSAMPLING, ssize=5000, noise=args.NOISE)
                 dataset.append(data)
-    zkl.save(dataset,f'datasets/VAR_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}.zkl')
+    zkl.save(dataset,f'datasets/VAR_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link{args.MINLINK}.zkl')
 
 if __name__ == "__main__":
     error_normalization = True
