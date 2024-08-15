@@ -40,7 +40,7 @@ def parse_arguments(PNUM):
     parser.add_argument("-b", "--BATCH", default=1, help="slurm batch.", type=int)
     parser.add_argument("-p", "--PNUM", default=PNUM, help="number of CPUs in machine.", type=int)
     parser.add_argument("-n", "--NET", default=1, help="number of simple network", type=int)
-    parser.add_argument("-l", "--MINLINK", default=2, help=" lower threshold transition matrix abs value x10", type=int)
+    parser.add_argument("-l", "--MINLINK", default=15, help=" lower threshold transition matrix abs value x100", type=int)
     parser.add_argument("-z", "--NOISE", default=10, help="noise str multiplied by 100", type=int)
     parser.add_argument("-s", "--SCC", default="f", help="true to use SCC structure, false to not", type=str)
     parser.add_argument("-m", "--SCCMEMBERS", default="f",
@@ -183,9 +183,9 @@ def convert_to_mat(args):
         savemat(folder + '/expo_to_mat_' + str(i) + '.mat', {'dd': dd})
 
 def convert_to_txt(args):
-    data = zkl.load(f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl')
+    data = zkl.load(f'datasets/VAR_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link1.zkl')
     for i, dd in enumerate(data, start=1):
-        folder = f'./DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/txt'
+        folder = f'./DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD'
         if not os.path.exists(folder):
             os.makedirs(folder)
         variances = np.var(dd, axis=1, ddof=0)  # ddof=0 for population variance
@@ -255,10 +255,10 @@ def save_dataset(args):
         for i in range(10):
             GT = gk.ringmore(size, int(round(np.polyval(coefficients, size) - size)))
             A = cv.graph2adj(GT)
-            W = mf.create_stable_weighted_matrix(A, threshold=args.MINLINK / 10, powers=[2, 3])
+            W = mf.create_stable_weighted_matrix(A, threshold=args.MINLINK / 100, powers=[2, 3])
 
             for j in range(6):
-                data = mf.genData(W, rate=args.UNDERSAMPLING, ssize=5000, noise=args.NOISE)
+                data = (GT,mf.genData(W, rate=args.UNDERSAMPLING, ssize=5000, noise=args.NOISE))
                 dataset.append(data)
     zkl.save(dataset,f'datasets/VAR_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link{args.MINLINK}.zkl')
 
@@ -286,5 +286,5 @@ if __name__ == "__main__":
     #         print(f'net {i}, u {j}')
     #         args.NET = i
     #         args.UNDERSAMPLING = j
-    #         convert_to_txt(args)
+    # convert_to_txt(args)
     # run_analysis(args,network_GT,include_selfloop)
