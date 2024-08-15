@@ -255,7 +255,7 @@ def save_dataset(args):
         for i in range(10):
             GT = gk.ringmore(size, int(round(np.polyval(coefficients, size) - size)))
             A = cv.graph2adj(GT)
-            W = mf.create_stable_weighted_matrix(A, threshold=args.MINLINK / 100, powers=[2, 3])
+            W = mf.create_stable_weighted_matrix(A, threshold=args.MINLINK / 100, powers=[x for x in range(1,args.UNDERSAMPLING+1)])
 
             for j in range(6):
                 data = (GT,mf.genData(W, rate=args.UNDERSAMPLING, ssize=5000, noise=args.NOISE))
