@@ -46,12 +46,12 @@ def parse_arguments(PNUM):
     parser.add_argument("-m", "--SCCMEMBERS", default="f",
                         help="true for using g_estimate SCC members, false for using "
                              "GT SCC members", type=str)
-    parser.add_argument("-u", "--UNDERSAMPLING", default=3, help="sampling rate in generated data", type=int)
+    parser.add_argument("-u", "--UNDERSAMPLING", default=1, help="sampling rate in generated data", type=int)
     parser.add_argument("-x", "--MAXU", default=5, help="maximum number of undersampling to look for solution.",
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
     parser.add_argument("-y", "--PRIORITY", default="42531", help="string of priorities", type=str)
-    parser.add_argument("-o", "--METHOD", default="RASL", help="method to run", type=str)
+    parser.add_argument("-o", "--METHOD", default="MVGC", help="method to run", type=str)
     return parser.parse_args()
 
 def convert_str_to_bool(args):
@@ -68,27 +68,27 @@ def convert_str_to_bool(args):
 
 # Define the functions
 def MVGC(args, network_GT):
-    path = f'./DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/MVGC'
+    path = f'./DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/MVGC'
     mat_data = loadmat(path + f'/mat_file_{args.BATCH}.mat')['sig']
     for i in range(len(network_GT)):
-        mat_data[i, i] = 1
+        mat_data[i, i] = 0
     B = np.zeros((len(network_GT), len(network_GT))).astype(int)
     MVGC = cv.adjs2graph(mat_data, np.zeros((len(network_GT), len(network_GT))))
     return MVGC
 
 def MVAR(args, network_GT):
-    path = f'./DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/MVAR'
+    path = f'./DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/MVAR'
     mat_data = loadmat(path + f'/mat_file_{args.BATCH}.mat')['sig']
     for i in range(len(network_GT)):
-        mat_data[i, i] = 1
+        mat_data[i, i] = 0
     B = np.zeros((len(network_GT), len(network_GT))).astype(int)
     MVAR = cv.adjs2graph(mat_data, np.zeros((len(network_GT), len(network_GT))))
     return MVAR
 
 def GIMME(args, network_GT):
     size = len(network_GT)
-    path = f'./DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/GIMMESTD' \
-           f'/individual/StdErrors/data{args.BATCH}StdErrors.csv'
+    path = f'./DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/GIMMESTD' \
+           f'/data{args.BATCH}/individual/StdErrors/data{args.BATCH}StdErrors.csv'
     with open(path, 'r') as file:
         csv_reader = csv.reader(file)
         next(csv_reader)  # Skip header if exists
@@ -97,6 +97,8 @@ def GIMME(args, network_GT):
             rows.append(row[1:2*size+1])
         mat = np.array(rows, dtype=np.float32)
         matrix1 = np.array(mat[:, 0:size])
+        for i in range(len(network_GT)):
+            matrix1[i, i] = 0
         matrix2 = np.array(mat[:, size:2*size])
         binary_matrixA = (matrix1 != 0).astype(int)
         binary_matrixB = (matrix2 != 0).astype(int)
@@ -105,7 +107,7 @@ def GIMME(args, network_GT):
     return GIMME
 
 def FASK(args, network_GT):
-    path = f'./DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/txtSTD/data{args.BATCH}.txt'
+    path = f'./DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD/data{args.BATCH}.txt'
     data = pd.read_csv(path, delimiter='\t')
     search = ts.TetradSearch(data)
     search.set_verbose(False)
@@ -122,13 +124,13 @@ def FASK(args, network_GT):
     # Create adjacency matrix
     adj_matrix = mf.create_adjacency_matrix(edges, nodes)
     for i in range(len(network_GT)):
-        adj_matrix[i, i] = 1
+        adj_matrix[i, i] = 0
     B = np.zeros((len(network_GT), len(network_GT))).astype(int)
     FASK = cv.adjs2graph(adj_matrix, np.zeros((len(network_GT), len(network_GT))))
     return FASK
 
 def RASL(args, network_GT):
-    path = f'./DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/txtSTD/data{args.BATCH}.txt'
+    path = f'./DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD/data{args.BATCH}.txt'
     data = pd.read_csv(path, delimiter='\t')
     dataframe = pp.DataFrame(data.values)
     cond_ind_test = ParCorr()
@@ -175,26 +177,27 @@ def initialize_metrics():
     }
 
 def convert_to_mat(args):
-    data = zkl.load(f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl')
+    data = zkl.load(f'datasets/VAR_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link10.zkl')
     for i, dd in enumerate(data, start=1):
-        folder = f'./DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/mat'
+        folder = f'./DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/mat'
         if not os.path.exists(folder):
             os.makedirs(folder)
-        savemat(folder + '/expo_to_mat_' + str(i) + '.mat', {'dd': dd})
+        savemat(folder + '/expo_to_mat_' + str(i) + '.mat', {'dd': dd[1]})
 
 def convert_to_txt(args):
-    data = zkl.load(f'datasets/VAR_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link1.zkl')
+    data = zkl.load(f'datasets/VAR_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link10.zkl')
     for i, dd in enumerate(data, start=1):
         folder = f'./DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD'
         if not os.path.exists(folder):
             os.makedirs(folder)
-        variances = np.var(dd, axis=1, ddof=0)  # ddof=0 for population variance
+        zkl.save(dd[0], f'{folder}/GT{i}.zkl')
+        variances = np.var(dd[1], axis=1, ddof=0)  # ddof=0 for population variance
 
         # Calculate the standard deviation (sqrt of variance) for each row
         std_devs = np.sqrt(variances)
 
         # Normalize each row by dividing by its standard deviation
-        normalized_array = dd / std_devs[:, np.newaxis]
+        normalized_array = dd[1] / std_devs[:, np.newaxis]
 
         # Calculate the mean of each row in the normalized matrix
         means = np.mean(normalized_array, axis=1)
@@ -202,7 +205,7 @@ def convert_to_txt(args):
         # Zero-mean each row by subtracting the mean from each element
         zero_mean_array = normalized_array - means[:, np.newaxis]
 
-        header = '\t'.join([f'X{j + 1}' for j in range(dd.shape[0])])
+        header = '\t'.join([f'X{j + 1}' for j in range(dd[1].shape[0])])
 
         with open(f'{folder}/data{i}.txt', 'w') as f:
             # Write the header
@@ -237,10 +240,11 @@ def run_analysis(args,network_GT,include_selfloop):
         metrics[method][args.UNDERSAMPLING]['Recall_C'].append(normal_GT['cycle']['recall'])
         metrics[method][args.UNDERSAMPLING]['F1_C'].append(normal_GT['cycle']['F1'])
 
-    if not os.path.exists('VAR_ruben'):
-        os.makedirs('VAR_ruben')
-    zkl.save(metrics,
-             f'VAR_ruben/VAR_{args.METHOD}_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}_batch_{args.BATCH}.zkl')
+    if not os.path.exists('VAR_ringmore'):
+        os.makedirs('VAR_ringmore')
+    filename = f'VAR_ringmore/VAR_{args.METHOD}_ruben_ringmore_undersampled_by_{args.UNDERSAMPLING}_batch_{args.BATCH}.zkl'
+    zkl.save(metrics,filename)
+    print('file saved to :' + filename)
 
 def save_dataset(args):
     dataset = []
@@ -255,7 +259,7 @@ def save_dataset(args):
         for i in range(10):
             GT = gk.ringmore(size, int(round(np.polyval(coefficients, size) - size)))
             A = cv.graph2adj(GT)
-            W = mf.create_stable_weighted_matrix(A, threshold=args.MINLINK / 100, powers=[x for x in range(1,args.UNDERSAMPLING+1)])
+            W = mf.create_stable_weighted_matrix(A, threshold=args.MINLINK / 100, powers=[1, 2, 3])
 
             for j in range(6):
                 data = (GT,mf.genData(W, rate=args.UNDERSAMPLING, ssize=5000, noise=args.NOISE))
@@ -273,18 +277,20 @@ if __name__ == "__main__":
     args = convert_str_to_bool(args)
     omp_num_threads = args.PNUM
     os.environ['OMP_NUM_THREADS'] = str(omp_num_threads)
-    network_GT = simp_nets(args.NET, selfloop=True)
-    include_selfloop = True
-    pattern = f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl'
+    network_GT = zkl.load(f'./DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl')
+    include_selfloop = False
+    # pattern = f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl'
 
     # if not glob.glob(pattern):
     # for i in range(1,4):
     #     args.UNDERSAMPLING = i
-    save_dataset(args)
+    # save_dataset(args)
     # for i in range(1,10):
-    #     for j in range(1,4):
-    #         print(f'net {i}, u {j}')
+    # for j in range(1,4):
+    #     args.UNDERSAMPLING = j
+    #     print(f' u {j}')
+    #     convert_to_mat(args)
     #         args.NET = i
     #         args.UNDERSAMPLING = j
     # convert_to_txt(args)
-    # run_analysis(args,network_GT,include_selfloop)
+    run_analysis(args,network_GT,include_selfloop)
