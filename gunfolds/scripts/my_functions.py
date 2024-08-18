@@ -97,7 +97,78 @@ def precision_recall(answer, network_GT_selfloop, include_selfloop=True):
 
     return prf
 
+def precision_recall_all_cycle(answer, network_GT_selfloop, include_selfloop=True):
+    # Precision = True Positives / (True Positives + False Positives)
+    # Recall = True Positives /  (True Positives + False Negatives)
+    res_graph = answer
+    GT_nx = gk.graph2nx(network_GT_selfloop)
+    res_nx = gk.graph2nx(res_graph)
 
+    #######precision and recall (orientation)
+    TP, FP, FN = 0, 0, 0
+    for edge in GT_nx.edges():
+        if include_selfloop or edge[1] != edge[0]:
+            if edge in res_nx.edges():
+                TP += 1
+            else:
+                FN += 1
+    for edge in res_nx.edges():
+        if edge not in GT_nx.edges():
+            if include_selfloop or edge[1] != edge[0]:
+                FP += 1
+    p_O = (TP / (TP + FP)) if (TP + FP) else 0
+    r_O = (TP / (TP + FN)) if (TP + FN) else 0
+    f1_O = (2 * TP) / (2 * TP + FP + FN) if 2 * TP + FP + FN else 0
+
+    #######precision and recall (adjacency)
+    TP, FP, FN = 0, 0, 0
+    for edge in GT_nx.edges():
+        if include_selfloop or edge[1] != edge[0]:
+            if edge in res_nx.edges() or (edge[1], edge[0]) in res_nx.edges():
+                if ((edge[1], edge[0]) in GT_nx.edges()) and (edge[1] != edge[0]):
+                    TP += 0.5
+                else:
+                    TP += 1
+            else:
+                if (edge[1], edge[0]) in GT_nx.edges() and (edge[1] != edge[0]):
+                    FN += 0.5
+                else:
+                    FN += 1
+    for edge in res_nx.edges():
+        if include_selfloop or edge[1] != edge[0]:
+            if not (edge in GT_nx.edges() or (edge[1], edge[0]) in GT_nx.edges()):
+                if ((edge[1], edge[0]) in res_nx.edges()) and (edge[1] != edge[0]):
+                    FP += 0.5
+                else:
+                    FP += 1
+    p_A = (TP / (TP + FP)) if (TP + FP) else 0
+    r_A = (TP / (TP + FN)) if (TP + FN) else 0
+    f1_A = (2 * TP) / (2 * TP + FP + FN) if 2 * TP + FP + FN else 0
+
+    #######precision and recall (all cycle)
+
+    GT_cycles = list(nx.simple_cycles(GT_nx))
+    res_cycles = list(nx.simple_cycles(res_nx))
+
+    # Convert cycles to sets of tuples for easier comparison
+    GT_cycles_set = set(frozenset(cycle) for cycle in GT_cycles)
+    res_cycles_set = set(frozenset(cycle) for cycle in res_cycles)
+
+    # Calculate True Positives (TP), False Positives (FP), and False Negatives (FN)
+    TP = len(GT_cycles_set & res_cycles_set)  # Cycles present in both GT and res
+    FP = len(res_cycles_set - GT_cycles_set)  # Cycles present in res but not in GT
+    FN = len(GT_cycles_set - res_cycles_set)  # Cycles present in GT but not in res
+
+    # Calculate precision, recall, and F1 score
+    p_C = (TP / (TP + FP)) if (TP + FP) else 0
+    r_C = (TP / (TP + FN)) if (TP + FN) else 0
+    f1_C = (2 * TP) / (2 * TP + FP + FN) if 2 * TP + FP + FN else 0
+
+    prf = {'orientation': {'precision': p_O, 'recall': r_O, 'F1': f1_O},
+           'adjacency': {'precision': p_A, 'recall': r_A, 'F1': f1_A},
+           'cycle': {'precision': p_C, 'recall': r_C, 'F1': f1_C}}
+
+    return prf
 def round_tuple_elements(input_tuple, decimal_points=3):
     return tuple(round(elem, decimal_points) if isinstance(elem, (int, float)) else elem for elem in input_tuple)
 

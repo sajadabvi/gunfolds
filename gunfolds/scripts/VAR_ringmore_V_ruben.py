@@ -37,7 +37,7 @@ def parse_arguments(PNUM):
     parser = argparse.ArgumentParser(description='Run settings.')
     parser.add_argument("-c", "--CAPSIZE", default=0,
                         help="stop traversing after growing equivalence class to this size.", type=int)
-    parser.add_argument("-b", "--BATCH", default=1, help="slurm batch.", type=int)
+    parser.add_argument("-b", "--BATCH", default=301, help="slurm batch.", type=int)
     parser.add_argument("-p", "--PNUM", default=PNUM, help="number of CPUs in machine.", type=int)
     parser.add_argument("-n", "--NET", default=1, help="number of simple network", type=int)
     parser.add_argument("-l", "--MINLINK", default=15, help=" lower threshold transition matrix abs value x100", type=int)
@@ -227,7 +227,7 @@ def run_analysis(args,network_GT,include_selfloop):
 
         result = globals()[method](args, network_GT)
         print(f"Result from {method}: {result}")
-        normal_GT = mf.precision_recall(result, network_GT, include_selfloop=include_selfloop)
+        normal_GT = mf.precision_recall_all_cycle(result, network_GT, include_selfloop=include_selfloop)
         metrics[method][args.UNDERSAMPLING]['Precision_O'].append(normal_GT['orientation']['precision'])
         metrics[method][args.UNDERSAMPLING]['Recall_O'].append(normal_GT['orientation']['recall'])
         metrics[method][args.UNDERSAMPLING]['F1_O'].append(normal_GT['orientation']['F1'])
