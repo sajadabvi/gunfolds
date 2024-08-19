@@ -40,7 +40,7 @@ for method in methods:
     POSTFIX = 'VAAR_ruben_nets'
 
 
-    folder = f'/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/VAR_ruben/varuben/{method}/'
+    folder = f'/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/VAR_ringmore/VAR_ringmore/{method}/'
     items = listdir(folder)
     items.sort()
 
@@ -85,7 +85,7 @@ df = pd.DataFrame(data_records)
 facet_titles = {
     'F1_O': 'Orientation',
     'F1_A': 'Adjacency',
-    'F1_C': '2-Cycle'
+    'F1_C': 'Cycle Detection'
 }
 
 df['facet'] = df['metric'].map(facet_titles)
@@ -135,15 +135,17 @@ for ax in g.axes.flat:
 
     # Set x-ticks to method names
     ax.set_xticks(np.arange(len(df['method'].unique())))
-    ax.set_xticklabels(df['method'].unique())
+    ax.set_xticklabels(df['method'].unique(), fontsize=12)  # Increase x-tick label size
+    # ax.set_yticklabels(ax.get_yticks(), fontsize=12)
 
 # Adjust titles and labels
-g.set_axis_labels('Method', 'F1 Score')
-g.set_titles(col_template="{col_name}")
-g.add_legend(title='Undersampling')
+g.set_axis_labels('Method', 'F1 Score', fontsize=17)  # Increase axis label size
+g.set_titles(col_template="{col_name}", size=16)  # Increase facet title size
+g.add_legend(title='Undersampling', title_fontsize=22, fontsize=17)
 
 # Add an overall title
-plt.suptitle('F1 score of VAR simulations of simple networks in Ruben data through different levels of undersampling')
+plt.suptitle('F1 score of VAR simulations of random ring graphs of size 5 to 10 through different levels of undersampling',
+             fontsize=18)
 plt.tight_layout(rect=[0, 0, 0.92, 0.98])
 
 
