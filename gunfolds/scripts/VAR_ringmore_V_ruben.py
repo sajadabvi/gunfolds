@@ -167,12 +167,12 @@ def RASL(args, network_GT):
     return res_rasl
 
 def mRASL(args, network_GT):
-    args.BATCH = args.BATCH*6
+    BATCH = args.BATCH*6
     individuals = []
-    network_GT = zkl.load(f'./DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl')
+    network_GT = zkl.load(f'./DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{BATCH}.zkl')
 
     for i in range(6):
-        path = f'./DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD/data{args.BATCH-i}.txt'
+        path = f'./DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD/data{BATCH-i}.txt'
         data = pd.read_csv(path, delimiter='\t')
         dataframe = pp.DataFrame(data.values)
         cond_ind_test = ParCorr()
