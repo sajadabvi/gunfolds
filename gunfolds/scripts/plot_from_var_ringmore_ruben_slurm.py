@@ -21,7 +21,7 @@ args = parser.parse_args()
 PNUM = args.PNUM
 UNDERSAMPLED = bool(distutils.util.strtobool(args.UNDERSAMPLED))
 
-methods = ['MVGC', 'MVAR', 'GIMME', 'FASK', 'RASL']
+methods = ['MVGC', 'MVAR', 'GIMME', 'FASK', 'RASL','mRASL']
 save_results = []
 for method in methods:
     # Initialize a defaultdict of lists to hold concatenated results for each method

@@ -25,7 +25,7 @@ def read_csv_files(path):
 
 
 def main():
-    path = "/Users/sajad/GSU Dropbox Dropbox/Mohammadsajad Abavisani/Mac/Documents/PhD/Research/code/GIMME/gimme-master/gimme-master/output4/sum"
+    path = "~/GIMME/gimme-master/gimme-master/output4/sum"
     csv_data = read_csv_files(path)
 
     # Convert to NumPy array

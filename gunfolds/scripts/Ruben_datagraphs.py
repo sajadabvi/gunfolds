@@ -174,7 +174,7 @@ for nn in [2]:
         num = str(fl) if fl > 9 else '0' + str(fl)
         print('reading file:' + num)
         data = pd.read_csv(
-            './DataSets_Feedbacks/1. Simple_Networks/Network' + str(
+            '~/DataSets_Feedbacks/1. Simple_Networks/Network' + str(
                 args.NUMBER) + '_amp/data_fslfilter/BOLDfslfilter_{0}.txt'.format(
                 num), delimiter='\t')
 
