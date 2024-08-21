@@ -212,9 +212,9 @@ for nn in [2]:
             print('skipping file')
             continue
         data = pd.read_csv(
-            '~/DataSets_Feedbacks/1. Simple_Networks/Network' + str(
+            os.path.expanduser('~/DataSets_Feedbacks/1. Simple_Networks/Network' + str(
                 args.NUMBER) + '_amp/data_fslfilter/BOLDfslfilter_{0}.txt'.format(
-                num), delimiter='\t')
+                num), delimiter='\t'))
 
         selfloops = []
         no_selfloops = []

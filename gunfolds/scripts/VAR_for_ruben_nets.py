@@ -68,7 +68,7 @@ def convert_str_to_bool(args):
 
 # Define the functions
 def MVGC(args, network_GT):
-    path = f'~/DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/MVGC'
+    path = os.path.expanduser(f'~/DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/MVGC')
     mat_data = loadmat(path + f'/mat_file_{args.BATCH}.mat')['sig']
     for i in range(len(network_GT)):
         mat_data[i, i] = 1
@@ -77,7 +77,7 @@ def MVGC(args, network_GT):
     return MVGC
 
 def MVAR(args, network_GT):
-    path = f'~/DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/MVAR'
+    path = os.path.expanduser(f'~/DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/MVAR')
     mat_data = loadmat(path + f'/mat_file_{args.BATCH}.mat')['sig']
     for i in range(len(network_GT)):
         mat_data[i, i] = 1
@@ -87,8 +87,8 @@ def MVAR(args, network_GT):
 
 def GIMME(args, network_GT):
     size = len(network_GT)
-    path = f'~/DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/GIMMESTD' \
-           f'/individual/StdErrors/data{args.BATCH}StdErrors.csv'
+    path = os.path.expanduser(f'~/DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/GIMMESTD' \
+           f'/individual/StdErrors/data{args.BATCH}StdErrors.csv')
     with open(path, 'r') as file:
         csv_reader = csv.reader(file)
         next(csv_reader)  # Skip header if exists
@@ -105,7 +105,7 @@ def GIMME(args, network_GT):
     return GIMME
 
 def FASK(args, network_GT):
-    path = f'~/DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/txtSTD/data{args.BATCH}.txt'
+    path = os.path.expanduser(f'~/DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/txtSTD/data{args.BATCH}.txt')
     data = pd.read_csv(path, delimiter='\t')
     search = ts.TetradSearch(data)
     search.set_verbose(False)
@@ -128,7 +128,7 @@ def FASK(args, network_GT):
     return FASK
 
 def RASL(args, network_GT):
-    path = f'~/DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/txtSTD/data{args.BATCH}.txt'
+    path = os.path.expanduser(f'~/DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/txtSTD/data{args.BATCH}.txt')
     data = pd.read_csv(path, delimiter='\t')
     dataframe = pp.DataFrame(data.values)
     cond_ind_test = ParCorr()
@@ -177,7 +177,7 @@ def initialize_metrics():
 def convert_to_mat(args):
     data = zkl.load(f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl')
     for i, dd in enumerate(data, start=1):
-        folder = f'~/DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/mat'
+        folder = os.path.expanduser(f'~/DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/mat')
         if not os.path.exists(folder):
             os.makedirs(folder)
         savemat(folder + '/expo_to_mat_' + str(i) + '.mat', {'dd': dd})
@@ -185,7 +185,7 @@ def convert_to_mat(args):
 def convert_to_txt(args):
     data = zkl.load(f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl')
     for i, dd in enumerate(data, start=1):
-        folder = f'~/DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/txt'
+        folder = os.path.expanduser(f'~/DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/txt')
         if not os.path.exists(folder):
             os.makedirs(folder)
         variances = np.var(dd, axis=1, ddof=0)  # ddof=0 for population variance

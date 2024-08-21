@@ -84,14 +84,14 @@ for nn in [1,2,3,4,5,6]:
     #     print('reading file:' + num)
     #     if not concat:
     #         data = pd.read_csv(
-    #             '~/DataSets_Feedbacks/1. Simple_Networks/Network' + str(
+    #             os.path.expanduser('~/DataSets_Feedbacks/1. Simple_Networks/Network' + str(
     #                 nn) + '_amp/data_fslfilter/BOLDfslfilter_{0}.txt'.format(
-    #                 num), delimiter='\t')
+    #                 num), delimiter='\t'))
     #     else:
     #         data = pd.read_csv(
-    #             '~/DataSets_Feedbacks/1. Simple_Networks/Network' + str(
+    #             os.path.expanduser('~/DataSets_Feedbacks/1. Simple_Networks/Network' + str(
     #                 nn) + '_amp/data_fslfilter_concat/concat_BOLDfslfilter_{0}.txt'.format(
-    #                 num), delimiter='\t')
+    #                 num), delimiter='\t'))
     #
     #     network_GT = simp_nets(nn, True)
     #

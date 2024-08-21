@@ -177,10 +177,10 @@ def RASL(args, network_GT):
 def mRASL(args, network_GT):
     BATCH = args.BATCH*6
     individuals = []
-    network_GT = zkl.load(f'~/DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{BATCH}.zkl')
+    network_GT = zkl.load(os.path.expanduser(f'~/DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{BATCH}.zkl'))
 
     for i in range(6):
-        path = f'~/DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD/data{BATCH-i}.txt'
+        path = os.path.expanduser(f'~/DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD/data{BATCH-i}.txt')
         data = pd.read_csv(path, delimiter='\t')
         dataframe = pp.DataFrame(data.values)
         cond_ind_test = ParCorr()
@@ -227,7 +227,7 @@ def initialize_metrics():
 def convert_to_mat(args):
     data = zkl.load(f'datasets/VAR_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link10.zkl')
     for i, dd in enumerate(data, start=1):
-        folder = f'~/DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/mat'
+        folder = os.path.expanduser(f'~/DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/mat')
         if not os.path.exists(folder):
             os.makedirs(folder)
         savemat(folder + '/expo_to_mat_' + str(i) + '.mat', {'dd': dd[1]})
@@ -235,7 +235,7 @@ def convert_to_mat(args):
 def convert_to_txt(args):
     data = zkl.load(f'datasets/VAR_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link10.zkl')
     for i, dd in enumerate(data, start=1):
-        folder = f'~/DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD'
+        folder = os.path.expanduser(f'~/DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD')
         if not os.path.exists(folder):
             os.makedirs(folder)
         zkl.save(dd[0], f'{folder}/GT{i}.zkl')
@@ -325,7 +325,7 @@ if __name__ == "__main__":
     args = convert_str_to_bool(args)
     omp_num_threads = args.PNUM
     os.environ['OMP_NUM_THREADS'] = str(omp_num_threads)
-    network_GT = zkl.load(f'~/DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl')
+    network_GT = zkl.load(os.path.expanduser(f'~/DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
     include_selfloop = False
     # pattern = f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl'
 

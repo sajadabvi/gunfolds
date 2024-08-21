@@ -116,14 +116,14 @@ for nn in [4]:
         print('reading file:' + num)
         if not concat:
             data = pd.read_csv(
-                '~/DataSets_Feedbacks/4. Temporal_Undersampling_Data/manual/data_'+TR+'TR_individual/BOLD' +
+                os.path.expanduser('~/DataSets_Feedbacks/4. Temporal_Undersampling_Data/manual/data_'+TR+'TR_individual/BOLD' +
                 ('fslfilter' if TR == '1.20s' else '3TRfilt') + '_{0}.txt'.format(
-                    num), delimiter='\t')
+                    num), delimiter='\t'))
         else:
             data = pd.read_csv(
-                '~/DataSets_Feedbacks/4. Temporal_Undersampling_Data/manual/data_'+TR+'TR_concatenated/concat_BOLD' +
+                os.path.expanduser('~/DataSets_Feedbacks/4. Temporal_Undersampling_Data/manual/data_'+TR+'TR_concatenated/concat_BOLD' +
                 ('fslfilter' if TR == '1.20s' else '3TRfilt') + '_{0}.txt'.format(
-                    num), delimiter='\t')
+                    num), delimiter='\t'))
 
         TR = '3s' if UNDERSAMPLED else '1.20s'
         dd = np.transpose(data.values)
@@ -148,14 +148,14 @@ for nn in [4]:
         #             print('reading file:' + num)
         #             if not concat:
         #                 data = pd.read_csv(
-        #                     '~/DataSets_Feedbacks/4. Temporal_Undersampling_Data/data_' + TR + 'TR_individual/BOLD' +
+        #                     os.path.expanduser('~/DataSets_Feedbacks/4. Temporal_Undersampling_Data/data_' + TR + 'TR_individual/BOLD' +
         #                     ('fslfilter' if TR == '1.20s' else '3TRfilt') + '_{0}.txt'.format(
-        #                         num), delimiter='\t')
+        #                         num), delimiter='\t'))
         #             else:
         #                 data = pd.read_csv(
-        #                     '~/DataSets_Feedbacks/4. Temporal_Undersampling_Data/data_' + TR + 'TR_concatenated/concat_BOLD' +
+        #                     os.path.expanduser('~/DataSets_Feedbacks/4. Temporal_Undersampling_Data/data_' + TR + 'TR_concatenated/concat_BOLD' +
         #                     ('fslfilter' if TR == '1.20s' else '3TRfilt') + '_{0}.txt'.format(
-        #                         num), delimiter='\t')
+        #                         num), delimiter='\t'))
         #
         #             TR = '3s' if UNDERSAMPLED else '1.20s'
         #             dd = np.transpose(data.values)
@@ -167,11 +167,11 @@ for nn in [4]:
         #
         #             # Save the new dataframe to a text file with tab delimiters
         #             if not concat:
-        #                 output_file = '~/DataSets_Feedbacks/4. Temporal_Undersampling_Data/manual/data_' + TR + 'TR_individual/BOLD' + (
-        #                     'fslfilter' if TR == '1.20s' else '3TRfilt') + '_{0}.txt'.format(num)
+        #                 output_file = os.path.expanduser('~/DataSets_Feedbacks/4. Temporal_Undersampling_Data/manual/data_' + TR + 'TR_individual/BOLD' + (
+        #                     'fslfilter' if TR == '1.20s' else '3TRfilt') + '_{0}.txt'.format(num))
         #             else:
-        #                 output_file = '~/DataSets_Feedbacks/4. Temporal_Undersampling_Data/manual/data_' + TR + 'TR_concatenated/concat_BOLD' + (
-        #                     'fslfilter' if TR == '1.20s' else '3TRfilt') + '_{0}.txt'.format(num)
+        #                 output_file = os.path.expanduser('~/DataSets_Feedbacks/4. Temporal_Undersampling_Data/manual/data_' + TR + 'TR_concatenated/concat_BOLD' + (
+        #                     'fslfilter' if TR == '1.20s' else '3TRfilt') + '_{0}.txt'.format(num))
         #             dd_df.to_csv(output_file, sep='\t', index=False)
 
 
@@ -341,14 +341,14 @@ for nn in [4]:
         num = str(fl) if fl > 9 else '0' + str(fl)
         if not concat:
             data = pd.read_csv(
-                '~/DataSets_Feedbacks/4. Temporal_Undersampling_Data/data_' + TR + 'TR_individual/BOLD' +
+                os.path.expanduser('~/DataSets_Feedbacks/4. Temporal_Undersampling_Data/data_' + TR + 'TR_individual/BOLD' +
                 ('fslfilter' if TR == '1.20s' else '3TRfilt') + '_{0}.txt'.format(
-                    num), delimiter='\t')
+                    num), delimiter='\t'))
         else:
             data = pd.read_csv(
-                '~/DataSets_Feedbacks/4. Temporal_Undersampling_Data/data_' + TR + 'TR_concatenated/concat_BOLD' +
+                os.path.expanduser('~/DataSets_Feedbacks/4. Temporal_Undersampling_Data/data_' + TR + 'TR_concatenated/concat_BOLD' +
                 ('fslfilter' if TR == '1.20s' else '3TRfilt') + '_{0}.txt'.format(
-                    num), delimiter='\t')
+                    num), delimiter='\t'))
 
         dataframe = pp.DataFrame(data.values)
         cond_ind_test = ParCorr()
