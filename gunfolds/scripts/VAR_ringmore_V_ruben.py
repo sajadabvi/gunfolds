@@ -164,8 +164,8 @@ def RASL(args, network_GT):
         res_rasl = bfutils.num2CG(answer[0][0], len(network_GT))
         rasl_sol = mf.precision_recall_all_cycle(res_rasl, network_GT, include_selfloop=include_selfloop)
 
-        # curr_f1 = ((rasl_sol['orientation']['F1']))
-        curr_f1 = (rasl_sol['orientation']['F1']) + (rasl_sol['adjacency']['F1']) + (rasl_sol['cycle']['F1'])
+        curr_f1 = ((rasl_sol['orientation']['F1']))
+        # curr_f1 = (rasl_sol['orientation']['F1']) + (rasl_sol['adjacency']['F1']) + (rasl_sol['cycle']['F1'])
 
         if curr_f1 > max_f1_score:
             max_f1_score = curr_f1
@@ -176,27 +176,43 @@ def RASL(args, network_GT):
 
 def mRASL(args, network_GT):
     BATCH = args.BATCH*6
-    individuals = []
     network_GT = zkl.load(os.path.expanduser(f'~/DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{BATCH}.zkl'))
-
+    MAXCOST = 1000
+    N = len(network_GT)
+    base_g = {i: {} for i in range(1, N + 1)}
+    base_DD = np.zeros((N,N)).astype(int)
+    base_BD = np.zeros((N,N)).astype(int)
+    g_est_list = []
+    DD_list = []
+    BD_list = []
     for i in range(6):
         path = os.path.expanduser(f'~/DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD/data{BATCH-i}.txt')
         data = pd.read_csv(path, delimiter='\t')
-        dataframe = pp.DataFrame(data.values)
-        cond_ind_test = ParCorr()
-        pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
-        results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.05)
-        g_estimated, A, B = cv.Glag2CG(results)
-        individuals.append(g_estimated)
-    MAXCOST = 10000
-    priorities = [4, 2, 5, 3, 1]
-    # DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
-    # BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
+        # dataframe = pp.DataFrame(data.values)
+        # cond_ind_test = ParCorr()
+        # pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
+        # results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.05)
+        # g_estimated, A, B = cv.Glag2CG(results)
 
-    r_estimated = drasl(individuals, weighted=True, capsize=0, timeout=0,
+        g_estimated, A, B = lm.data2graph(data.values.T, th=0.03)
+        DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
+        BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
+
+        g_est_list.append(g_estimated)
+        DD_list.append(DD)
+        BD_list.append(BD)
+
+        base_g = mf.update_base_graph(base_g, g_estimated)
+        base_DD, base_BD = mf.update_DD_BD(g_estimated, DD, BD, base_DD, base_BD,base_g)
+
+
+    priorities = [4, 2, 5, 3, 1]
+    base_DD = np.where(base_DD < 0, 6000 + base_DD, base_DD)
+    base_BD = np.where(base_BD < 0, 6000 + base_BD, base_BD)
+    r_estimated = drasl([base_g], weighted=True, capsize=0, timeout=0,
                         urate=min(5, (3 * len(g_estimated) + 1)),
-                        # dm=[DD],
-                        # bdm=[BD],
+                        dm=[base_DD],
+                        bdm=[base_BD],
                         scc=False,
                         GT_density=int(1000 * gk.density(network_GT)),
                         edge_weights=priorities, pnum=PNUM, optim='optN')
@@ -207,8 +223,8 @@ def mRASL(args, network_GT):
         res_rasl = bfutils.num2CG(answer[0][0], len(network_GT))
         rasl_sol = mf.precision_recall_all_cycle(res_rasl, network_GT, include_selfloop=include_selfloop)
 
-        # curr_f1 = ((rasl_sol['orientation']['F1']))
-        curr_f1 = (rasl_sol['orientation']['F1']) + (rasl_sol['adjacency']['F1']) + (rasl_sol['cycle']['F1'])
+        curr_f1 = ((rasl_sol['orientation']['F1']))
+        # curr_f1 = (rasl_sol['orientation']['F1']) + (rasl_sol['adjacency']['F1']) + (rasl_sol['cycle']['F1'])
 
         if curr_f1 > max_f1_score:
             max_f1_score = curr_f1

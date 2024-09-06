@@ -4,6 +4,7 @@ import scipy.sparse as sp
 from scipy.sparse.linalg import eigs
 import re
 from gunfolds.utils import graphkit as gk
+from gunfolds import conversions as cv
 
 
 def remove_bidir_edges(input_dict):
@@ -301,3 +302,35 @@ def create_adjacency_matrix(edges, nodes):
         matrix[start_idx, end_idx] = 1
 
     return matrix
+
+
+def update_base_graph(base_graph, new_graph):
+    # Convert the current base graph to adjacency matrices
+    base_adj = cv.graph2adj(base_graph)
+    base_badj = cv.graph2badj(base_graph)
+
+    # Convert the new graph to adjacency matrices
+    new_adj = cv.graph2adj(new_graph)
+    new_badj = cv.graph2badj(new_graph)
+
+    # Update the base adjacency matrices using logical OR
+    updated_adj = np.logical_or(base_adj, new_adj).astype(int)
+    updated_badj = np.logical_or(base_badj, new_badj).astype(int)
+
+    # Convert the updated adjacency matrices back to the graph structure
+    updated_graph = cv.adjs2graph(updated_adj, updated_badj)
+
+    return updated_graph
+
+def update_DD_BD(g_estimated, DD, BD, base_DD, base_BD, base_g):
+    N = len(g_estimated)  # Assuming A and B are N x N matrices
+    g_adj = cv.graph2adj(g_estimated)
+    g_badj = cv.graph2badj(g_estimated)
+    base_g_adj = cv.graph2adj(base_g)
+    base_g_adjb = cv.graph2badj(base_g)
+    g_adj = np.where(g_adj != base_g_adj, -1, 1)
+    g_badj = np.where(g_badj != base_g_adjb, -1, 1)
+    base_DD += np.multiply(g_adj,DD)
+    base_BD += np.multiply(g_badj,BD)
+
+    return base_DD, base_BD
