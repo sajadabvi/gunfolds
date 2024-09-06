@@ -209,10 +209,10 @@ def mRASL(args, network_GT):
     priorities = [4, 2, 5, 3, 1]
     base_DD = np.where(base_DD < 0, 6000 + base_DD, base_DD)
     base_BD = np.where(base_BD < 0, 6000 + base_BD, base_BD)
-    r_estimated = drasl([base_g], weighted=True, capsize=0, timeout=0,
+    r_estimated = drasl(g_est_list, weighted=True, capsize=0, timeout=0,
                         urate=min(5, (3 * len(g_estimated) + 1)),
-                        dm=[base_DD],
-                        bdm=[base_BD],
+                        dm=DD_list,
+                        bdm=BD_list,
                         scc=False,
                         GT_density=int(1000 * gk.density(network_GT)),
                         edge_weights=priorities, pnum=PNUM, optim='optN')
