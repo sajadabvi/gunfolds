@@ -304,9 +304,9 @@ def run_analysis(args,network_GT,include_selfloop):
         metrics[method][args.UNDERSAMPLING]['Recall_C'].append(normal_GT['cycle']['recall'])
         metrics[method][args.UNDERSAMPLING]['F1_C'].append(normal_GT['cycle']['F1'])
 
-    if not os.path.exists('VAR_ringmore'):
-        os.makedirs('VAR_ringmore')
-    filename = f'VAR_ringmore/VAR_{args.METHOD}_ruben_ringmore_undersampled_by_{args.UNDERSAMPLING}_batch_{args.BATCH}.zkl'
+    if not os.path.exists('VAR_ringmore_v3'):
+        os.makedirs('VAR_ringmore_v3')
+    filename = f'VAR_ringmore_v3/VAR_{args.METHOD}_ruben_ringmore_undersampled_by_{args.UNDERSAMPLING}_batch_{args.BATCH}.zkl'
     zkl.save(metrics,filename)
     print('file saved to :' + filename)
 
