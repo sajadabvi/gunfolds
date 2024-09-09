@@ -1,11 +1,11 @@
 #!/bin/bash
 #SBATCH -N 1
 #SBATCH -n 1
-#SBATCH -c 15
-#SBATCH --mem=50g
+#SBATCH -c 1  # Placeholder value, will be updated
+#SBATCH --mem=150g
 #SBATCH -p qTRDGPU
 #SBATCH -t 7600
-#SBATCH -J 8_14_u20_full_send_ring_gtdensdensity_2priority
+#SBATCH -J data
 #SBATCH -e ./err/error%A-%a.err
 #SBATCH -o ./out/out%A-%a.out
 #SBATCH -A psy53c17
@@ -15,12 +15,29 @@
 
 sleep 1s
 
-export OMP_NUM_THREADS=1
+# Parameters
+total_jobs=180
+b=$(( ($SLURM_ARRAY_TASK_ID - 1) % 60 + 1 ))
+u=$(( (($SLURM_ARRAY_TASK_ID - 1) / 60) + 1 ))
+
+p=15
+o=mRASL
+
+# Update job name with parameters
+job_name="d_${o}_${b}_${u}"
+scontrol update jobid=$SLURM_JOB_ID name=$job_name
+
+# Update the number of CPUs allocated
+scontrol update jobid=$SLURM_JOB_ID NumCPUs=$p
+
+# Set OMP_NUM_THREADS to the value of $p
+export OMP_NUM_THREADS=$p
+
 export MODULEPATH=/apps/Compilers/modules-3.2.10/Debug-Build/Modules/3.2.10/modulefiles/
 echo $HOSTNAME >&2
 
 source /home/users/mabavisani/anaconda3/bin/activate
 conda activate gt_density
-python linear_stat_continious_weights_same_priority_ringmore_8node.py  -m=f -s=f  -b=$SLURM_ARRAY_TASK_ID  -n=8 -p=15 -u=20
 
-sleep 3s
+# Run the Python script
+python VAR_ringmore_V_ruben.py -b=$b -p=$p -u=$u -o=$o
