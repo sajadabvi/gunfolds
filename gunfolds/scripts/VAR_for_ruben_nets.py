@@ -51,7 +51,7 @@ def parse_arguments(PNUM):
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
     parser.add_argument("-y", "--PRIORITY", default="42531", help="string of priorities", type=str)
-    parser.add_argument("-o", "--METHOD", default="RASL", help="method to run", type=str)
+    parser.add_argument("-o", "--METHOD", default="mRASL", help="method to run", type=str)
     return parser.parse_args()
 
 def convert_str_to_bool(args):
@@ -165,7 +165,62 @@ def RASL(args, network_GT):
     return res_rasl
 
 def mRASL(args, network_GT):
-    return "mRASL result"
+    BATCH = args.BATCH * 6
+    MAXCOST = 1000
+    N = len(network_GT)
+    base_g = {i: {} for i in range(1, N + 1)}
+    base_DD = np.zeros((N, N)).astype(int)
+    base_BD = np.zeros((N, N)).astype(int)
+    g_est_list = []
+    DD_list = []
+    BD_list = []
+    for i in range(6):
+        path = os.path.expanduser(
+            f'~/DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/txtSTD/data{BATCH-i}.txt')
+        data = pd.read_csv(path, delimiter='\t')
+        # dataframe = pp.DataFrame(data.values)
+        # cond_ind_test = ParCorr()
+        # pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
+        # results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.05)
+        # g_estimated, A, B = cv.Glag2CG(results)
+
+        g_estimated, A, B = lm.data2graph(data.values.T, th=0.03)
+        DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
+        BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
+
+        g_est_list.append(g_estimated)
+        DD_list.append(DD)
+        BD_list.append(BD)
+
+        base_g = mf.update_base_graph(base_g, g_estimated)
+        base_DD, base_BD = mf.update_DD_BD(g_estimated, DD, BD, base_DD, base_BD, base_g)
+
+    priorities = [4, 2, 5, 3, 1]
+    base_DD = np.where(base_DD < 0, 6000 + base_DD, base_DD)
+    base_BD = np.where(base_BD < 0, 6000 + base_BD, base_BD)
+    r_estimated = drasl(g_est_list, weighted=True, capsize=0, timeout=0,
+                        urate=min(5, (3 * len(g_estimated) + 1)),
+                        dm=DD_list,
+                        bdm=BD_list,
+                        scc=False,
+                        GT_density=int(1000 * gk.density(network_GT)),
+                        edge_weights=priorities, pnum=PNUM, optim='optN')
+
+    print('number of optimal solutions is', len(r_estimated))
+    max_f1_score = 0
+    for answer in r_estimated:
+        res_rasl = bfutils.num2CG(answer[0][0], len(network_GT))
+        rasl_sol = mf.precision_recall_all_cycle(res_rasl, network_GT, include_selfloop=include_selfloop)
+
+        curr_f1 = ((rasl_sol['orientation']['F1']))
+        # curr_f1 = (rasl_sol['orientation']['F1']) + (rasl_sol['adjacency']['F1']) + (rasl_sol['cycle']['F1'])
+
+        if curr_f1 > max_f1_score:
+            max_f1_score = curr_f1
+            max_answer = answer
+
+    res_rasl = bfutils.num2CG(max_answer[0][0], len(network_GT))
+    return res_rasl
 
 def initialize_metrics():
     return {
