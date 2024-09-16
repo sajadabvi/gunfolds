@@ -6,7 +6,6 @@ from gunfolds.utils.calc_procs import get_process_count
 from gunfolds.conversions import g2clingo, rate, rasl_jclingo2g,\
      drasl_jclingo2g, clingo_preamble,\
      numbered_g2clingo, numbered_g2wclingo, encode_list_sccs
-from gunfolds.utils.graphkit import selfloop
 
 CLINGO_LIMIT = 64
 PNUM = min(CLINGO_LIMIT, get_process_count(1))
