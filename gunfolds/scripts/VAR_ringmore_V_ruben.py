@@ -156,7 +156,7 @@ def RASL(args, network_GT):
                         bdm=[BD],
                         scc=False,
                         GT_density=int(1000 * gk.density(network_GT)),
-                        edge_weights=priorities, pnum=PNUM, optim='optN')
+                        edge_weights=priorities, pnum=PNUM, optim='optN', selfloop=False)
 
     print('number of optimal solutions is', len(r_estimated))
     max_f1_score = 0
@@ -215,7 +215,7 @@ def mRASL(args, network_GT):
                         bdm=BD_list,
                         scc=False,
                         GT_density=int(1000 * gk.density(network_GT)),
-                        edge_weights=priorities, pnum=PNUM, optim='optN')
+                        edge_weights=priorities, pnum=PNUM, optim='optN', selfloop=False)
 
     print('number of optimal solutions is', len(r_estimated))
     max_f1_score = 0

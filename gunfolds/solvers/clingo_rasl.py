@@ -6,6 +6,7 @@ from gunfolds.utils.calc_procs import get_process_count
 from gunfolds.conversions import g2clingo, rate, rasl_jclingo2g,\
      drasl_jclingo2g, clingo_preamble,\
      numbered_g2clingo, numbered_g2wclingo, encode_list_sccs
+from gunfolds.utils.graphkit import selfloop
 
 CLINGO_LIMIT = 64
 PNUM = min(CLINGO_LIMIT, get_process_count(1))
@@ -146,7 +147,6 @@ def weighted_drasl_program(directed, bidirected, no_directed, no_bidirected):
     nonempty(L) :- directed(X, Y, L), u(L,_).
     nonempty(L) :- bidirected(X, Y, L), u(L,_).
     :- not nonempty(L), u(L,_).
-    :- not edge1(X,X), node(X).
     """)
 
     return t.substitute(directed=directed, bidirected=bidirected,no_directed=no_directed,no_bidirected=no_bidirected)
@@ -256,7 +256,7 @@ def glist2str(g_list, weighted=False, dm=None, bdm=None):
     return s
 
 
-def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=None, dm=None, bdm=None, edge_weights=[1, 1, 1, 1, 1],GT_density=None):
+def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=None, dm=None, bdm=None, edge_weights=[1, 1, 1, 1, 1],GT_density=None,selfloop= False):
     """
     Given a list of graphs generates ``clingo`` codes
 
@@ -328,7 +328,9 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
     command += ' '.join([drate(max_urate, i+1, weighted=weighted) for i in range(n)]) + ' '
     command += weighted_drasl_program(edge_weights[0], edge_weights[1],edge_weights[2], edge_weights[3]) if weighted else drasl_program
     # command += f":- M = N, {{u(M, 1..{n}); u(N, 1..{n})}} == 2, u(M, _), u(N, _). "
-    command += ":- u(L,A), u(T,B), not A=B, L<T. "
+    if selfloop:
+        command += ":- not edge1(X, X), node(X)."
+    command += ":- u(L,A), u(T,B), not T=L, A<B. "
     command += "#show edge1/2. "
     command += "#show u/2."
     command = command.encode().replace(b"\n", b" ")
@@ -337,7 +339,7 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
 
 def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False, scc_members=None, dm=None,
           bdm=None, pnum=PNUM, GT_density= None, edge_weights=[1, 1, 1, 1, 1], configuration="crafty", optim='optN',
-          multi_individual=False):
+          multi_individual=False, selfloop=False):
     """
     Compute all candidate causal time-scale graphs that could have
     generated all undersampled graphs at all possible undersampling
@@ -426,7 +428,7 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
         glist = [glist]
 
     return clingo(drasl_command(glist, max_urate=urate, weighted=weighted,
-                                scc=scc, scc_members=scc_members, dm=dm, bdm=bdm, edge_weights=edge_weights,GT_density=GT_density),
+                                scc=scc, scc_members=scc_members, dm=dm, bdm=bdm, edge_weights=edge_weights,GT_density=GT_density, selfloop=selfloop),
                   capsize=capsize, convert=drasl_jclingo2g, configuration=configuration,
                   timeout=timeout, exact=not weighted, pnum=pnum, optim=optim)
 
