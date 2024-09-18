@@ -317,7 +317,7 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
         command += 'countfull(C):- C = n*n. '
         command += 'hypoth_density(D) :- D = 1000*X/Y,  countfull(Y), countedge1(X). '
         command += 'abs_diff(Diff) :- hypoth_density(D), Diff = |D - d|. '
-        command += f':~ abs_diff(Diff). [Diff@{density}]\n'
+        command += f':~ abs_diff(Diff). [Diff@{density}] '
     if scc:
         command += encode_list_sccs(g_list, scc_members)
         print("edit this function later to adjust")
