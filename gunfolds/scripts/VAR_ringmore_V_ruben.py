@@ -50,7 +50,7 @@ def parse_arguments(PNUM):
     parser.add_argument("-x", "--MAXU", default=5, help="maximum number of undersampling to look for solution.",
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
-    parser.add_argument("-y", "--PRIORITY", default="42531", help="string of priorities", type=str)
+    parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
     parser.add_argument("-o", "--METHOD", default="mRASL", help="method to run", type=str)
     return parser.parse_args()
 
@@ -206,7 +206,6 @@ def mRASL(args, network_GT):
         base_DD, base_BD = mf.update_DD_BD(g_estimated, DD, BD, base_DD, base_BD,base_g)
 
 
-    priorities = [4, 2, 5, 3, 1]
     base_DD = np.where(base_DD < 0, 6000 + base_DD, base_DD)
     base_BD = np.where(base_BD < 0, 6000 + base_BD, base_BD)
     r_estimated = drasl(g_est_list, weighted=True, capsize=0, timeout=0,
@@ -215,7 +214,7 @@ def mRASL(args, network_GT):
                         bdm=BD_list,
                         scc=False,
                         GT_density=int(1000 * gk.density(network_GT)),
-                        edge_weights=priorities, pnum=PNUM, optim='optN', selfloop=False)
+                        edge_weights=args.PRIORITY, pnum=PNUM, optim='optN', selfloop=False)
 
     print('number of optimal solutions is', len(r_estimated))
     max_f1_score = 0

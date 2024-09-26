@@ -165,9 +165,9 @@ def precision_recall_all_cycle(answer, network_GT_selfloop, include_selfloop=Tru
     r_C = (TP / (TP + FN)) if (TP + FN) else 0
     f1_C = (2 * TP) / (2 * TP + FP + FN) if 2 * TP + FP + FN else 0
 
-    prf = {'orientation': {'precision': p_O, 'recall': r_O, 'F1': f1_O},
-           'adjacency': {'precision': p_A, 'recall': r_A, 'F1': f1_A},
-           'cycle': {'precision': p_C, 'recall': r_C, 'F1': f1_C}}
+    prf = {'orientation': {'precision': round(p_O, 2), 'recall': round(r_O, 2), 'F1': round(f1_O, 2)},
+           'adjacency': {'precision': round(p_A, 2), 'recall': round(r_A, 2), 'F1': round(f1_A, 2)},
+           'cycle': {'precision': round(p_C, 2), 'recall': round(r_C, 2), 'F1': round(f1_C, 2)}}
 
     return prf
 def round_tuple_elements(input_tuple, decimal_points=3):

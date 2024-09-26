@@ -150,6 +150,6 @@ plt.tight_layout(rect=[0, 0, 0.92, 0.98])
 now = str(datetime.now())
 now = now[:-7].replace(' ', '_')
 filename = POSTFIX + '_' + now
-plt.savefig(filename + '_grouped_boxplot.svg')
+plt.savefig(filename + '_grouped_boxplot.png')
 
 

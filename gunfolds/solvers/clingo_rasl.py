@@ -321,6 +321,7 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
     if selfloop:
         command += ":- not edge1(X, X), node(X)."
     command += ":- u(L,A), u(T,B), not T=L, A<B. "
+    command += ":- not edge1(_, _)."
     command += "#show edge1/2. "
     command += "#show u/2."
     command = command.encode().replace(b"\n", b" ")
