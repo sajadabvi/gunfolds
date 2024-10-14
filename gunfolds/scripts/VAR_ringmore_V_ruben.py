@@ -51,7 +51,7 @@ def parse_arguments(PNUM):
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
     parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
-    parser.add_argument("-o", "--METHOD", default="mRASL", help="method to run", type=str)
+    parser.add_argument("-o", "--METHOD", default="RASL", help="method to run", type=str)
     return parser.parse_args()
 
 def convert_str_to_bool(args):
