@@ -38,7 +38,7 @@ def parse_arguments(PNUM):
     parser = argparse.ArgumentParser(description='Run settings.')
     parser.add_argument("-c", "--CAPSIZE", default=0,
                         help="stop traversing after growing equivalence class to this size.", type=int)
-    parser.add_argument("-b", "--BATCH", default=7, help="slurm batch.", type=int)
+    parser.add_argument("-b", "--BATCH", default=1, help="slurm batch.", type=int)
     parser.add_argument("-p", "--PNUM", default=PNUM, help="number of CPUs in machine.", type=int)
     parser.add_argument("-n", "--NET", default=1, help="number of simple network", type=int)
     parser.add_argument("-l", "--MINLINK", default=15, help=" lower threshold transition matrix abs value x100", type=int)
@@ -334,7 +334,7 @@ def save_dataset(args):
     for j in range(6):
         W = mf.create_stable_weighted_matrix(A, threshold=args.MINLINK / 100, powers=[1, 2, 3, 4, 5])
         data = (GT,mf.genData(W, rate=1, ssize=5000* args.UNDERSAMPLING, noise=args.NOISE)) # we undersample after hrf function
-        data_scaled = data / data.max()
+        data_scaled = data[1] / data[1].max()
 
         bold_out, _ = hrf.compute_bold_signals(data_scaled)
         bold_out = bold_out[:, 1000:]  # drop initial states
