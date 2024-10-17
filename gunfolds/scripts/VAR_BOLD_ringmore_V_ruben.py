@@ -323,17 +323,24 @@ def save_dataset(args):
     y_values = np.array([7, 8, 10, 10, 11, 19])
     # Fit a polynomial of degree 5
     coefficients = np.polyfit(x_values, y_values, 6)
+    size = 5 + ((args.BATCH-1) % 6)
+    i = 1 + ((args.BATCH-1) / 6)
+    # for size in range(5,11):
+    #     for i in range(10):
+    GT = gk.ringmore(size, int(round(np.polyval(coefficients, size) - size)))
+    A = cv.graph2adj(GT)
 
-    for size in range(5,11):
-        for i in range(10):
-            GT = gk.ringmore(size, int(round(np.polyval(coefficients, size) - size)))
-            A = cv.graph2adj(GT)
-            W = mf.create_stable_weighted_matrix(A, threshold=args.MINLINK / 100, powers=[1, 2, 3])
 
-            for j in range(6):
-                data = (GT,mf.genData(W, rate=args.UNDERSAMPLING, ssize=5000, noise=args.NOISE))
-                dataset.append(data)
-    zkl.save(dataset,f'datasets/VAR_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link{args.MINLINK}.zkl')
+    for j in range(6):
+        W = mf.create_stable_weighted_matrix(A, threshold=args.MINLINK / 100, powers=[1, 2, 3, 4, 5])
+        data = (GT,mf.genData(W, rate=1, ssize=5000* args.UNDERSAMPLING, noise=args.NOISE)) # we undersample after hrf function
+        data_scaled = data / data.max()
+
+        bold_out, _ = hrf.compute_bold_signals(data_scaled)
+        bold_out = bold_out[:, 1000:]  # drop initial states
+        data_undersampled = bold_out[:, ::args.UNDERSAMPLING] #undersample
+        dataset.append(data_undersampled)
+    zkl.save(dataset,f'datasets/VAR_BOLD_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link{args.MINLINK}_batch{i}.zkl')
 
 if __name__ == "__main__":
     error_normalization = True
@@ -353,7 +360,7 @@ if __name__ == "__main__":
     # if not glob.glob(pattern):
     # for i in range(1,4):
     #     args.UNDERSAMPLING = i
-    # save_dataset(args)
+    save_dataset(args)
     # for i in range(1,10):
     # for j in range(1,4):
     #     args.UNDERSAMPLING = j
@@ -363,4 +370,4 @@ if __name__ == "__main__":
     #         args.UNDERSAMPLING = j
     # convert_to_txt(args)
 
-    run_analysis(args,network_GT,include_selfloop)
+    # run_analysis(args,network_GT,include_selfloop)
