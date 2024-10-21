@@ -339,8 +339,8 @@ def save_dataset(args):
         bold_out, _ = hrf.compute_bold_signals(data_scaled)
         bold_out = bold_out[:, 1000:]  # drop initial states
         data_undersampled = bold_out[:, ::args.UNDERSAMPLING] #undersample
-        dataset.append(data_undersampled)
-    zkl.save(dataset,f'datasets/VAR_BOLD_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link{args.MINLINK}_batch{i}.zkl')
+        dataset.append((GT,data_undersampled))
+    zkl.save(dataset,f'datasets/VAR_BOLD_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link{args.MINLINK}_batch{args.BATCH}.zkl')
 
 if __name__ == "__main__":
     error_normalization = True

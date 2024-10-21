@@ -21,7 +21,7 @@ args = parser.parse_args()
 PNUM = args.PNUM
 UNDERSAMPLED = bool(distutils.util.strtobool(args.UNDERSAMPLED))
 
-methods = ['RASL']
+methods = ['VAR_RASL', 'BOLD_RASL']
 save_results = []
 for method in methods:
     # Initialize a defaultdict of lists to hold concatenated results for each method
@@ -43,7 +43,7 @@ for method in methods:
     folder = f'/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/VAR_ringmore/BOLD/{method}/'
     items = listdir(folder)
     items.sort()
-
+    method = 'RASL'
     # Remove any files that start with '.'
     items = [item for item in items if not item.startswith('.')]
 
