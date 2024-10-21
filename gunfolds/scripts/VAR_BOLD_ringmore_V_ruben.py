@@ -41,7 +41,7 @@ def parse_arguments(PNUM):
     parser.add_argument("-b", "--BATCH", default=1, help="slurm batch.", type=int)
     parser.add_argument("-p", "--PNUM", default=PNUM, help="number of CPUs in machine.", type=int)
     parser.add_argument("-n", "--NET", default=1, help="number of simple network", type=int)
-    parser.add_argument("-l", "--MINLINK", default=15, help=" lower threshold transition matrix abs value x100", type=int)
+    parser.add_argument("-l", "--MINLINK", default=15, help=" lower threshold transition matrix abs value x1000", type=int)
     parser.add_argument("-z", "--NOISE", default=10, help="noise str multiplied by 100", type=int)
     parser.add_argument("-s", "--SCC", default="f", help="true to use SCC structure, false to not", type=str)
     parser.add_argument("-m", "--SCCMEMBERS", default="f",
@@ -332,7 +332,7 @@ def save_dataset(args):
 
 
     for j in range(6):
-        W = mf.create_stable_weighted_matrix(A, threshold=args.MINLINK / 100, powers=[1, 2, 3, 4, 5])
+        W = mf.create_stable_weighted_matrix(A, threshold=args.MINLINK / 1000, powers=[1, 2, 3, 4, 5])
         data = (GT,mf.genData(W, rate=1, ssize=5000* args.UNDERSAMPLING, noise=args.NOISE)) # we undersample after hrf function
         data_scaled = data[1] / data[1].max()
 
