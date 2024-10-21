@@ -150,7 +150,7 @@ def compute_bold_signals(ut, end_time=100):
 
     return nodes_array, t_eval
 
-def plot_bold_signals(nodes_array, t_eval):
+def plot_bold_signals(nodes_array, t_eval=None):
     """
     Plots the BOLD signals over time.
 
@@ -158,6 +158,8 @@ def plot_bold_signals(nodes_array, t_eval):
     - nodes_array: ndarray of shape (num_nodes, num_timepoints), BOLD signals
     - t_eval: ndarray of time points
     """
+    if t_eval is None:
+        t_eval = np.linspace(0, 100, nodes_array.shape[1])
     num_nodes = nodes_array.shape[0]
     plt.figure(figsize=(18, 4))
     plt.plot(t_eval, nodes_array.T, lw=0.5)

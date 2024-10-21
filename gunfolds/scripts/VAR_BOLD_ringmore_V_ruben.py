@@ -38,17 +38,17 @@ def parse_arguments(PNUM):
     parser = argparse.ArgumentParser(description='Run settings.')
     parser.add_argument("-c", "--CAPSIZE", default=0,
                         help="stop traversing after growing equivalence class to this size.", type=int)
-    parser.add_argument("-b", "--BATCH", default=1, help="slurm batch.", type=int)
+    parser.add_argument("-b", "--BATCH", default=24, help="slurm batch.", type=int)
     parser.add_argument("-p", "--PNUM", default=PNUM, help="number of CPUs in machine.", type=int)
     parser.add_argument("-n", "--NET", default=1, help="number of simple network", type=int)
-    parser.add_argument("-l", "--MINLINK", default=15, help=" lower threshold transition matrix abs value x1000", type=int)
+    parser.add_argument("-l", "--MINLINK", default=5, help=" lower threshold transition matrix abs value x1000", type=int)
     parser.add_argument("-z", "--NOISE", default=10, help="noise str multiplied by 100", type=int)
     parser.add_argument("-s", "--SCC", default="f", help="true to use SCC structure, false to not", type=str)
     parser.add_argument("-m", "--SCCMEMBERS", default="f",
                         help="true for using g_estimate SCC members, false for using "
                              "GT SCC members", type=str)
     parser.add_argument("-u", "--UNDERSAMPLING", default=2, help="sampling rate in generated data", type=int)
-    parser.add_argument("-x", "--MAXU", default=5, help="maximum number of undersampling to look for solution.",
+    parser.add_argument("-x", "--MAXU", default=6, help="maximum number of undersampling to look for solution.",
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
     parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
@@ -332,15 +332,17 @@ def save_dataset(args):
 
 
     for j in range(6):
-        W = mf.create_stable_weighted_matrix(A, threshold=args.MINLINK / 1000, powers=[1, 2, 3, 4, 5])
+        W = mf.create_stable_weighted_matrix(A,
+                                             threshold=int((args.MINLINK)*(3**-args.UNDERSAMPLING)*(3**args.MAXU))/ 1000,
+                                             powers=[t for t in range(1,args.UNDERSAMPLING + 1)])
         data = (GT,mf.genData(W, rate=1, ssize=5000* args.UNDERSAMPLING, noise=args.NOISE)) # we undersample after hrf function
         data_scaled = data[1] / data[1].max()
 
         bold_out, _ = hrf.compute_bold_signals(data_scaled)
-        bold_out = bold_out[:, 1000:]  # drop initial states
+        bold_out = bold_out[:, int((bold_out.shape[1])/5):]  # drop initial states
         data_undersampled = bold_out[:, ::args.UNDERSAMPLING] #undersample
         dataset.append((GT,data_undersampled))
-    zkl.save(dataset,f'datasets/VAR_BOLD_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link{args.MINLINK}_batch{args.BATCH}.zkl')
+    zkl.save(dataset,f'datasets/VAR_BOLD_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link_version2{args.MINLINK}_batch{args.BATCH}.zkl')
 
 if __name__ == "__main__":
     error_normalization = True
