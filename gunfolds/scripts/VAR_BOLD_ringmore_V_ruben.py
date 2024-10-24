@@ -52,7 +52,7 @@ def parse_arguments(PNUM):
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
     parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
-    parser.add_argument("-o", "--METHOD", default="RASL", help="method to run", type=str)
+    parser.add_argument("-o", "--METHOD", default="MVAR", help="method to run", type=str)
     return parser.parse_args()
 
 def convert_str_to_bool(args):
@@ -69,8 +69,7 @@ def convert_str_to_bool(args):
 
 # Define the functions
 def MVGC(args, network_GT):
-    path = (f'/Users/sajad/GSU Dropbox Dropbox/Mohammadsajad '
-            f'Abavisani/Mac/Documents/PhD/Research/code/DataSets_Feedbacks/9_VAR_BOLD_simulation/ri'
+    path = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ri'
             f'ngmore/u{args.UNDERSAMPLING}/MVGC')
     mat_data = loadmat(path + f'/mat_file_{args.BATCH}.mat')['sig']
     for i in range(len(network_GT)):
@@ -80,8 +79,7 @@ def MVGC(args, network_GT):
     return MVGC
 
 def MVAR(args, network_GT):
-    path = (f'/Users/sajad/GSU Dropbox Dropbox/Mohammadsajad '
-            f'Abavisani/Mac/Documents/PhD/Research/code/DataSets_Feedbacks/9_VAR_BOLD_simulation/ri'
+    path = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ri'
             f'ngmore/u{args.UNDERSAMPLING}/MVAR')
     mat_data = loadmat(path + f'/mat_file_{args.BATCH}.mat')['sig']
     for i in range(len(network_GT)):
@@ -92,8 +90,7 @@ def MVAR(args, network_GT):
 
 def GIMME(args, network_GT):
     size = len(network_GT)
-    path = (f'/Users/sajad/GSU Dropbox Dropbox/Mohammadsajad '
-            f'Abavisani/Mac/Documents/PhD/Research/code/DataSets_Feedbacks/9_VAR_BOLD_simulation/'
+    path = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/'
             f'ringmore/u{args.UNDERSAMPLING}/GIMME'
            f'/data{args.BATCH}/individual/StdErrors/data{args.BATCH}StdErrors.csv')
     with open(path, 'r') as file:
@@ -114,8 +111,7 @@ def GIMME(args, network_GT):
     return GIMME
 
 def FASK(args, network_GT):
-    path = (f'~'
-            f'/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txt/data{args.BATCH}.txt')
+    path = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txt/data{args.BATCH}.txt')
     data = pd.read_csv(path, delimiter='\t')
     search = ts.TetradSearch(data)
     search.set_verbose(False)
@@ -138,7 +134,7 @@ def FASK(args, network_GT):
     return FASK
 
 def RASL(args, network_GT):
-    path = (f'~'
+    path = os.path.expanduser(f'~'
             f'/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txt/data{args.BATCH}.txt')
     data = pd.read_csv(path, delimiter='\t')
     dataframe = pp.DataFrame(data.values)
@@ -351,14 +347,14 @@ if __name__ == "__main__":
     args = convert_str_to_bool(args)
     omp_num_threads = args.PNUM
     os.environ['OMP_NUM_THREADS'] = str(omp_num_threads)
-    # network_GT = zkl.load(os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
+    network_GT = zkl.load(os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
     include_selfloop = False
     # pattern = f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl'
 
     # if not glob.glob(pattern):
-    for i in range(2,7):
-        args.UNDERSAMPLING = i
-        convert_to_txt(args)
+    # for i in range(2,7):
+        # args.UNDERSAMPLING = i
+        # convert_to_txt(args)
     # save_dataset(args)
     # for i in range(1,10):
     # for j in range(1,4):
@@ -369,4 +365,4 @@ if __name__ == "__main__":
     #         args.UNDERSAMPLING = j
     # convert_to_txt(args)
 
-    # run_analysis(args,network_GT,include_selfloop)
+    run_analysis(args,network_GT,include_selfloop)
