@@ -38,7 +38,7 @@ def parse_arguments(PNUM):
     parser = argparse.ArgumentParser(description='Run settings.')
     parser.add_argument("-c", "--CAPSIZE", default=0,
                         help="stop traversing after growing equivalence class to this size.", type=int)
-    parser.add_argument("-b", "--BATCH", default=24, help="slurm batch.", type=int)
+    parser.add_argument("-b", "--BATCH", default=6, help="slurm batch.", type=int)
     parser.add_argument("-p", "--PNUM", default=PNUM, help="number of CPUs in machine.", type=int)
     parser.add_argument("-n", "--NET", default=1, help="number of simple network", type=int)
     parser.add_argument("-l", "--MINLINK", default=5, help=" lower threshold transition matrix abs value x1000", type=int)
@@ -70,7 +70,7 @@ def convert_str_to_bool(args):
 # Define the functions
 def MVGC(args, network_GT):
     path = (f'/Users/sajad/GSU Dropbox Dropbox/Mohammadsajad '
-            f'Abavisani/Mac/Documents/PhD/Research/code/DataSets_Feedbacks/8_VAR_simulation/ri'
+            f'Abavisani/Mac/Documents/PhD/Research/code/DataSets_Feedbacks/9_VAR_BOLD_simulation/ri'
             f'ngmore/u{args.UNDERSAMPLING}/MVGC')
     mat_data = loadmat(path + f'/mat_file_{args.BATCH}.mat')['sig']
     for i in range(len(network_GT)):
@@ -81,7 +81,7 @@ def MVGC(args, network_GT):
 
 def MVAR(args, network_GT):
     path = (f'/Users/sajad/GSU Dropbox Dropbox/Mohammadsajad '
-            f'Abavisani/Mac/Documents/PhD/Research/code/DataSets_Feedbacks/8_VAR_simulation/ri'
+            f'Abavisani/Mac/Documents/PhD/Research/code/DataSets_Feedbacks/9_VAR_BOLD_simulation/ri'
             f'ngmore/u{args.UNDERSAMPLING}/MVAR')
     mat_data = loadmat(path + f'/mat_file_{args.BATCH}.mat')['sig']
     for i in range(len(network_GT)):
@@ -93,8 +93,8 @@ def MVAR(args, network_GT):
 def GIMME(args, network_GT):
     size = len(network_GT)
     path = (f'/Users/sajad/GSU Dropbox Dropbox/Mohammadsajad '
-            f'Abavisani/Mac/Documents/PhD/Research/code/DataSets_Feedbacks/8_VAR_simulation/'
-            f'ringmore/u{args.UNDERSAMPLING}/GIMMESTD'
+            f'Abavisani/Mac/Documents/PhD/Research/code/DataSets_Feedbacks/9_VAR_BOLD_simulation/'
+            f'ringmore/u{args.UNDERSAMPLING}/GIMME'
            f'/data{args.BATCH}/individual/StdErrors/data{args.BATCH}StdErrors.csv')
     with open(path, 'r') as file:
         csv_reader = csv.reader(file)
@@ -115,7 +115,7 @@ def GIMME(args, network_GT):
 
 def FASK(args, network_GT):
     path = (f'~'
-            f'/DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD/data{args.BATCH}.txt')
+            f'/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txt/data{args.BATCH}.txt')
     data = pd.read_csv(path, delimiter='\t')
     search = ts.TetradSearch(data)
     search.set_verbose(False)
@@ -138,15 +138,10 @@ def FASK(args, network_GT):
     return FASK
 
 def RASL(args, network_GT):
-    data = zkl.load(f'datasets/VAR_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link10.zkl')
-    network_GT = data[args.BATCH][0]
-
-    ut = data[args.BATCH][1]
-    ut_scaled = ut / ut.max()
-
-    bold_out, _ = hrf.compute_bold_signals(ut_scaled)
-    bold_out = bold_out[:, 1000:] # drop initial states
-    dataframe = pp.DataFrame(bold_out.T)
+    path = (f'~'
+            f'/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txt/data{args.BATCH}.txt')
+    data = pd.read_csv(path, delimiter='\t')
+    dataframe = pp.DataFrame(data.values)
     cond_ind_test = ParCorr()
     pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
     results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.05)
@@ -156,7 +151,7 @@ def RASL(args, network_GT):
     BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
 
     r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=0,
-                        urate=min(5, (3 * len(g_estimated) + 1)),
+                        urate=min(6, (3 * len(g_estimated) + 1)),
                         dm=[DD],
                         bdm=[BD],
                         scc=False,
@@ -181,7 +176,7 @@ def RASL(args, network_GT):
 
 def mRASL(args, network_GT):
     BATCH = args.BATCH*6
-    network_GT = zkl.load(os.path.expanduser(f'~/DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{BATCH}.zkl'))
+    network_GT = zkl.load(os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{BATCH}.zkl'))
     MAXCOST = 1000
     N = len(network_GT)
     base_g = {i: {} for i in range(1, N + 1)}
@@ -191,7 +186,7 @@ def mRASL(args, network_GT):
     DD_list = []
     BD_list = []
     for i in range(6):
-        path = os.path.expanduser(f'~/DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD/data{BATCH-i}.txt')
+        path = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txt/data{BATCH-i}.txt')
         data = pd.read_csv(path, delimiter='\t')
         # dataframe = pp.DataFrame(data.values)
         # cond_ind_test = ParCorr()
@@ -214,7 +209,7 @@ def mRASL(args, network_GT):
     base_DD = np.where(base_DD < 0, 6000 + base_DD, base_DD)
     base_BD = np.where(base_BD < 0, 6000 + base_BD, base_BD)
     r_estimated = drasl(g_est_list, weighted=True, capsize=0, timeout=0,
-                        urate=min(5, (3 * len(g_estimated) + 1)),
+                        urate=min(6, (3 * len(g_estimated) + 1)),
                         dm=DD_list,
                         bdm=BD_list,
                         scc=False,
@@ -245,33 +240,30 @@ def initialize_metrics():
     }
 
 def convert_to_mat(args):
-    data = zkl.load(f'datasets/VAR_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link10.zkl')
+    data = zkl.load(f'datasets/VAR_BOLD_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link_expo_5.zkl')
     for i, dd in enumerate(data, start=1):
-        folder = os.path.expanduser(f'~/DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/mat')
+        folder = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/mat')
         if not os.path.exists(folder):
             os.makedirs(folder)
         savemat(folder + '/expo_to_mat_' + str(i) + '.mat', {'dd': dd[1]})
 
+        print('file saved to :' + folder + '/expo_to_mat_' + str(i) + '.mat')
+
 def convert_to_txt(args):
-    data = zkl.load(f'datasets/VAR_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link10.zkl')
+    data = zkl.load(f'datasets/VAR_BOLD_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link_expo_5.zkl')
     for i, dd in enumerate(data, start=1):
-        folder = os.path.expanduser(f'~/DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD')
+        folder = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txt')
         if not os.path.exists(folder):
             os.makedirs(folder)
         zkl.save(dd[0], f'{folder}/GT{i}.zkl')
-        variances = np.var(dd[1], axis=1, ddof=0)  # ddof=0 for population variance
 
-        # Calculate the standard deviation (sqrt of variance) for each row
-        std_devs = np.sqrt(variances)
+        ### zero mean and std = 1
 
-        # Normalize each row by dividing by its standard deviation
-        normalized_array = dd[1] / std_devs[:, np.newaxis]
-
-        # Calculate the mean of each row in the normalized matrix
-        means = np.mean(normalized_array, axis=1)
-
-        # Zero-mean each row by subtracting the mean from each element
-        zero_mean_array = normalized_array - means[:, np.newaxis]
+        # variances = np.var(dd[1], axis=1, ddof=0)
+        # std_devs = np.sqrt(variances)
+        # normalized_array = dd[1] / std_devs[:, np.newaxis]
+        # means = np.mean(normalized_array, axis=1)
+        # zero_mean_array = normalized_array - means[:, np.newaxis]
 
         header = '\t'.join([f'X{j + 1}' for j in range(dd[1].shape[0])])
 
@@ -280,9 +272,11 @@ def convert_to_txt(args):
             f.write(header + '\n')
 
             # Write the data, one column per line
-            for col in range(zero_mean_array.shape[1]):
-                line = '\t'.join(map(str, zero_mean_array[:, col]))
+            for col in range(dd[1].shape[1]):
+                line = '\t'.join(map(str, dd[1][:, col]))
                 f.write(line + '\n')
+
+        print('file saved to :' + f'{folder}/data{i}.txt')
 
 def run_analysis(args,network_GT,include_selfloop):
     metrics = {key: {args.UNDERSAMPLING: initialize_metrics()} for key in [args.METHOD]}
@@ -342,7 +336,9 @@ def save_dataset(args):
         bold_out = bold_out[:, int((bold_out.shape[1])/5):]  # drop initial states
         data_undersampled = bold_out[:, ::args.UNDERSAMPLING] #undersample
         dataset.append((GT,data_undersampled))
-    zkl.save(dataset,f'datasets/VAR_BOLD_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link_version2{args.MINLINK}_batch{args.BATCH}.zkl')
+    filename = f'datasets/VAR_BOLD_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link_version2{args.MINLINK}_batch{args.BATCH}.zkl'
+    zkl.save(dataset, filename)
+    print('file saved to :' + filename)
 
 if __name__ == "__main__":
     error_normalization = True
@@ -355,14 +351,15 @@ if __name__ == "__main__":
     args = convert_str_to_bool(args)
     omp_num_threads = args.PNUM
     os.environ['OMP_NUM_THREADS'] = str(omp_num_threads)
-    # network_GT = zkl.load(os.path.expanduser(f'~/DataSets_Feedbacks/8_VAR_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
+    # network_GT = zkl.load(os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
     include_selfloop = False
     # pattern = f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl'
 
     # if not glob.glob(pattern):
-    # for i in range(1,4):
-    #     args.UNDERSAMPLING = i
-    save_dataset(args)
+    for i in range(2,7):
+        args.UNDERSAMPLING = i
+        convert_to_txt(args)
+    # save_dataset(args)
     # for i in range(1,10):
     # for j in range(1,4):
     #     args.UNDERSAMPLING = j
