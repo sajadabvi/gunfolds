@@ -248,18 +248,18 @@ def convert_to_mat(args):
 def convert_to_txt(args):
     data = zkl.load(f'datasets/VAR_BOLD_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link_expo_5.zkl')
     for i, dd in enumerate(data, start=1):
-        folder = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txt')
+        folder = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD/data{i}')
         if not os.path.exists(folder):
             os.makedirs(folder)
-        zkl.save(dd[0], f'{folder}/GT{i}.zkl')
+        # zkl.save(dd[0], f'{folder}/GT{i}.zkl')
 
         ### zero mean and std = 1
 
-        # variances = np.var(dd[1], axis=1, ddof=0)
-        # std_devs = np.sqrt(variances)
-        # normalized_array = dd[1] / std_devs[:, np.newaxis]
-        # means = np.mean(normalized_array, axis=1)
-        # zero_mean_array = normalized_array - means[:, np.newaxis]
+        variances = np.var(dd[1], axis=1, ddof=0)
+        std_devs = np.sqrt(variances)
+        normalized_array = dd[1] / std_devs[:, np.newaxis]
+        means = np.mean(normalized_array, axis=1)
+        zero_mean_array = normalized_array - means[:, np.newaxis]
 
         header = '\t'.join([f'X{j + 1}' for j in range(dd[1].shape[0])])
 
@@ -268,8 +268,8 @@ def convert_to_txt(args):
             f.write(header + '\n')
 
             # Write the data, one column per line
-            for col in range(dd[1].shape[1]):
-                line = '\t'.join(map(str, dd[1][:, col]))
+            for col in range(zero_mean_array.shape[1]):
+                line = '\t'.join(map(str, zero_mean_array[:, col]))
                 f.write(line + '\n')
 
         print('file saved to :' + f'{folder}/data{i}.txt')
@@ -324,7 +324,7 @@ def save_dataset(args):
     for j in range(6):
         W = mf.create_stable_weighted_matrix(A,
                                              threshold=int((args.MINLINK)*(3**-args.UNDERSAMPLING)*(3**args.MAXU))/ 1000,
-                                             powers=[t for t in range(1,args.UNDERSAMPLING + 1)])
+                                             powers=[t for t in range(1,min(6,args.UNDERSAMPLING + 1))])
         data = (GT,mf.genData(W, rate=1, ssize=5000* args.UNDERSAMPLING, noise=args.NOISE)) # we undersample after hrf function
         data_scaled = data[1] / data[1].max()
 
@@ -332,7 +332,7 @@ def save_dataset(args):
         bold_out = bold_out[:, int((bold_out.shape[1])/5):]  # drop initial states
         data_undersampled = bold_out[:, ::args.UNDERSAMPLING] #undersample
         dataset.append((GT,data_undersampled))
-    filename = f'datasets/VAR_BOLD_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link_version2{args.MINLINK}_batch{args.BATCH}.zkl'
+    filename = f'datasets/VAR_BOLD_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link_expo_{args.MINLINK}_batch{args.BATCH}.zkl'
     zkl.save(dataset, filename)
     print('file saved to :' + filename)
 
@@ -353,9 +353,9 @@ if __name__ == "__main__":
 
     # if not glob.glob(pattern):
     # for i in range(2,7):
-        # args.UNDERSAMPLING = i
-        # convert_to_txt(args)
-    # save_dataset(args)
+    #     args.UNDERSAMPLING = i
+    #     convert_to_txt(args)
+    save_dataset(args)
     # for i in range(1,10):
     # for j in range(1,4):
     #     args.UNDERSAMPLING = j
@@ -365,4 +365,4 @@ if __name__ == "__main__":
     #         args.UNDERSAMPLING = j
     # convert_to_txt(args)
 
-    run_analysis(args,network_GT,include_selfloop)
+    # run_analysis(args,network_GT,include_selfloop)
