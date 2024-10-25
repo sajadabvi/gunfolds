@@ -48,7 +48,7 @@ def parse_arguments(PNUM):
                         help="true for using g_estimate SCC members, false for using "
                              "GT SCC members", type=str)
     parser.add_argument("-u", "--UNDERSAMPLING", default=2, help="sampling rate in generated data", type=int)
-    parser.add_argument("-x", "--MAXU", default=6, help="maximum number of undersampling to look for solution.",
+    parser.add_argument("-x", "--MAXU", default=20, help="maximum number of undersampling to look for solution.",
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
     parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
@@ -325,7 +325,7 @@ def save_dataset(args):
         W = mf.create_stable_weighted_matrix(A,
                                              threshold=int((args.MINLINK)*(3**-args.UNDERSAMPLING)*(3**args.MAXU))/ 1000,
                                              powers=[t for t in range(1,min(6,args.UNDERSAMPLING + 1))])
-        data = (GT,mf.genData(W, rate=1, ssize=5000* args.UNDERSAMPLING, noise=args.NOISE)) # we undersample after hrf function
+        data = (GT,mf.genData(W, rate=1, ssize=2500* args.UNDERSAMPLING, noise=args.NOISE)) # we undersample after hrf function
         data_scaled = data[1] / data[1].max()
 
         bold_out, _ = hrf.compute_bold_signals(data_scaled)
