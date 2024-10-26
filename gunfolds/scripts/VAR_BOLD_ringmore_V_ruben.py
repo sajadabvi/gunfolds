@@ -1,4 +1,5 @@
 import os
+
 # from gunfolds.viz import gtool as gt
 from gunfolds.utils import bfutils
 import numpy as np
@@ -38,7 +39,7 @@ def parse_arguments(PNUM):
     parser = argparse.ArgumentParser(description='Run settings.')
     parser.add_argument("-c", "--CAPSIZE", default=0,
                         help="stop traversing after growing equivalence class to this size.", type=int)
-    parser.add_argument("-b", "--BATCH", default=6, help="slurm batch.", type=int)
+    parser.add_argument("-b", "--BATCH", default=1, help="slurm batch.", type=int)
     parser.add_argument("-p", "--PNUM", default=PNUM, help="number of CPUs in machine.", type=int)
     parser.add_argument("-n", "--NET", default=1, help="number of simple network", type=int)
     parser.add_argument("-l", "--MINLINK", default=5, help=" lower threshold transition matrix abs value x1000", type=int)
@@ -48,7 +49,7 @@ def parse_arguments(PNUM):
                         help="true for using g_estimate SCC members, false for using "
                              "GT SCC members", type=str)
     parser.add_argument("-u", "--UNDERSAMPLING", default=2, help="sampling rate in generated data", type=int)
-    parser.add_argument("-x", "--MAXU", default=20, help="maximum number of undersampling to look for solution.",
+    parser.add_argument("-x", "--MAXU", default=6, help="maximum number of undersampling to look for solution.",
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
     parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
@@ -306,6 +307,24 @@ def run_analysis(args,network_GT,include_selfloop):
     print('file saved to :' + filename)
 
 def save_dataset(args):
+    if not (args.BATCH > 0 and args.BATCH<=360):
+        raise ValueError(
+            f"{args.BATCH} is not a valid batch number. Batch should be between 0 and 361.")
+    dataset = zkl.load('datasets/Stable_transition_matrix_and_GT_link_expo_5.zkl')
+    batch = dataset[args.BATCH-1]
+
+    data = mf.genData(batch['W'], rate=1, ssize=2500* args.UNDERSAMPLING, noise=args.NOISE)
+    data_scaled = data / data.max()
+
+    bold_out, _ = hrf.compute_bold_signals(data_scaled)
+    bold_out = bold_out[:, int((bold_out.shape[1])/5):]  # drop initial states
+    data_undersampled = bold_out[:, ::args.UNDERSAMPLING] #undersample
+    dataset.append({'GT':batch['GT'], 'data':data_undersampled})
+    filename = f'datasets/VAR_BOLD_standatd_Gis_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_batch{args.BATCH}.zkl'
+    zkl.save(dataset, filename)
+    print('file saved to :' + filename)
+
+def save_trans_matrix(args):
     dataset = []
     #graph size and number of edges to match Ruben simple networks
 
@@ -314,26 +333,20 @@ def save_dataset(args):
     # Fit a polynomial of degree 5
     coefficients = np.polyfit(x_values, y_values, 6)
     size = 5 + ((args.BATCH-1) % 6)
-    i = 1 + ((args.BATCH-1) / 6)
-    # for size in range(5,11):
-    #     for i in range(10):
+
     GT = gk.ringmore(size, int(round(np.polyval(coefficients, size) - size)))
     A = cv.graph2adj(GT)
 
 
     for j in range(6):
         W = mf.create_stable_weighted_matrix(A,
-                                             threshold=5/10000,#int((args.MINLINK)*(3**-args.UNDERSAMPLING)*(3**args.MAXU))/ 1000,
-                                             powers=[1,2,3,4,5],#[t for t in range(1,min(6,args.UNDERSAMPLING + 1))]
+                                             threshold=int((args.MINLINK)*(3**-args.UNDERSAMPLING)*(3**args.MAXU))/ 1000,
+                                             powers=[t for t in range(1,min(6,args.UNDERSAMPLING + 1))]
                                              )
-        data = (GT,mf.genData(W, rate=1, ssize=2500* args.UNDERSAMPLING, noise=args.NOISE)) # we undersample after hrf function
-        data_scaled = data[1] / data[1].max()
+        data = {'GT':GT,'W':W}
 
-        bold_out, _ = hrf.compute_bold_signals(data_scaled)
-        bold_out = bold_out[:, int((bold_out.shape[1])/5):]  # drop initial states
-        data_undersampled = bold_out[:, ::args.UNDERSAMPLING] #undersample
-        dataset.append((GT,data_undersampled))
-    filename = f'datasets/VAR_BOLD_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link_expo_{args.MINLINK}_batch{args.BATCH}.zkl'
+        dataset.append(data)
+    filename = f'datasets/Stable_transition_matrix_and_GT_link_expo_{args.MINLINK}_batch{args.BATCH}.zkl'
     zkl.save(dataset, filename)
     print('file saved to :' + filename)
 
@@ -353,10 +366,11 @@ if __name__ == "__main__":
     # pattern = f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl'
 
     # if not glob.glob(pattern):
-    # for i in range(2,7):
-    #     args.UNDERSAMPLING = i
-    #     convert_to_txt(args)
+    # for i in range(4,61):
+    #     args.BATCH = i
+    # convert_to_txt(args)
     save_dataset(args)
+    #     save_trans_matrix(args)
     # for i in range(1,10):
     # for j in range(1,4):
     #     args.UNDERSAMPLING = j
