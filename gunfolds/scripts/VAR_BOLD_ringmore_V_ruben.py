@@ -323,8 +323,9 @@ def save_dataset(args):
 
     for j in range(6):
         W = mf.create_stable_weighted_matrix(A,
-                                             threshold=int((args.MINLINK)*(3**-args.UNDERSAMPLING)*(3**args.MAXU))/ 1000,
-                                             powers=[t for t in range(1,min(6,args.UNDERSAMPLING + 1))])
+                                             threshold=5/10000,#int((args.MINLINK)*(3**-args.UNDERSAMPLING)*(3**args.MAXU))/ 1000,
+                                             powers=[1,2,3,4,5],#[t for t in range(1,min(6,args.UNDERSAMPLING + 1))]
+                                             )
         data = (GT,mf.genData(W, rate=1, ssize=2500* args.UNDERSAMPLING, noise=args.NOISE)) # we undersample after hrf function
         data_scaled = data[1] / data[1].max()
 
