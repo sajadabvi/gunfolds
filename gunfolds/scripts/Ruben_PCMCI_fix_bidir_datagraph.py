@@ -214,7 +214,7 @@ for nn in [2]:
         data = pd.read_csv(
             os.path.expanduser('~/DataSets_Feedbacks/1. Simple_Networks/Network' + str(
                 args.NUMBER) + '_amp/data_fslfilter/BOLDfslfilter_{0}.txt'.format(
-                num), delimiter='\t'))
+                num)))
 
         selfloops = []
         no_selfloops = []

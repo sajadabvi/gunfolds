@@ -310,8 +310,8 @@ def save_dataset(args):
     if not (args.BATCH > 0 and args.BATCH<=360):
         raise ValueError(
             f"{args.BATCH} is not a valid batch number. Batch should be between 0 and 361.")
-    dataset = zkl.load('datasets/Stable_transition_matrix_and_GT_link_expo_5.zkl')
-    batch = dataset[args.BATCH-1]
+    trans_mats_dataset = zkl.load('datasets/Stable_transition_matrix_and_GT_link_expo_5.zkl')
+    batch = trans_mats_dataset[args.BATCH-1]
 
     data = mf.genData(batch['W'], rate=1, ssize=2500* args.UNDERSAMPLING, noise=args.NOISE)
     data_scaled = data / data.max()
@@ -319,9 +319,8 @@ def save_dataset(args):
     bold_out, _ = hrf.compute_bold_signals(data_scaled)
     bold_out = bold_out[:, int((bold_out.shape[1])/5):]  # drop initial states
     data_undersampled = bold_out[:, ::args.UNDERSAMPLING] #undersample
-    dataset.append({'GT':batch['GT'], 'data':data_undersampled})
     filename = f'datasets/VAR_BOLD_standatd_Gis_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_batch{args.BATCH}.zkl'
-    zkl.save(dataset, filename)
+    zkl.save({'GT':batch['GT'], 'data':data_undersampled}, filename)
     print('file saved to :' + filename)
 
 def save_trans_matrix(args):
