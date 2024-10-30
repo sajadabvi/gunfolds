@@ -48,12 +48,12 @@ def parse_arguments(PNUM):
     parser.add_argument("-m", "--SCCMEMBERS", default="f",
                         help="true for using g_estimate SCC members, false for using "
                              "GT SCC members", type=str)
-    parser.add_argument("-u", "--UNDERSAMPLING", default=2, help="sampling rate in generated data", type=int)
-    parser.add_argument("-x", "--MAXU", default=6, help="maximum number of undersampling to look for solution.",
+    parser.add_argument("-u", "--UNDERSAMPLING", default=20, help="sampling rate in generated data", type=int)
+    parser.add_argument("-x", "--MAXU", default=9, help="maximum number of undersampling to look for solution.",
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
     parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
-    parser.add_argument("-o", "--METHOD", default="MVAR", help="method to run", type=str)
+    parser.add_argument("-o", "--METHOD", default="mRASL", help="method to run", type=str)
     return parser.parse_args()
 
 def convert_str_to_bool(args):
@@ -148,7 +148,7 @@ def RASL(args, network_GT):
     BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
 
     r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=0,
-                        urate=min(6, (3 * len(g_estimated) + 1)),
+                        urate=min(args.MAXU, (3 * len(g_estimated) + 1)),
                         dm=[DD],
                         bdm=[BD],
                         scc=False,
@@ -190,8 +190,8 @@ def mRASL(args, network_GT):
         # pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
         # results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.05)
         # g_estimated, A, B = cv.Glag2CG(results)
-        bold_out, _ = hrf.compute_bold_signals(data.values)
-        g_estimated, A, B = lm.data2graph(bold_out.T, th=0.03)
+        # bold_out, _ = hrf.compute_bold_signals(data.values)
+        g_estimated, A, B = lm.data2graph(data.values.T, th=0.03)
         DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
         BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
 
@@ -206,7 +206,7 @@ def mRASL(args, network_GT):
     base_DD = np.where(base_DD < 0, 6000 + base_DD, base_DD)
     base_BD = np.where(base_BD < 0, 6000 + base_BD, base_BD)
     r_estimated = drasl(g_est_list, weighted=True, capsize=0, timeout=0,
-                        urate=min(6, (3 * len(g_estimated) + 1)),
+                        urate=min(args.MAXU, (3 * len(g_estimated) + 1)),
                         dm=DD_list,
                         bdm=BD_list,
                         scc=False,
@@ -237,40 +237,40 @@ def initialize_metrics():
     }
 
 def convert_to_mat(args):
-    data = zkl.load(f'datasets/VAR_BOLD_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link_expo_5.zkl')
+    data = zkl.load(f'datasets/VAR_BOLD_standatd_Gis_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}.zkl')
     for i, dd in enumerate(data, start=1):
         folder = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/mat')
         if not os.path.exists(folder):
             os.makedirs(folder)
-        savemat(folder + '/expo_to_mat_' + str(i) + '.mat', {'dd': dd[1]})
+        savemat(folder + '/expo_to_mat_' + str(i) + '.mat', {'dd': dd['data']})
 
         print('file saved to :' + folder + '/expo_to_mat_' + str(i) + '.mat')
 
 def convert_to_txt(args):
-    data = zkl.load(f'datasets/VAR_BOLD_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}_link_expo_5.zkl')
+    data = zkl.load(f'datasets/VAR_BOLD_standatd_Gis_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}.zkl')
     for i, dd in enumerate(data, start=1):
-        folder = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD/data{i}')
+        folder = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txt')
         if not os.path.exists(folder):
             os.makedirs(folder)
-        # zkl.save(dd[0], f'{folder}/GT{i}.zkl')
+        zkl.save(dd['GT'], f'{folder}/GT{i}.zkl')
 
         ### zero mean and std = 1
 
-        variances = np.var(dd[1], axis=1, ddof=0)
-        std_devs = np.sqrt(variances)
-        normalized_array = dd[1] / std_devs[:, np.newaxis]
-        means = np.mean(normalized_array, axis=1)
-        zero_mean_array = normalized_array - means[:, np.newaxis]
+        # variances = np.var(dd[1], axis=1, ddof=0)
+        # std_devs = np.sqrt(variances)
+        # normalized_array = dd[1] / std_devs[:, np.newaxis]
+        # means = np.mean(normalized_array, axis=1)
+        # zero_mean_array = normalized_array - means[:, np.newaxis]
 
-        header = '\t'.join([f'X{j + 1}' for j in range(dd[1].shape[0])])
+        header = '\t'.join([f'X{j + 1}' for j in range(dd['data'].shape[0])])
 
         with open(f'{folder}/data{i}.txt', 'w') as f:
             # Write the header
             f.write(header + '\n')
 
             # Write the data, one column per line
-            for col in range(zero_mean_array.shape[1]):
-                line = '\t'.join(map(str, zero_mean_array[:, col]))
+            for col in range(dd['data'].shape[1]):
+                line = '\t'.join(map(str, dd['data'][:, col]))
                 f.write(line + '\n')
 
         print('file saved to :' + f'{folder}/data{i}.txt')
@@ -360,15 +360,17 @@ if __name__ == "__main__":
     args = convert_str_to_bool(args)
     omp_num_threads = args.PNUM
     os.environ['OMP_NUM_THREADS'] = str(omp_num_threads)
-    # network_GT = zkl.load(os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
+    network_GT = zkl.load(os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
     include_selfloop = False
     # pattern = f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl'
 
     # if not glob.glob(pattern):
-    # for i in range(4,61):
-    #     args.BATCH = i
-    # convert_to_txt(args)
-    save_dataset(args)
+    # for i in [10,15]:
+    #     args.UNDERSAMPLING = i
+    #     convert_to_mat(args)
+        # convert_to_txt(args)
+
+    # save_dataset(args)
     #     save_trans_matrix(args)
     # for i in range(1,10):
     # for j in range(1,4):
@@ -379,4 +381,4 @@ if __name__ == "__main__":
     #         args.UNDERSAMPLING = j
     # convert_to_txt(args)
 
-    # run_analysis(args,network_GT,include_selfloop)
+    run_analysis(args,network_GT,include_selfloop)

@@ -1,3 +1,5 @@
+import os
+
 from gunfolds.viz import gtool as gt
 import pickle
 import distutils.util
