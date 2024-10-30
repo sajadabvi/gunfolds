@@ -10,7 +10,7 @@ from collections import defaultdict
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-
+import re
 import glob
 
 parser = argparse.ArgumentParser(description='Run settings.')
@@ -21,7 +21,15 @@ args = parser.parse_args()
 PNUM = args.PNUM
 UNDERSAMPLED = bool(distutils.util.strtobool(args.UNDERSAMPLED))
 
-methods = ['MVGC','MVAR','FASK', 'RASL']
+def sort_key(filename):
+    # Use regular expression to extract the number between "_undersampled_by_" and "_batch_"
+    match = re.search(r'_undersampled_by_(\d+)_batch_', filename)
+    if match:
+        return int(match.group(1))  # Extract the number and convert it to an integer
+    return float('inf')  # Return a large number if no match (place those at the end)
+
+
+methods = ['MVGC','MVAR','FASK', 'RASL','mRASL']
 save_results = []
 for method in methods:
     # Initialize a defaultdict of lists to hold concatenated results for each method
@@ -42,7 +50,7 @@ for method in methods:
 
     folder = f'/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/VAR_ringmore/BOLD/{method}/'
     items = listdir(folder)
-    items.sort()
+    items.sort(key=sort_key)
     # Remove any files that start with '.'
     items = [item for item in items if not item.startswith('.')]
 

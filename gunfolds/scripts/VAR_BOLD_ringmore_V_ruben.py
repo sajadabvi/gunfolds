@@ -53,7 +53,7 @@ def parse_arguments(PNUM):
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
     parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
-    parser.add_argument("-o", "--METHOD", default="mRASL", help="method to run", type=str)
+    parser.add_argument("-o", "--METHOD", default="FASK", help="method to run", type=str)
     return parser.parse_args()
 
 def convert_str_to_bool(args):
@@ -112,7 +112,7 @@ def GIMME(args, network_GT):
     return GIMME
 
 def FASK(args, network_GT):
-    path = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txt/data{args.BATCH}.txt')
+    path = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD/data{args.BATCH}.txt')
     data = pd.read_csv(path, delimiter='\t')
     search = ts.TetradSearch(data)
     search.set_verbose(False)
@@ -136,7 +136,7 @@ def FASK(args, network_GT):
 
 def RASL(args, network_GT):
     path = os.path.expanduser(f'~'
-            f'/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txt/data{args.BATCH}.txt')
+            f'/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD/data{args.BATCH}.txt')
     data = pd.read_csv(path, delimiter='\t')
     dataframe = pp.DataFrame(data.values)
     cond_ind_test = ParCorr()
@@ -380,5 +380,6 @@ if __name__ == "__main__":
     #         args.NET = i
     #         args.UNDERSAMPLING = j
     # convert_to_txt(args)
-
+    # for i in range(10,361):
+    #     args.BATCH = i
     run_analysis(args,network_GT,include_selfloop)
