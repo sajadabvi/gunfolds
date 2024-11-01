@@ -48,7 +48,7 @@ def parse_arguments(PNUM):
     parser.add_argument("-m", "--SCCMEMBERS", default="f",
                         help="true for using g_estimate SCC members, false for using "
                              "GT SCC members", type=str)
-    parser.add_argument("-u", "--UNDERSAMPLING", default=20, help="sampling rate in generated data", type=int)
+    parser.add_argument("-u", "--UNDERSAMPLING", default=50, help="sampling rate in generated data", type=int)
     parser.add_argument("-x", "--MAXU", default=9, help="maximum number of undersampling to look for solution.",
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
@@ -183,7 +183,7 @@ def mRASL(args, network_GT):
     DD_list = []
     BD_list = []
     for i in range(6):
-        path = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txt/data{BATCH-i}.txt')
+        path = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD/data{BATCH-i}.txt')
         data = pd.read_csv(path, delimiter='\t')
         # dataframe = pp.DataFrame(data.values)
         # cond_ind_test = ParCorr()
@@ -360,7 +360,6 @@ if __name__ == "__main__":
     args = convert_str_to_bool(args)
     omp_num_threads = args.PNUM
     os.environ['OMP_NUM_THREADS'] = str(omp_num_threads)
-    network_GT = zkl.load(os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
     include_selfloop = False
     # pattern = f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl'
 
@@ -370,7 +369,7 @@ if __name__ == "__main__":
     #     convert_to_mat(args)
         # convert_to_txt(args)
 
-    # save_dataset(args)
+    save_dataset(args)
     #     save_trans_matrix(args)
     # for i in range(1,10):
     # for j in range(1,4):
@@ -380,6 +379,9 @@ if __name__ == "__main__":
     #         args.NET = i
     #         args.UNDERSAMPLING = j
     # convert_to_txt(args)
-    # for i in range(10,361):
+    # for i in range(1,361):
     #     args.BATCH = i
-    run_analysis(args,network_GT,include_selfloop)
+    #     network_GT = zkl.load(os.path.expanduser(
+    #         f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
+
+    # run_analysis(args,network_GT,include_selfloop)
