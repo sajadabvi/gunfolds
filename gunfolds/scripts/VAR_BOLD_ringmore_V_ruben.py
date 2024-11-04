@@ -49,7 +49,7 @@ def parse_arguments(PNUM):
                         help="true for using g_estimate SCC members, false for using "
                              "GT SCC members", type=str)
     parser.add_argument("-u", "--UNDERSAMPLING", default=50, help="sampling rate in generated data", type=int)
-    parser.add_argument("-x", "--MAXU", default=9, help="maximum number of undersampling to look for solution.",
+    parser.add_argument("-x", "--MAXU", default=8, help="maximum number of undersampling to look for solution.",
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
     parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
@@ -252,7 +252,12 @@ def convert_to_txt(args):
         folder = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txt')
         if not os.path.exists(folder):
             os.makedirs(folder)
-        zkl.save(dd['GT'], f'{folder}/GT{i}.zkl')
+        gt_folder = f'{folder}/GT/GT{i}.zkl'
+        if not os.path.exists(gt_folder):
+            os.makedirs(gt_folder)
+        zkl.save(dd['GT'], f'{gt_folder}/GT{i}.zkl')
+
+        data_scaled = dd['data'] / dd['data'].max()
 
         ### zero mean and std = 1
 
@@ -262,15 +267,15 @@ def convert_to_txt(args):
         # means = np.mean(normalized_array, axis=1)
         # zero_mean_array = normalized_array - means[:, np.newaxis]
 
-        header = '\t'.join([f'X{j + 1}' for j in range(dd['data'].shape[0])])
+        header = '\t'.join([f'X{j + 1}' for j in range(data_scaled.shape[0])])
 
         with open(f'{folder}/data{i}.txt', 'w') as f:
             # Write the header
             f.write(header + '\n')
 
             # Write the data, one column per line
-            for col in range(dd['data'].shape[1]):
-                line = '\t'.join(map(str, dd['data'][:, col]))
+            for col in range(data_scaled.shape[1]):
+                line = '\t'.join(map(str, data_scaled[:, col]))
                 f.write(line + '\n')
 
         print('file saved to :' + f'{folder}/data{i}.txt')
@@ -369,7 +374,7 @@ if __name__ == "__main__":
     #     convert_to_mat(args)
         # convert_to_txt(args)
 
-    save_dataset(args)
+    # save_dataset(args)
     #     save_trans_matrix(args)
     # for i in range(1,10):
     # for j in range(1,4):
@@ -378,10 +383,10 @@ if __name__ == "__main__":
     #     convert_to_mat(args)
     #         args.NET = i
     #         args.UNDERSAMPLING = j
-    # convert_to_txt(args)
+    # convert_to_mat(args)
     # for i in range(1,361):
     #     args.BATCH = i
-    #     network_GT = zkl.load(os.path.expanduser(
-    #         f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
+    network_GT = zkl.load(os.path.expanduser(
+        f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
 
-    # run_analysis(args,network_GT,include_selfloop)
+    run_analysis(args,network_GT,include_selfloop)
