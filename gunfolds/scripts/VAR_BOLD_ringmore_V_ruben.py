@@ -112,7 +112,7 @@ def GIMME(args, network_GT):
     return GIMME
 
 def FASK(args, network_GT):
-    path = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD/data{args.BATCH}.txt')
+    path = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txt/data{args.BATCH}.txt')
     data = pd.read_csv(path, delimiter='\t')
     search = ts.TetradSearch(data)
     search.set_verbose(False)
@@ -136,7 +136,7 @@ def FASK(args, network_GT):
 
 def RASL(args, network_GT):
     path = os.path.expanduser(f'~'
-            f'/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD/data{args.BATCH}.txt')
+            f'/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txt/data{args.BATCH}.txt')
     data = pd.read_csv(path, delimiter='\t')
     dataframe = pp.DataFrame(data.values)
     cond_ind_test = ParCorr()
@@ -252,7 +252,7 @@ def convert_to_txt(args):
         folder = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txt')
         if not os.path.exists(folder):
             os.makedirs(folder)
-        gt_folder = f'{folder}/GT/GT{i}.zkl'
+        gt_folder = f'{folder}/../GT'
         if not os.path.exists(gt_folder):
             os.makedirs(gt_folder)
         zkl.save(dd['GT'], f'{gt_folder}/GT{i}.zkl')
