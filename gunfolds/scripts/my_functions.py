@@ -5,7 +5,8 @@ from scipy.sparse.linalg import eigs
 import re
 from gunfolds.utils import graphkit as gk
 from gunfolds import conversions as cv
-
+from os import listdir
+from gunfolds.utils import zickle  as zkl
 
 def remove_bidir_edges(input_dict):
     result_dict = {}
@@ -334,3 +335,26 @@ def update_DD_BD(g_estimated, DD, BD, base_DD, base_BD, base_g):
     base_BD += np.multiply(g_badj,BD)
 
     return base_DD, base_BD
+
+def concat_dataset_batches(path=None):
+    def sort_key(filename):
+        # Use regex to match '_batch_' followed by one or more digits, ending with '.zkl'
+        match = re.search(r'_batch(\d+)\.zkl$', filename)
+        if match:
+            # Extract the batch number and convert it to an integer
+            return int(match.group(1))
+        return float('inf')  # Return a large number if no match (place those at the end)
+
+    items = listdir(path)
+    # Sort the items based on the extracted number
+    items.sort(key=sort_key)
+    data = {}
+    dataset = []
+    for item in items:
+        curr = zkl.load(path + '/' + item)
+        data['data'] = curr['data']
+        data['GT'] = curr['GT']
+        dataset.append(data)
+    match = re.search(r'_undersampled_by_(\d+)$', item)
+    zkl.save(dataset,f'/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/datasets/VAR_BOLD_standatd'
+                     f'_Gis_ringmore_V_ruben_undersampled_by_{int(match.group(1))}.zkl')
