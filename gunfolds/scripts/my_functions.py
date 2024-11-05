@@ -348,13 +348,10 @@ def concat_dataset_batches(path=None):
     items = listdir(path)
     # Sort the items based on the extracted number
     items.sort(key=sort_key)
-    data = {}
     dataset = []
     for item in items:
         curr = zkl.load(path + '/' + item)
-        data['data'] = curr['data']
-        data['GT'] = curr['GT']
-        dataset.append(data)
+        dataset.append(curr)
     match = re.search(r'_undersampled_by_(\d+)$', item)
     zkl.save(dataset,f'/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/datasets/VAR_BOLD_standatd'
                      f'_Gis_ringmore_V_ruben_undersampled_by_{int(match.group(1))}.zkl')

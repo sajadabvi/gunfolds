@@ -1,5 +1,5 @@
 import os
-
+from brainiak.utils import fmrisim
 # from gunfolds.viz import gtool as gt
 from gunfolds.utils import bfutils
 import numpy as np
@@ -41,6 +41,7 @@ def parse_arguments(PNUM):
                         help="stop traversing after growing equivalence class to this size.", type=int)
     parser.add_argument("-b", "--BATCH", default=1, help="slurm batch.", type=int)
     parser.add_argument("-p", "--PNUM", default=PNUM, help="number of CPUs in machine.", type=int)
+    parser.add_argument("-r", "--SNR", default=1, help="Signal to noise ratio", type=int)
     parser.add_argument("-n", "--NET", default=1, help="number of simple network", type=int)
     parser.add_argument("-l", "--MINLINK", default=5, help=" lower threshold transition matrix abs value x1000", type=int)
     parser.add_argument("-z", "--NOISE", default=10, help="noise str multiplied by 100", type=int)
@@ -48,7 +49,7 @@ def parse_arguments(PNUM):
     parser.add_argument("-m", "--SCCMEMBERS", default="f",
                         help="true for using g_estimate SCC members, false for using "
                              "GT SCC members", type=str)
-    parser.add_argument("-u", "--UNDERSAMPLING", default=50, help="sampling rate in generated data", type=int)
+    parser.add_argument("-u", "--UNDERSAMPLING", default=75, help="sampling rate in generated data", type=int)
     parser.add_argument("-x", "--MAXU", default=8, help="maximum number of undersampling to look for solution.",
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
@@ -311,6 +312,47 @@ def run_analysis(args,network_GT,include_selfloop):
     zkl.save(metrics,filename)
     print('file saved to :' + filename)
 
+def add_noise(args):
+    data = zkl.load(f'datasets/VAR_BOLD_standatd_Gis_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}.zkl')
+    for i, dd in enumerate(data, start=1):
+        folder = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/noise_snr{args.SNR}')
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        num_voxels = dd['data'].shape[0]
+        num_timepoints = dd['data'].shape[1]
+        tr_duration = 2  # Temporal resolution (TR)
+        data_scaled = dd['data'] / dd['data'].max()
+        template = np.ones((num_voxels, num_voxels, 1))  # Adjusted for correct shape
+        mask = np.ones((num_voxels, num_voxels, 1))  # Mask adjusted to match dimensions
+        noise_dict = {'matched': 0}
+        # Generate noise for matrix, adding a 3rd dimension (dummy)
+        noise = fmrisim.generate_noise(dimensions=(num_voxels, num_voxels, 1),  # Adjust dimensions
+                                       tr_duration=tr_duration,
+                                       stimfunction_tr=[0] * num_timepoints,  # No stimulus
+                                       mask=mask,  # Apply adjusted mask
+                                       template=template,  # Simple template
+                                       noise_dict=noise_dict,  # Noise parameters
+                                       )
+
+        # Reshape the generated noise to match the shape
+        noise = noise[:, 0, 0]  # Remove the dummy dimensions
+        noise_scaled = noise / noise.max()
+        snr = 3  # Adjust the signal-to-noise ratio
+        noisy_data = data_scaled + noise_scaled * snr
+
+        header = '\t'.join([f'X{j + 1}' for j in range(noisy_data.shape[0])])
+
+        with open(f'{folder}/data{i}.txt', 'w') as f:
+            # Write the header
+            f.write(header + '\n')
+
+            # Write the data, one column per line
+            for col in range(noisy_data.shape[1]):
+                line = '\t'.join(map(str, noisy_data[:, col]))
+                f.write(line + '\n')
+
+        print('file saved to :' + f'{folder}/data{i}.txt')
+
 def save_dataset(args):
     if not (args.BATCH > 0 and args.BATCH<=360):
         raise ValueError(
@@ -371,22 +413,23 @@ if __name__ == "__main__":
     # if not glob.glob(pattern):
     # for i in [10,15]:
     #     args.UNDERSAMPLING = i
-    #     convert_to_mat(args)
-        # convert_to_txt(args)
+    # convert_to_mat(args)
+    # convert_to_txt(args)
 
     # save_dataset(args)
     #     save_trans_matrix(args)
-    # for i in range(1,10):
-    # for j in range(1,4):
-    #     args.UNDERSAMPLING = j
-    #     print(f' u {j}')
-    #     convert_to_mat(args)
+    for i in range(2,6):
+        for j in [20,50,75]:
+            args.UNDERSAMPLING = j
+            args.SNR = i
+            print(f' u ={j} snr ={i}')
+            add_noise(args)
     #         args.NET = i
     #         args.UNDERSAMPLING = j
     # convert_to_mat(args)
     # for i in range(1,361):
     #     args.BATCH = i
-    network_GT = zkl.load(os.path.expanduser(
-        f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
-
-    run_analysis(args,network_GT,include_selfloop)
+    #     network_GT = zkl.load(os.path.expanduser(
+    #         f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
+    #
+    #     run_analysis(args,network_GT,include_selfloop)
