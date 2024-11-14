@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from scipy.integrate import ode
 import os
+from tqdm import tqdm
 
 # Set plotting style
 plt.style.use('Solarize_Light2')
@@ -100,6 +101,7 @@ def save_time_series_data(data, prefix, sampling_rates):
         })
         df.to_csv(filename, index=False)
 
+
 def compute_bold_signals(ut, end_time=100):
     """
     Computes the BOLD signals for the given neuronal time series.
@@ -120,7 +122,8 @@ def compute_bold_signals(ut, end_time=100):
 
     # Compute the BOLD signals
     nodes = []
-    for node_idx in range(num_nodes):
+    for node_idx in tqdm(range(num_nodes), desc="Nodes Progress"):
+
         # Define the BOLD model for the current node
         def bold_model(t, y):
             idx = min(int(round(t / timestep)), num_timepoints - 1)
@@ -130,17 +133,18 @@ def compute_bold_signals(ut, end_time=100):
                 print(f"Non-finite derivative at time {t}: dy = {dy}, y = {y}")
             return dy
 
-            # return bold(t, y, ut_node)
-
         # Set up the ODE solver
         r = ode(bold_model).set_integrator('vode', method='bdf')
         r.set_initial_value(0.95 * np.array([1, 0.1, 1, 1]), 0)
 
-        # Integrate over time
+        # Integrate over time with a progress bar
         vals = []
-        while r.successful() and r.t < end_time:
-            r.integrate(r.t + timestep)
-            vals.append(r.y)
+        with tqdm(total=end_time, desc=f"Time Progress for Node {node_idx + 1}", leave=False) as pbar:
+            while r.successful() and r.t < end_time:
+                r.integrate(r.t + timestep)
+                vals.append(r.y)
+                pbar.update(timestep)  # Update progress for each timestep
+
         vals = np.array(vals).T  # Transpose for consistency
 
         # Compute the BOLD signal and store it
