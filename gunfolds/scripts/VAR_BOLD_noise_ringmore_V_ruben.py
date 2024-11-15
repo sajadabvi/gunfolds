@@ -437,9 +437,9 @@ if __name__ == "__main__":
     #         args.UNDERSAMPLING = j
     # convert_to_mat(args)
     # for j in [15]:
-    for k in range(2,7):
-        for i in range(1,361):
-            args.BATCH = i
-            args.UNDERSAMPLING = k
-            network_GT = zkl.load(os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
-            run_analysis(args,network_GT,include_selfloop)
+    # for k in range(2,7):
+    #     for i in range(1,361):
+    #         args.BATCH = i
+    #         args.UNDERSAMPLING = k
+    #         network_GT = zkl.load(os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
+    #         run_analysis(args,network_GT,include_selfloop)
