@@ -55,11 +55,7 @@ def fan_wrapper(graph_true, g1_dens, rate, g1_deg):
     output = {}
     try:
         try:
-            # graphs = [bfutils.undersample(graph_true, rate)]
-            g = {1: {}, 2: {1: 1}, 3: {4: 1}, 4: {1: 1, 2: 1}, 5: {2: 1, 5: 1}}  # gk.bp_mean_degree_graph(5, 1.2)
-            g3 = {1: {2: 2, 5: 2}, 2: {1: 2, 5: 2}, 3: {1: 1}, 4: {}, 5: {1: 3, 2: 3, 5: 1}}
-            g3 = bfutils.all_undersamples(g)[2]
-            graphs = [g3]
+            graphs = [bfutils.undersample(graph_true, rate)]
             if MODEDOUBLE:
                 graphs.append(bfutils.undersample(graph_true, rate + 1))
             if not np.prod([bfutils.g2num(x) for x in graphs]):
