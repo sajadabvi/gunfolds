@@ -364,7 +364,7 @@ def save_dataset(args):
     trans_mats_dataset = zkl.load('datasets/Stable_transition_matrix_and_GT_link_expo_5.zkl')
     batch = trans_mats_dataset[args.BATCH-1]
 
-    data = mf.genData(batch['W'], rate=1, ssize=2500* args.UNDERSAMPLING, noise=args.NOISE)
+    data = mf.genData(batch['W'], rate=1, ssize=1250* args.UNDERSAMPLING, noise=args.NOISE)
     data_scaled = data / data.max()
 
     bold_out, _ = hrf.compute_bold_signals(data_scaled, end_time=100*args.UNDERSAMPLING)
@@ -424,7 +424,7 @@ if __name__ == "__main__":
     #     convert_to_mat(args)
         # convert_to_txt(args)
 
-    # save_dataset(args)
+    save_dataset(args)
     # mf.concat_dataset_batches('/Users/mabavisani/code_local/mygit/gunfolds/gunfolds/scripts/datasets/test/u6')
     #     save_trans_matrix(args)
     # for i in range(1,6):
