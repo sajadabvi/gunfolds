@@ -54,7 +54,7 @@ def parse_arguments(PNUM):
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
     parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
-    parser.add_argument("-o", "--METHOD", default="RASL", help="method to run", type=str)
+    parser.add_argument("-o", "--METHOD", default="FASK", help="method to run", type=str)
     return parser.parse_args()
 
 def convert_str_to_bool(args):
@@ -113,9 +113,13 @@ def GIMME(args, network_GT):
     return GIMME
 
 def FASK(args, network_GT):
-    path = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/noise_snr{args.SNR}/data{args.BATCH}.txt')
+    path = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txt/data{args.BATCH}.txt')
     data = pd.read_csv(path, delimiter='\t')
-    search = ts.TetradSearch(data)
+    rows_to_keep = len(data) // args.UNDERSAMPLING
+
+    # Keep only the first one-third of the rows
+    data_reduced = data.iloc[:rows_to_keep]
+    search = ts.TetradSearch(data_reduced)
     search.set_verbose(False)
     search.use_sem_bic()
     search.use_fisher_z(alpha=0.05)
@@ -238,7 +242,7 @@ def initialize_metrics():
     }
 
 def convert_to_mat(args):
-    data = zkl.load(f'datasets/VAR_BOLD_standatd_Gis_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}.zkl')
+    data = zkl.load(f'datasets/VAR_BOLD_standatd_Gis_extended_end_time_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}.zkl')
     for i, dd in enumerate(data, start=1):
         folder = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/mat')
         if not os.path.exists(folder):
@@ -248,7 +252,7 @@ def convert_to_mat(args):
         print('file saved to :' + folder + '/expo_to_mat_' + str(i) + '.mat')
 
 def convert_to_txt(args):
-    data = zkl.load(f'datasets/VAR_BOLD_standatd_Gis_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}.zkl')
+    data = zkl.load(f'datasets/VAR_BOLD_standatd_Gis_extended_end_time_ringmore_V_ruben_undersampled_by_{args.UNDERSAMPLING}.zkl')
     for i, dd in enumerate(data, start=1):
         folder = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txt')
         if not os.path.exists(folder):
@@ -308,7 +312,7 @@ def run_analysis(args,network_GT,include_selfloop):
     print(metrics)
     if not os.path.exists('VAR_ringmore_v3'):
         os.makedirs('VAR_ringmore_v3')
-    filename = f'VAR_ringmore_v3/VAR_{args.METHOD}_BOLD_noise_SNR_{args.SNR}_ruben_ringmore_undersampled_by_{args.UNDERSAMPLING}_batch_{args.BATCH}.zkl'
+    filename = f'VAR_ringmore_v3/VAR_{args.METHOD}_BOLD_ruben_ringmore_undersampled_by_{args.UNDERSAMPLING}_batch_{args.BATCH}.zkl'
     zkl.save(metrics,filename)
     print('file saved to :' + filename)
 
@@ -415,12 +419,13 @@ if __name__ == "__main__":
     # pattern = f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl'
 
     # if not glob.glob(pattern):
-    # for i in [10,15]:
+    # for i in range(2,7):
     #     args.UNDERSAMPLING = i
-    # convert_to_mat(args)
-    # convert_to_txt(args)
+    #     convert_to_mat(args)
+        # convert_to_txt(args)
 
-    save_dataset(args)
+    # save_dataset(args)
+    # mf.concat_dataset_batches('/Users/mabavisani/code_local/mygit/gunfolds/gunfolds/scripts/datasets/test/u6')
     #     save_trans_matrix(args)
     # for i in range(1,6):
     #     for j in [2]:
@@ -432,13 +437,9 @@ if __name__ == "__main__":
     #         args.UNDERSAMPLING = j
     # convert_to_mat(args)
     # for j in [15]:
-    #     for k in [20,50,75]:
-    # #         for i in range(1,361):
-    # #             args.BATCH = i
-    #         args.UNDERSAMPLING = k
-    #         args.SNR = j
-    #         add_noise(args)
-    # network_GT = zkl.load(os.path.expanduser(
-    #     f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
-    #
-    # run_analysis(args,network_GT,include_selfloop)
+    for k in range(2,7):
+        for i in range(1,361):
+            args.BATCH = i
+            args.UNDERSAMPLING = k
+            network_GT = zkl.load(os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
+            run_analysis(args,network_GT,include_selfloop)

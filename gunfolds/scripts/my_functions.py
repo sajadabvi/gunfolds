@@ -346,12 +346,12 @@ def concat_dataset_batches(path=None):
         return float('inf')  # Return a large number if no match (place those at the end)
 
     items = listdir(path)
+    [item for item in items if not item.startswith('.')]
     # Sort the items based on the extracted number
+
     items.sort(key=sort_key)
     dataset = []
     for item in items:
         curr = zkl.load(path + '/' + item)
         dataset.append(curr)
-    match = re.search(r'_undersampled_by_(\d+)$', item)
-    zkl.save(dataset,f'/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/datasets/VAR_BOLD_standatd'
-                     f'_Gis_ringmore_V_ruben_undersampled_by_{int(match.group(1))}.zkl')
+    zkl.save(dataset,'/Users/mabavisani/code_local/mygit/gunfolds/gunfolds/scripts/datasets/VAR_BOLD_standatd_Gis_extended_end_time_ringmore_V_ruben_undersampled_by_6.zkl')

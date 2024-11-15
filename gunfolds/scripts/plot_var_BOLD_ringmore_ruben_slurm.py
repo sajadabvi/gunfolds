@@ -29,7 +29,7 @@ def sort_key(filename):
     return float('inf')  # Return a large number if no match (place those at the end)
 
 
-methods = ['MVGC','MVAR','FASK', 'RASL']
+methods = ['FASK']
 save_results = []
 for method in methods:
     # Initialize a defaultdict of lists to hold concatenated results for each method
@@ -48,7 +48,7 @@ for method in methods:
     POSTFIX = 'VAAR_BOLD_ruben_nets'
 
 
-    folder = f'/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/VAR_ringmore/BOLD/{method}/'
+    folder = f'/Users/mabavisani/code_local/mygit/gunfolds/gunfolds/scripts/VAR_ringmore/BOLD/{method}/'
     items = listdir(folder)
     items.sort(key=sort_key)
     # Remove any files that start with '.'
