@@ -424,8 +424,8 @@ if __name__ == "__main__":
     #     convert_to_mat(args)
         # convert_to_txt(args)
 
-    save_dataset(args)
-    # mf.concat_dataset_batches('/Users/mabavisani/code_local/mygit/gunfolds/gunfolds/scripts/datasets/test/u6')
+    # save_dataset(args)
+    mf.concat_dataset_batches('/Users/mabavisani/code_local/mygit/gunfolds/gunfolds/scripts/datasets/test/u75')
     #     save_trans_matrix(args)
     # for i in range(1,6):
     #     for j in [2]:
