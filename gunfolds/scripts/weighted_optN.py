@@ -18,7 +18,7 @@ parser.add_argument("-t", "--TIMEOUT", default=24, help="timeout in hours", type
 parser.add_argument("-n", "--NODE", default=5, help="number of nodes.", type=int)
 parser.add_argument("-d", "--DEG", default=1.5, help="degree of graph.", type=float)
 parser.add_argument("-u", "--UNDERSAMPLING", default=3, help="undersampling of the graph", type=int)
-parser.add_argument("-x", "--MAXU",default=20, help="maximum number of undersampling to look for solution.", type=int)
+parser.add_argument("-x", "--MAXU",default=8, help="maximum number of undersampling to look for solution.", type=int)
 parser.add_argument("-c", "--CAPSIZE",default=0, help="stop traversing after growing equivalence class to this size."
                     , type=int)
 parser.add_argument("-p", "--PNUM",default=PNUM, help="number of CPUs in machine.", type=int)
@@ -50,7 +50,7 @@ if args.UNDERSAMPLING <= len(x):
         args.NODE, args.UNDERSAMPLING, args.DEG, args.BATCH))
     startTime = int(round(time.time() * 1000))
     r = rsl.drasl([g_broken], args.CAPSIZE, weighted=True, urate=min(args.MAXU,(3*len(g_broken)+1)),
-                  timeout=60 * 60 * args.TIMEOUT, pnum=args.PNUM)
+                  timeout=60 * 60 * args.TIMEOUT, pnum=args.PNUM, GT_density= int(1000 * gk.density(g)))
     endTime = int(round(time.time() * 1000))
     sat_time = endTime - startTime
 

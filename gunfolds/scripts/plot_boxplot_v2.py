@@ -5,7 +5,7 @@ from gunfolds.utils import zickle as zkl
 from os import listdir
 from matplotlib.ticker import MultipleLocator
 
-undersampling = 2
+undersampling = 4
 deg_list = [1.5,float(2),2.5]
 node_directories = ['6 nodes', '7 nodes', '8 nodes', '9 nodes']
 list_of_lists = []
@@ -128,5 +128,5 @@ if __name__ == '__main__':
             # ax.xaxis.set_major_locator(MultipleLocator(1))
             ax.set_ylim(0, 1)
 
-    # plt.show()
-    plt.savefig("figs/weighted_experiment_optN_all_four_ways_undersampling2.svg")
+    plt.show()
+    # plt.savefig("figs/weighted_experiment_optN_all_four_ways_undersampling2.svg")
