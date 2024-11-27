@@ -13,6 +13,7 @@ list_of_lists3 = []
 list_of_lists4 = []
 node_directories2 = ['6', '7', '8', '9']
 list_of_lists2 = []
+list_of_lists5 = []
 
 for directory in node_directories:
     file_list = listdir(f'./results/edge_breaking_optN/res_CAP_0_/{directory}')
@@ -41,6 +42,15 @@ for directory in node_directories:
         file_list.pop(0)
     item_list = [zkl.load(f'./res/weighted_experiment_capped/{directory}/{name}') for name in file_list]
     list_of_lists4.append(item_list)
+
+for directory in node_directories:
+    file_list = listdir(f'./res/edge_breaking_optN_new/{directory}')
+    file_list.sort()
+    if file_list[0].startswith('.'):
+        file_list.pop(0)
+    item_list = [zkl.load(f'./res/edge_breaking_optN_new/{directory}/{name}') for name in file_list]
+    list_of_lists5.append(item_list)
+
 #
 # for directory in node_directories2:
 #     file_list = listdir(f'./res_drasl_after_optim/{directory}')
@@ -89,6 +99,16 @@ if __name__ == '__main__':
                 deg.extend([item['density'], item['density']])
                 node.extend([str(index)] * 2)
 
+    for index, item_list in enumerate(list_of_lists5, start=6):
+        for item in item_list:
+            if item['u'] == undersampling and item['density'] in deg_list:
+                Err.extend([item['normed_errors']['total'][0], item['normed_errors']['total'][1]])
+                ErrType.extend(['omm', 'comm'])
+                method.extend(['new_optN_updated'] * 2)
+                u.extend([item['u'], item['u']])
+                deg.extend([item['density'], item['density']])
+                node.extend([str(index)] * 2)
+
     # for index, item_list2 in enumerate(list_of_lists2, start=6):
     #     for item in item_list2:
     #         if item[0]['u'] == undersampling:
@@ -108,7 +128,7 @@ if __name__ == '__main__':
 
     sns.set({"xtick.minor.size": 0.2})
     pal = dict(old_opt="gold", Capped_optim_the_sRASL="maroon",
-               new_optN="blue", optim_then_sRASL="green")
+               new_optN="blue", new_optN_updated="green")
     g = sns.FacetGrid(df, col="deg", row="ErrType", height=4, aspect=0.5, margin_titles=True)
 
 
