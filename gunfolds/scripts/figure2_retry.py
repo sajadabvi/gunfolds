@@ -135,11 +135,13 @@ def FASK(args, network_GT):
     FASK = cv.adjs2graph(adj_matrix, np.zeros((len(network_GT), len(network_GT))))
     return FASK
 
-def RASL(args, network_GT):
-    path = os.path.expanduser(f'~'
-            f'/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txt/data{args.BATCH}.txt')
-    data = pd.read_csv(path, delimiter='\t')
-    dataframe = pp.DataFrame(data.values)
+def RASL(args):
+    dataset = zkl.load('datasets/Stable_transition_matrix_for_VAR_8nd14_and_GT_link_expo_5.zkl')
+    network_GT = dataset[args.BATCH -1 ][0]['GT']
+    W = dataset[args.BATCH -1 ][0]['W']
+    data = mf.genData(W, rate=4, ssize=3000)
+    # data = pd.read_csv(path, delimiter='\t')
+    dataframe = pp.DataFrame(data.T)
     cond_ind_test = ParCorr()
     pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
     results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.05)
@@ -170,7 +172,7 @@ def RASL(args, network_GT):
             max_answer = answer
 
     res_rasl = bfutils.num2CG(max_answer[0][0], len(network_GT))
-    return res_rasl
+    return network_GT, res_rasl
 
 def mRASL(args, network_GT):
     BATCH = args.BATCH*6
@@ -281,7 +283,7 @@ def convert_to_txt(args):
 
         print('file saved to :' + f'{folder}/data{i}.txt')
 
-def run_analysis(args,network_GT,include_selfloop):
+def run_analysis(args,include_selfloop):
     metrics = {key: {args.UNDERSAMPLING: initialize_metrics()} for key in [args.METHOD]}
 
     for method in metrics.keys():
@@ -290,7 +292,7 @@ def run_analysis(args,network_GT,include_selfloop):
         # if not glob.glob(loading):
         #     save_dataset(args)
 
-        result = globals()[method](args, network_GT)
+        network_GT, result = globals()[method](args)
         print(f"Result from {method}: {result}")
         normal_GT = mf.precision_recall_all_cycle(result, network_GT, include_selfloop=include_selfloop)
         metrics[method][args.UNDERSAMPLING]['Precision_O'].append(normal_GT['orientation']['precision'])
@@ -308,7 +310,7 @@ def run_analysis(args,network_GT,include_selfloop):
     print(metrics)
     if not os.path.exists('VAR_ringmore_v3'):
         os.makedirs('VAR_ringmore_v3')
-    filename = f'VAR_ringmore_v3/VAR_{args.METHOD}_BOLD_ruben_ringmore_undersampled_by_{args.UNDERSAMPLING}_batch_{args.BATCH}.zkl'
+    filename = f'VAR_ringmore_v3/full_sols_nodes_8_density_0.14_undersampling_4_PCMCI_optN_gt_den_priority2_dataset_VAR_stable_trans_mat_ringmore_CAPSIZE_0_batch_{args.BATCH}_pnum_15_timeout_120_noise_10_MINLINK_5_alphaLvL_10_maxu_8_sccMember_False_SCC_Falsepriorities11112.zkl'
     zkl.save(metrics,filename)
     print('file saved to :' + filename)
 
@@ -401,9 +403,12 @@ if __name__ == "__main__":
     omp_num_threads = args.PNUM
     os.environ['OMP_NUM_THREADS'] = str(omp_num_threads)
     include_selfloop = False
-    for i in range(100):
-        args.BATCH = i +1
-        save_trans_matrix(args)
+    # mats = []
+    # for i in range(100):
+    #     args.BATCH = i +1
+    #     mat = zkl.load(f'datasets/Stable_transition_matrix_for_VAR_8nd14_and_GT_link_expo_5_batch{i+1}.zkl')
+    #     mats.append(mat)
+    # save_trans_matrix(args)
     # pattern = f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl'
 
     # if not glob.glob(pattern):
@@ -428,4 +433,4 @@ if __name__ == "__main__":
     #     network_GT = zkl.load(os.path.expanduser(
     #         f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
     #
-    #     run_analysis(args,network_GT,include_selfloop)
+    run_analysis(args,include_selfloop)
