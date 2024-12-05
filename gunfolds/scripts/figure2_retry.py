@@ -49,7 +49,7 @@ def parse_arguments(PNUM):
     parser.add_argument("-m", "--SCCMEMBERS", default="f",
                         help="true for using g_estimate SCC members, false for using "
                              "GT SCC members", type=str)
-    parser.add_argument("-u", "--UNDERSAMPLING", default=4, help="sampling rate in generated data", type=int)
+    parser.add_argument("-u", "--UNDERSAMPLING", default=3, help="sampling rate in generated data", type=int)
     parser.add_argument("-x", "--MAXU", default=8, help="maximum number of undersampling to look for solution.",
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)

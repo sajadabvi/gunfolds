@@ -43,6 +43,7 @@ def process_item_mean_error(item, weight_scheme, err_criteria):
         'ErrVs': 'GuVsGTu',
         'ErrType': 'omm',
         'WRT': WRT_value,
+        'num_sols': item['general']['num_sols'],
         'weights_scheme': weight_scheme,
     })
     # Commission Error
@@ -52,6 +53,7 @@ def process_item_mean_error(item, weight_scheme, err_criteria):
         'ErrVs': 'GuVsGTu',
         'ErrType': 'comm',
         'WRT': WRT_value,
+        'num_sols': item['general']['num_sols'],
         'weights_scheme': weight_scheme,
     })
     return data_list
@@ -98,7 +100,9 @@ if __name__ == '__main__':
     sns.set_style("darkgrid")
 
     # Plotting
-    g = sns.FacetGrid(df_filtered, row="ErrType", height=10, aspect=0.7, margin_titles=True)
+    g = sns.FacetGrid(df_filtered,
+                      # row="ErrType",
+                      height=10, aspect=1, margin_titles=True)
 
     def custom_boxplot_with_points(data, x, y, hue, **kwargs):
         sns.boxplot(data=data, x=x, y=y, hue=hue, palette='Set1', showfliers=False, **kwargs)
@@ -119,15 +123,15 @@ if __name__ == '__main__':
         )
         # plt.legend([], [], frameon=False)
 
-    g.map_dataframe(custom_boxplot_with_points, x='ErrVs', y='Err', hue='weights_scheme')
+    g.map_dataframe(custom_boxplot_with_points, x='ErrVs', y='num_sols', hue='weights_scheme')
     # g.add_legend()
-    g.set_axis_labels("Error Type", "Normalized Error")
+    g.set_axis_labels("Undersampling", "Size of Solution Set")
     g.set_titles(size=20)
 
     # Set y-axis limits for all plots
     for ax in g.axes.flat:
-        ax.set_ylim(0, 1)
+        ax.set_ylim(0, 100)
 
-    plt.suptitle("GuOptVsGest: Mean Error", x=0.45, y=1.08, fontsize=24)
+    plt.suptitle("Size of Solution Set across Undersampling", x=0.45, y=1.08, fontsize=24)
     plt.tight_layout()
     plt.show()
