@@ -29,7 +29,7 @@ def sort_key(filename):
     return float('inf')  # Return a large number if no match (place those at the end)
 
 
-methods = ['MVGC', 'MVAR','FASK','RASL']
+methods = ['MVGC', 'MVAR','PC','FASK','RASL']
 save_results = []
 for method in methods:
     # Initialize a defaultdict of lists to hold concatenated results for each method

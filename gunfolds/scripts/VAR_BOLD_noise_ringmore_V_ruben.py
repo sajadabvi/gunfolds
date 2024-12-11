@@ -54,7 +54,7 @@ def parse_arguments(PNUM):
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
     parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
-    parser.add_argument("-o", "--METHOD", default="MVAR", help="method to run", type=str)
+    parser.add_argument("-o", "--METHOD", default="PC", help="method to run", type=str)
     return parser.parse_args()
 
 def convert_str_to_bool(args):
@@ -138,6 +138,19 @@ def FASK(args, network_GT):
     B = np.zeros((len(network_GT), len(network_GT))).astype(int)
     FASK = cv.adjs2graph(adj_matrix, np.zeros((len(network_GT), len(network_GT))))
     return FASK
+
+
+def PC(args, network_GT):
+    path = os.path.expanduser(f'~'
+            f'/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txt/data{args.BATCH}.txt')
+    data = pd.read_csv(path, delimiter='\t')
+    dataframe = pp.DataFrame(data.values)
+    cond_ind_test = ParCorr()
+    pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
+    results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.05)
+    g_estimated, _, _ = cv.Glag2CG(results)
+    PC = mf.remove_bidir_edges(g_estimated)
+    return PC
 
 def RASL(args, network_GT):
     path = os.path.expanduser(f'~'
@@ -420,11 +433,11 @@ if __name__ == "__main__":
 
     # if not glob.glob(pattern):
     # for i in [25,50,75]:
-    #     args.UNDERSAMPLING = i
+    args.UNDERSAMPLING = 100
     #     convert_to_mat(args)
     #     # convert_to_txt(args)
 
-    # save_dataset(args)
+    save_dataset(args)
     # mf.concat_dataset_batches('/Users/mabavisani/code_local/mygit/gunfolds/gunfolds/scripts/datasets/test/u75')
     #     save_trans_matrix(args)
     # for i in range(1,6):
@@ -437,9 +450,9 @@ if __name__ == "__main__":
     #         args.UNDERSAMPLING = j
     # convert_to_mat(args)
     # for j in [15]:
-    for k in [2,3,4,5,6]:
-        for i in range(1,361):
-            args.BATCH = i
-            args.UNDERSAMPLING = k
-            network_GT = zkl.load(os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
-            run_analysis(args,network_GT,include_selfloop)
+    # for k in [25,50,75]:
+    #     for i in range(1,361):
+    #         args.BATCH = i
+    #         args.UNDERSAMPLING = k
+    #         network_GT = zkl.load(os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
+    #         run_analysis(args,network_GT,include_selfloop)

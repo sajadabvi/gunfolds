@@ -32,6 +32,32 @@ def cal_mean_error(item, err_criteria, error_type):
         sum(G1VsGT) / len(G1VsGT)
     ]
 
+
+def process_item_traditional_error(item, weight_scheme, err_criteria):
+    data_list = []
+    key = 'G1OptVsGT'
+    # Omission Error
+    err_value_omm = gk.OCE(item[key]['G1_opt_WRT_' + key], item['general']['GT'],
+                           undirected=False, normalized=True)[err_criteria][0]
+    data_list.append({
+        'Err': err_value_omm,
+        'ErrVs': 'G1VsGT',
+        'ErrType': 'omm',
+        'WRT': key,
+        'weights_scheme': weight_scheme,
+    })
+    # Commission Error
+    err_value_comm = gk.OCE(item[key]['G1_opt_WRT_' + key], item['general']['GT'],
+                            undirected=False, normalized=True)[err_criteria][1]
+    data_list.append({
+        'Err': err_value_comm,
+        'ErrVs': 'G1VsGT',
+        'ErrType': 'comm',
+        'WRT': key,
+        'weights_scheme': weight_scheme,
+    })
+    return data_list
+
 # Function to process items with mean error calculation for GuVsGTu and GuOptVsGest
 def process_item_mean_error(item, weight_scheme, err_criteria):
     data_list = []
@@ -97,12 +123,12 @@ if __name__ == '__main__':
 
     # Set poster-style context
     sns.set_context("poster", font_scale=1.5)
-    sns.set_style("darkgrid")
+    sns.set_style("whitegrid")
 
     # Plotting
     g = sns.FacetGrid(df_filtered,
                       # row="ErrType",
-                      height=10, aspect=1, margin_titles=True)
+                      height=10, aspect=0.85, margin_titles=True)
 
     def custom_boxplot_with_points(data, x, y, hue, **kwargs):
         sns.boxplot(data=data, x=x, y=y, hue=hue, palette='Set1', showfliers=False, **kwargs)
@@ -112,7 +138,7 @@ if __name__ == '__main__':
             y=y,
             hue=hue,
             dodge=True,
-            jitter=True,
+            jitter=0.25,
             size=14,
             marker='o',
             edgecolor='black',
@@ -130,8 +156,9 @@ if __name__ == '__main__':
 
     # Set y-axis limits for all plots
     for ax in g.axes.flat:
-        ax.set_ylim(0, 100)
+        ax.set_ylim(30, 100)
 
     plt.suptitle("Size of Solution Set across Undersampling", x=0.45, y=1.08, fontsize=24)
     plt.tight_layout()
     plt.show()
+    # plt.savefig('eq_size_3Uss.svg')
