@@ -259,5 +259,6 @@ plt.legend(handles=[blue_patch, orange_patch, red_patch], loc='upper right')
 plt.tight_layout()
 
 # Save the figure
-plt.savefig(filename + '_grouped_boxplot.png')
+# plt.savefig(filename + '_grouped_boxplot.png')
+plt.show()
 plt.close()

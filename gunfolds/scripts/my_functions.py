@@ -7,6 +7,8 @@ from gunfolds.utils import graphkit as gk
 from gunfolds import conversions as cv
 from os import listdir
 from gunfolds.utils import zickle  as zkl
+import pandas as pd
+
 
 def remove_bidir_edges(input_dict):
     result_dict = {}
@@ -23,6 +25,48 @@ def remove_bidir_edges(input_dict):
                 raise ValueError("Invalid value encountered: {}".format(value))
     return result_dict
 
+def read_gimme_to_graph(beta_file_path, std_error_file_path):
+    """
+    Reads beta coefficients and standard errors from files and converts them to a simplified NetworkX graph.
+    Variables and their lagged versions are treated as the same entity.
+    Args:
+        beta_file_path (str): Path to the file containing beta coefficients.
+        std_error_file_path (str): Path to the file containing standard errors.
+    Returns:
+        nx.DiGraph: A simplified directed graph.
+    """
+    # Read beta and standard error files
+    betas = pd.read_csv(beta_file_path)
+    std_errors = pd.read_csv(std_error_file_path)
+    def simplify_label(label):
+        """
+        Simplifies a variable name by removing 'lag' to treat variables and their lags as the same.
+        """
+        if "lag" in label:
+            return label.replace("lag", "")
+        return label
+    # Initialize a directed graph
+    G = nx.DiGraph()
+    # Iterate through the beta coefficients to add edges
+    for i, row in betas.iterrows():
+        source = simplify_label(row.iloc[0])  # First column is the source variable (row name)
+        for target, beta_value in row.iloc[1:].items():  # Remaining columns are target variables
+            if beta_value != 0:  # Only add edges with non-zero beta coefficients
+                simplified_target = simplify_label(target)
+                std_error = std_errors.iloc[i].loc[target]  # Find the standard error for the same path
+                # Combine weights and standard errors if the edge already exists
+                if G.has_edge(source, simplified_target):
+                    existing_weight = G[source][simplified_target]['weight']
+                    existing_std_error = G[source][simplified_target]['std_error']
+                    G[source][simplified_target]['weight'] = (existing_weight + beta_value) / 2
+                    G[source][simplified_target]['std_error'] = (existing_std_error + std_error) / 2
+                else:
+                    G.add_edge(source, simplified_target, weight=beta_value, std_error=std_error)
+    return G
+
+def convert_nodes_to_numbers(graph):
+    mapping = {f"X{i}": i for i in range(1, len(graph.nodes)+1)}  # Map 'X1', 'X2', ..., 'X10' to 1, 2, ..., 10
+    return nx.relabel_nodes(graph, mapping)
 
 def precision_recall(answer, network_GT_selfloop, include_selfloop=True):
     # Precision = True Positives / (True Positives + False Positives)
@@ -346,7 +390,7 @@ def concat_dataset_batches(path=None):
         return float('inf')  # Return a large number if no match (place those at the end)
 
     items = listdir(path)
-    [item for item in items if not item.startswith('.')]
+    items = [item for item in items if not item.startswith('.')]
     # Sort the items based on the extracted number
 
     items.sort(key=sort_key)
@@ -354,4 +398,4 @@ def concat_dataset_batches(path=None):
     for item in items:
         curr = zkl.load(path + '/' + item)
         dataset.append(curr)
-    zkl.save(dataset,'/Users/mabavisani/code_local/mygit/gunfolds/gunfolds/scripts/datasets/VAR_BOLD_standatd_Gis_extended_end_time_ringmore_V_ruben_undersampled_by_6.zkl')
+    zkl.save(dataset,'/Users/mabavisani/code_local/mygit/gunfolds/gunfolds/scripts/datasets/VAR_BOLD_standatd_Gis_extended_end_time_ringmore_V_ruben_undersampled_by_100.zkl')

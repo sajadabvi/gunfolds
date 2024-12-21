@@ -54,7 +54,7 @@ def parse_arguments(PNUM):
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
     parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
-    parser.add_argument("-o", "--METHOD", default="PC", help="method to run", type=str)
+    parser.add_argument("-o", "--METHOD", default="GIMME", help="method to run", type=str)
     return parser.parse_args()
 
 def convert_str_to_bool(args):
@@ -91,25 +91,17 @@ def MVAR(args, network_GT):
     return MVAR
 
 def GIMME(args, network_GT):
-    size = len(network_GT)
     path = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/'
             f'ringmore/u{args.UNDERSAMPLING}/GIMME'
-           f'/data{args.BATCH}/individual/StdErrors/data{args.BATCH}StdErrors.csv')
-    with open(path, 'r') as file:
-        csv_reader = csv.reader(file)
-        next(csv_reader)  # Skip header if exists
-        rows = []
-        for row in csv_reader:
-            rows.append(row[1:2*size+1])
-        mat = np.array(rows, dtype=np.float32)
-        matrix1 = np.array(mat[:, 0:size])
-        for i in range(len(network_GT)):
-            matrix1[i, i] = 0
-        matrix2 = np.array(mat[:, size:2*size])
-        binary_matrixA = (matrix1 != 0).astype(int)
-        binary_matrixB = (matrix2 != 0).astype(int)
-    B0 = np.zeros((len(network_GT), len(network_GT))).astype(int)
-    GIMME = cv.adjs2graph(binary_matrixA.T, B0)
+           f'/data{args.BATCH}/individual/')
+    beta_file = f'{path}/subj1Betas.csv'
+    std_error_file = f'{path}/StdErrors/subj1StdErrors.csv'
+    graph = mf.read_gimme_to_graph(beta_file, std_error_file)
+    numeric_graph = mf.convert_nodes_to_numbers(graph)
+    numeric_graph_no_selfloops = numeric_graph.copy()
+    numeric_graph_no_selfloops.remove_edges_from(nx.selfloop_edges(numeric_graph_no_selfloops))
+
+    GIMME = gk.nx2graph(numeric_graph_no_selfloops)
     return GIMME
 
 def FASK(args, network_GT):
@@ -428,17 +420,18 @@ if __name__ == "__main__":
     args = convert_str_to_bool(args)
     omp_num_threads = args.PNUM
     os.environ['OMP_NUM_THREADS'] = str(omp_num_threads)
-    include_selfloop = False
+    include_selfloop = True
     # pattern = f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl'
 
     # if not glob.glob(pattern):
     # for i in [25,50,75]:
-    args.UNDERSAMPLING = 100
+    # args.UNDERSAMPLING = 100
+    # convert_to_txt(args)
     #     convert_to_mat(args)
     #     # convert_to_txt(args)
 
-    save_dataset(args)
-    # mf.concat_dataset_batches('/Users/mabavisani/code_local/mygit/gunfolds/gunfolds/scripts/datasets/test/u75')
+    # save_dataset(args)
+    # mf.concat_dataset_batches('/Users/mabavisani/code_local/mygit/gunfolds/gunfolds/scripts/datasets/test')
     #     save_trans_matrix(args)
     # for i in range(1,6):
     #     for j in [2]:
@@ -450,9 +443,24 @@ if __name__ == "__main__":
     #         args.UNDERSAMPLING = j
     # convert_to_mat(args)
     # for j in [15]:
-    # for k in [25,50,75]:
-    #     for i in range(1,361):
-    #         args.BATCH = i
-    #         args.UNDERSAMPLING = k
-    #         network_GT = zkl.load(os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
-    #         run_analysis(args,network_GT,include_selfloop)
+    failed_cases = []  # List to store the failed (i, k) pairs
+
+    for k in [100]:
+        for i in range(1, 361):
+            try:
+                args.BATCH = i
+                args.UNDERSAMPLING = k
+                network_GT = zkl.load(os.path.expanduser(
+                    f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{args.BATCH}.zkl'))
+                run_analysis(args, network_GT, include_selfloop)
+            except FileNotFoundError as e:
+                print(f"FileNotFoundError for i={i}, k={k}: {e}")
+                failed_cases.append((i, k))
+            except Exception as e:
+                print(f"Unexpected error for i={i}, k={k}: {e}")
+                failed_cases.append((i, k))
+
+    # Optionally, save the failed cases to a file
+    with open("failed_cases.txt", "w") as f:
+        for case in failed_cases:
+            f.write(f"i={case[0]}, k={case[1]}\n")

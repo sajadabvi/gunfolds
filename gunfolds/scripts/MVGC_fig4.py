@@ -15,7 +15,7 @@ from gunfolds.solvers.clingo_rasl import drasl
 from gunfolds.utils import graphkit as gk
 from gunfolds.utils.calc_procs import get_process_count
 import random
-
+from gunfolds.utils import zickle  as zkl
 
 PNUM = 4
 
@@ -90,27 +90,27 @@ F1_C6 = []
 
 for nn in [1,2,3,4,5,6]:
 
-    for fl in range(1, 61):
-        num = str(fl) if fl > 9 else '0' + str(fl)
-        print('reading file:' + num)
-        if not concat:
-            data = pd.read_csv(
-                os.path.expanduser('~/DataSets_Feedbacks/1. Simple_Networks/Network' + str(
-                    nn) + '_amp/data_fslfilter/BOLDfslfilter_{0}.txt'.format(
-                    num), delimiter='\t'))
-        else:
-            data = pd.read_csv(
-                os.path.expanduser('~/DataSets_Feedbacks/1. Simple_Networks/Network' + str(
-                    nn) + '_amp/data_fslfilter_concat/concat_BOLDfslfilter_{0}.txt'.format(
-                    num)), delimiter='\t')
-
-        network_GT = simp_nets(nn, True)
-
-        dd = np.transpose(data.values)
-        folder = 'expo_to_mat/expo_to_mat_n' + str(nn) + '_' + ('concat' if concat else 'individual')
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-        savemat(folder + '/expo_to_mat_' + str(fl) + '.mat', {'dd': dd})
+    # for fl in range(1, 61):
+    #     num = str(fl) if fl > 9 else '0' + str(fl)
+    #     print('reading file:' + num)
+    #     if not concat:
+    #         data = pd.read_csv(
+    #             os.path.expanduser('~/DataSets_Feedbacks/1. Simple_Networks/Network' + str(
+    #                 nn) + '_amp/data_fslfilter/BOLDfslfilter_{0}.txt'.format(
+    #                 num), delimiter='\t'))
+    #     else:
+    #         data = pd.read_csv(
+    #             os.path.expanduser('~/DataSets_Feedbacks/1. Simple_Networks/Network' + str(
+    #                 nn) + '_amp/data_fslfilter_concat/concat_BOLDfslfilter_{0}.txt'.format(
+    #                 num)), delimiter='\t')
+    #
+    #     network_GT = simp_nets(nn, True)
+    #
+    #     dd = np.transpose(data.values)
+    #     folder = 'expo_to_mat/expo_to_mat_n' + str(nn) + '_' + ('concat' if concat else 'individual')
+    #     if not os.path.exists(folder):
+    #         os.makedirs(folder)
+    #     savemat(folder + '/expo_to_mat_' + str(fl) + '.mat', {'dd': dd})
 
     network_GT = simp_nets(nn, selfloop=True)
     include_selfloop = False
@@ -138,7 +138,7 @@ for nn in [1,2,3,4,5,6]:
         Recall_C.append(normal_GT['cycle']['recall'])
         F1_C.append(normal_GT['cycle']['F1'])
 
-        ###trying undersampled GT by 2
+        '''###trying undersampled GT by 2
 
         new_GT = bfutils.all_undersamples(network_GT)[1]
         new_GT = mf.remove_bidir_edges(new_GT)
@@ -309,13 +309,13 @@ for nn in [1,2,3,4,5,6]:
 
         Precision_C6.append(rasl_sol['cycle']['precision'])
         Recall_C6.append(rasl_sol['cycle']['recall'])
-        F1_C6.append(rasl_sol['cycle']['F1'])
+        F1_C6.append(rasl_sol['cycle']['F1'])'''
 
 now = str(datetime.now())
 now = now[:-7].replace(' ', '_')
 
 ###saving files
-filename = PreFix + '_prior_'+''.join(map(str, edge_weights))+'_with_selfloop_net_' + str('all') + '_amp_' + now + '_' + (
+filename = PreFix + '_prior_'+''+'_with_selfloop_net_' + str('all') + '_amp_' + now + '_' + (
     'concat' if concat else 'individual')
 
 data_group0 =[
@@ -329,37 +329,37 @@ data_group1 = [
     [Precision_A, Recall_A, F1_A],
     [Precision_C, Recall_C, F1_C]
 ]
-
-# Data for group 2
-data_group2 = [
-    [Precision_O2, Recall_O2, F1_O2],
-    [Precision_A2, Recall_A2, F1_A2],
-    [Precision_C2, Recall_C2, F1_C2]
-]
-
-data_group3 = [
-    [Precision_O3, Recall_O3, F1_O3],
-    [Precision_A3, Recall_A3, F1_A3],
-    [Precision_C3, Recall_C3, F1_C3]
-]
-
-data_group4 = [
-    [Precision_O4, Recall_O4, F1_O4],
-    [Precision_A4, Recall_A4, F1_A4],
-    [Precision_C4, Recall_C4, F1_C4]
-]
-
-data_group5 = [
-    [Precision_O5, Recall_O5, F1_O5],
-    [Precision_A5, Recall_A5, F1_A5],
-    [Precision_C5, Recall_C5, F1_C5]
-]
-
-data_group6 = [
-    [Precision_O6, Recall_O6, F1_O6],
-    [Precision_A6, Recall_A6, F1_A6],
-    [Precision_C6, Recall_C6, F1_C6]
-]
+zkl.save(data_group1,'MVGC_fig4.zkl')
+# # Data for group 2
+# data_group2 = [
+#     [Precision_O2, Recall_O2, F1_O2],
+#     [Precision_A2, Recall_A2, F1_A2],
+#     [Precision_C2, Recall_C2, F1_C2]
+# ]
+#
+# data_group3 = [
+#     [Precision_O3, Recall_O3, F1_O3],
+#     [Precision_A3, Recall_A3, F1_A3],
+#     [Precision_C3, Recall_C3, F1_C3]
+# ]
+#
+# data_group4 = [
+#     [Precision_O4, Recall_O4, F1_O4],
+#     [Precision_A4, Recall_A4, F1_A4],
+#     [Precision_C4, Recall_C4, F1_C4]
+# ]
+#
+# data_group5 = [
+#     [Precision_O5, Recall_O5, F1_O5],
+#     [Precision_A5, Recall_A5, F1_A5],
+#     [Precision_C5, Recall_C5, F1_C5]
+# ]
+#
+# data_group6 = [
+#     [Precision_O6, Recall_O6, F1_O6],
+#     [Precision_A6, Recall_A6, F1_A6],
+#     [Precision_C6, Recall_C6, F1_C6]
+# ]
 
 # Labels and titles for subplots
 titles = ['Orientation', 'Adjacency', '2 cycles']
@@ -367,10 +367,12 @@ colors = ['gray','blue', 'orange', 'red', 'yellow', 'green','purple']
 
 fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 5))
 
-for i, (data0, data1, data2
-        , data3, data4, data5, data6
-        , title) in enumerate(zip(data_group0, data_group1, data_group2
-                                  , data_group3, data_group4, data_group5, data_group6
+for i, (data0, data1
+        # , data2
+        # , data3, data4, data5, data6
+        , title) in enumerate(zip(data_group0, data_group1
+                                  # ,data_group2
+                                  # , data_group3, data_group4, data_group5, data_group6
                                      , titles)):
     ax1 = axes[i]
     # ax2 = ax1.twinx()
@@ -381,16 +383,16 @@ for i, (data0, data1, data2
                 boxprops=dict(facecolor=colors[0]), widths=0.2)
     ax1.boxplot(data1, positions=np.array(range(len(data1))) * 2.0 - 0.4, patch_artist=True, showmeans=True,
                 boxprops=dict(facecolor=colors[1]), widths=0.2)
-    ax1.boxplot(data2, positions=np.array(range(len(data2))) * 2.0 - 0.2, patch_artist=True, showmeans=True,
-                boxprops=dict(facecolor=colors[2]), widths=0.2)
-    ax1.boxplot(data3, positions=np.array(range(len(data3))) * 2.0 , patch_artist=True, showmeans=True,
-                boxprops=dict(facecolor=colors[3]), widths=0.2)
-    ax1.boxplot(data4, positions=np.array(range(len(data4))) * 2.0 + 0.2, patch_artist=True, showmeans=True,
-                boxprops=dict(facecolor=colors[4]), widths=0.2)
-    ax1.boxplot(data5, positions=np.array(range(len(data5))) * 2.0 + 0.4, patch_artist=True, showmeans=True,
-                boxprops=dict(facecolor=colors[5]), widths=0.2)
-    ax1.boxplot(data6, positions=np.array(range(len(data6))) * 2.0 + 0.6, patch_artist=True, showmeans=True,
-                boxprops=dict(facecolor=colors[6]), widths=0.2)
+    # ax1.boxplot(data2, positions=np.array(range(len(data2))) * 2.0 - 0.2, patch_artist=True, showmeans=True,
+    #             boxprops=dict(facecolor=colors[2]), widths=0.2)
+    # ax1.boxplot(data3, positions=np.array(range(len(data3))) * 2.0 , patch_artist=True, showmeans=True,
+    #             boxprops=dict(facecolor=colors[3]), widths=0.2)
+    # ax1.boxplot(data4, positions=np.array(range(len(data4))) * 2.0 + 0.2, patch_artist=True, showmeans=True,
+    #             boxprops=dict(facecolor=colors[4]), widths=0.2)
+    # ax1.boxplot(data5, positions=np.array(range(len(data5))) * 2.0 + 0.4, patch_artist=True, showmeans=True,
+    #             boxprops=dict(facecolor=colors[5]), widths=0.2)
+    # ax1.boxplot(data6, positions=np.array(range(len(data6))) * 2.0 + 0.6, patch_artist=True, showmeans=True,
+    #             boxprops=dict(facecolor=colors[6]), widths=0.2)
 
     ax1.set_xticks(range(0, len(data1) * 2, 2))
     ax1.set_xticklabels(['Precision', 'Recall', 'F1-score'])
@@ -406,13 +408,14 @@ plt.suptitle('Networks ' + str('all') + ' ' + ('concat' if concat else 'individu
 # Legend
 gray_patch = mpatches.Patch(color='gray', label='Ruben reported')
 blue_patch = mpatches.Patch(color='blue', label='ORG. GT')
-orange_patch = mpatches.Patch(color='orange', label='GT^2')
-red_patch = mpatches.Patch(color='red', label='MVGC+bi+sRASL')
-yellow_patch = mpatches.Patch(color='yellow', label='mean error')
-green_patch = mpatches.Patch(color='green', label='least cost sol')
-purple_patch = mpatches.Patch(color='purple', label='multi indiv rasl')
-plt.legend(handles=[gray_patch, blue_patch, orange_patch
-    , red_patch, yellow_patch, green_patch, purple_patch
+# orange_patch = mpatches.Patch(color='orange', label='GT^2')
+# red_patch = mpatches.Patch(color='red', label='MVGC+bi+sRASL')
+# yellow_patch = mpatches.Patch(color='yellow', label='mean error')
+# green_patch = mpatches.Patch(color='green', label='least cost sol')
+# purple_patch = mpatches.Patch(color='purple', label='multi indiv rasl')
+plt.legend(handles=[gray_patch, blue_patch
+    # , orange_patch
+    # , red_patch, yellow_patch, green_patch, purple_patch
                     ], loc='upper right')
 
 plt.tight_layout()
