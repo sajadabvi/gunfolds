@@ -1,8 +1,6 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from datetime import datetime
 import matplotlib.patches as mpatches
-import argparse
 import distutils.util
 from gunfolds.utils import zickle  as zkl
 from os import listdir
@@ -10,18 +8,10 @@ from collections import defaultdict
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-
 import glob
 
-parser = argparse.ArgumentParser(description='Run settings.')
-parser.add_argument("-p", "--PNUM", default=4, help="number of CPUs in machine.", type=int)
-parser.add_argument("-c", "--CONCAT", default="t", help="true to use concat data", type=str)
-parser.add_argument("-u", "--UNDERSAMPLED", default="f", help="true to use tr 3 time scale", type=str)
-args = parser.parse_args()
-PNUM = args.PNUM
-UNDERSAMPLED = bool(distutils.util.strtobool(args.UNDERSAMPLED))
 
-methods = ['MVGC', 'MVAR', 'GIMME', 'FASK', 'RASL','mRASL']
+methods = ['MVGC', 'MVAR', 'GIMME','PCMCI', 'FASK', 'RASL']
 save_results = []
 for method in methods:
     # Initialize a defaultdict of lists to hold concatenated results for each method

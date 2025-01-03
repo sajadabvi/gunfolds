@@ -88,7 +88,7 @@ F1_O6 = []
 F1_A6 = []
 F1_C6 = []
 
-for nn in [1,2,3,4,5,6]:
+for nn in [1]:
 
     # for fl in range(1, 61):
     #     num = str(fl) if fl > 9 else '0' + str(fl)
@@ -272,42 +272,42 @@ for nn in [1,2,3,4,5,6]:
         F1_C5.append(least_err_sol['cycle']['F1'])
 
     ### multi individual sRASL
-    individuals = mf.divide_into_batches(individuals, 6)
-    for i, batch in enumerate(individuals):
-        print(f"Processing batch {i + 1}")
-        r_estimated = drasl(batch, weighted=True, capsize=0,
-                            urate=min(5, (3 * len(MVGC_bi) + 1)),
-                            scc=False,
-                            # dm=[DD],
-                            # bdm=[BD],
-                            GT_density=int(1000 * gk.density(network_GT)),
-                            edge_weights=edge_weights, pnum=PNUM, optim='optN')
-
-        max_f1_score = 0
-        for answer in r_estimated:
-            res_rasl = bfutils.num2CG(answer[0][0], len(network_GT))
-            rasl_sol = mf.precision_recall(res_rasl, network_GT, include_selfloop=include_selfloop)
-
-            curr_f1 = ((rasl_sol['orientation']['F1']))
-            # curr_f1 = (rasl_sol['orientation']['F1']) + (rasl_sol['adjacency']['F1']) + (rasl_sol['cycle']['F1'])
-
-            if curr_f1 > max_f1_score:
-                max_f1_score = curr_f1
-                max_answer = answer
-
-        res_rasl = bfutils.num2CG(max_answer[0][0], len(network_GT))
-        rasl_sol = mf.precision_recall(res_rasl, network_GT, include_selfloop=include_selfloop)
-        Precision_O6.append(rasl_sol['orientation']['precision'])
-        Recall_O6.append(rasl_sol['orientation']['recall'])
-        F1_O6.append(rasl_sol['orientation']['F1'])
-
-        Precision_A6.append(rasl_sol['adjacency']['precision'])
-        Recall_A6.append(rasl_sol['adjacency']['recall'])
-        F1_A6.append(rasl_sol['adjacency']['F1'])
-
-        Precision_C6.append(rasl_sol['cycle']['precision'])
-        Recall_C6.append(rasl_sol['cycle']['recall'])
-        F1_C6.append(rasl_sol['cycle']['F1'])
+    # individuals = mf.divide_into_batches(individuals, 6)
+    # for i, batch in enumerate(individuals):
+    #     print(f"Processing batch {i + 1}")
+    #     r_estimated = drasl(batch, weighted=True, capsize=0,
+    #                         urate=min(5, (3 * len(MVGC_bi) + 1)),
+    #                         scc=False,
+    #                         # dm=[DD],
+    #                         # bdm=[BD],
+    #                         GT_density=int(1000 * gk.density(network_GT)),
+    #                         edge_weights=edge_weights, pnum=PNUM, optim='optN')
+    #
+    #     max_f1_score = 0
+    #     for answer in r_estimated:
+    #         res_rasl = bfutils.num2CG(answer[0][0], len(network_GT))
+    #         rasl_sol = mf.precision_recall(res_rasl, network_GT, include_selfloop=include_selfloop)
+    #
+    #         curr_f1 = ((rasl_sol['orientation']['F1']))
+    #         # curr_f1 = (rasl_sol['orientation']['F1']) + (rasl_sol['adjacency']['F1']) + (rasl_sol['cycle']['F1'])
+    #
+    #         if curr_f1 > max_f1_score:
+    #             max_f1_score = curr_f1
+    #             max_answer = answer
+    #
+    #     res_rasl = bfutils.num2CG(max_answer[0][0], len(network_GT))
+    #     rasl_sol = mf.precision_recall(res_rasl, network_GT, include_selfloop=include_selfloop)
+    #     Precision_O6.append(rasl_sol['orientation']['precision'])
+    #     Recall_O6.append(rasl_sol['orientation']['recall'])
+    #     F1_O6.append(rasl_sol['orientation']['F1'])
+    #
+    #     Precision_A6.append(rasl_sol['adjacency']['precision'])
+    #     Recall_A6.append(rasl_sol['adjacency']['recall'])
+    #     F1_A6.append(rasl_sol['adjacency']['F1'])
+    #
+    #     Precision_C6.append(rasl_sol['cycle']['precision'])
+    #     Recall_C6.append(rasl_sol['cycle']['recall'])
+    #     F1_C6.append(rasl_sol['cycle']['F1'])
 
 now = str(datetime.now())
 now = now[:-7].replace(' ', '_')
@@ -317,11 +317,11 @@ filename = PreFix + '_prior_'+''.join(map(str, edge_weights))+'_with_selfloop_ne
     'concat' if concat else 'individual')
 
 #MVAR
-data_group0 =[
-[[random.uniform(0.47, 0.59) for _ in range(100)], [random.uniform(0.72, 0.84) for _ in range(100)], [random.uniform(0.57, 0.69) for _ in range(100)]],
-    [[random.uniform(0.73, 0.85) for _ in range(100)], [random.uniform(0.86, 0.98) for _ in range(100)], [random.uniform(0.79, 0.91) for _ in range(100)]],
-    [[random.uniform(0.16, 0.28) for _ in range(100)], [random.uniform(0.56, 0.68) for _ in range(100)], [random.uniform(0.26, 0.38) for _ in range(100)]]
-]
+# data_group0 =[
+# [[random.uniform(0.47, 0.59) for _ in range(100)], [random.uniform(0.72, 0.84) for _ in range(100)], [random.uniform(0.57, 0.69) for _ in range(100)]],
+#     [[random.uniform(0.73, 0.85) for _ in range(100)], [random.uniform(0.86, 0.98) for _ in range(100)], [random.uniform(0.79, 0.91) for _ in range(100)]],
+#     [[random.uniform(0.16, 0.28) for _ in range(100)], [random.uniform(0.56, 0.68) for _ in range(100)], [random.uniform(0.26, 0.38) for _ in range(100)]]
+# ]
 
 # Data for group 1
 data_group1 = [
@@ -367,17 +367,14 @@ colors = ['gray','blue', 'orange', 'red', 'yellow', 'green','purple']
 
 fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 5))
 
-for i, (data0, data1, data2
+for i, ( data1, data2
         , data3, data4, data5, data6
-        , title) in enumerate(zip(data_group0, data_group1, data_group2
+        , title) in enumerate(zip( data_group1, data_group2
                                   , data_group3, data_group4, data_group5, data_group6
                                      , titles)):
     ax1 = axes[i]
 
     bplots = []
-    bplots.append(
-        ax1.boxplot(data0, positions=np.array(range(len(data0))) * 2.0 - 0.6, patch_artist=True, showmeans=True,
-                    widths=0.2))
     bplots.append(
         ax1.boxplot(data1, positions=np.array(range(len(data1))) * 2.0 - 0.4, patch_artist=True, showmeans=True,
                     widths=0.2))
@@ -403,9 +400,7 @@ for i, (data0, data1, data2
             patch.set_alpha(0.6)
 
     # Plot individual data points for group 1
-    for j in range(len(data0)):
-        ax1.plot(np.ones_like(data0[j]) * (j * 2.0 - 0.6)+ np.random.uniform(-0.05, 0.05, size=len(data0[j]))
-                 , data0[j], 'o', color='black', alpha=0.5, markersize=1)
+
 
     for j in range(len(data1)):
         ax1.plot(np.ones_like(data1[j]) * (j * 2.0 - 0.4)+ np.random.uniform(-0.05, 0.05, size=len(data1[j]))
@@ -457,5 +452,6 @@ plt.legend(handles=[gray_patch, blue_patch, orange_patch
 plt.tight_layout()
 
 # Save the figure
-plt.savefig(filename + '_grouped_boxplot.png')
+# plt.savefig(filename + '_grouped_boxplot.png')
+plt.show()
 plt.close()
