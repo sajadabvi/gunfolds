@@ -356,9 +356,9 @@ if __name__ == "__main__":
     os.environ['OMP_NUM_THREADS'] = str(omp_num_threads)
     include_selfloop = True
 
-    for i in range(1,7):
-        for j in range(1,61):
-            args.BATCH = j
-            args.NET = i
-            network_GT = simp_nets(args.NET, True)
-            run_analysis(args, network_GT, include_selfloop)
+    # for i in range(1,7):
+    #     for j in range(1,61):
+    #         args.BATCH = j
+    #         args.NET = i
+    network_GT = simp_nets(args.NET, True)
+    run_analysis(args, network_GT, include_selfloop)
