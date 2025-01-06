@@ -51,7 +51,7 @@ def parse_arguments(PNUM):
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
     parser.add_argument("-y", "--PRIORITY", default="42531", help="string of priorities", type=str)
-    parser.add_argument("-o", "--METHOD", default="mRASL", help="method to run", type=str)
+    parser.add_argument("-o", "--METHOD", default="PC", help="method to run", type=str)
     return parser.parse_args()
 
 def convert_str_to_bool(args):
@@ -126,6 +126,19 @@ def FASK(args, network_GT):
     B = np.zeros((len(network_GT), len(network_GT))).astype(int)
     FASK = cv.adjs2graph(adj_matrix, np.zeros((len(network_GT), len(network_GT))))
     return FASK
+
+def PC(args, network_GT):
+    path = os.path.expanduser(
+            f'~/DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/txtSTD/data{args.BATCH}.txt')
+    data = pd.read_csv(path, delimiter='\t')
+    dataframe = pp.DataFrame(data.values)
+    cond_ind_test = ParCorr()
+    pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
+    results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.05)
+    g_estimated, _, _ = cv.Glag2CG(results)
+    PC = mf.remove_bidir_edges(g_estimated)
+    return PC
+
 
 def RASL(args, network_GT):
     path = os.path.expanduser(f'~/DataSets_Feedbacks/8_VAR_simulation/net{args.NET}/u{args.UNDERSAMPLING}/txtSTD/data{args.BATCH}.txt')
@@ -323,16 +336,19 @@ if __name__ == "__main__":
     args = convert_str_to_bool(args)
     omp_num_threads = args.PNUM
     os.environ['OMP_NUM_THREADS'] = str(omp_num_threads)
-    network_GT = simp_nets(args.NET, selfloop=True)
+    # network_GT = simp_nets(args.NET, selfloop=True)
     include_selfloop = True
     pattern = f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl'
 
     # if not glob.glob(pattern):
     #     save_dataset(args)
-    # for i in range(1,10):
-    #     for j in range(1,4):
-    #         print(f'net {i}, u {j}')
-    #         args.NET = i
-    #         args.UNDERSAMPLING = j
-    #         convert_to_txt(args)
-    run_analysis(args,network_GT,include_selfloop)
+    for i in range(1,10):
+        for j in range(2,4):
+            print(f'net {i}, u {j}')
+            for k in range(1,61):
+                args.NET = i
+                args.UNDERSAMPLING = j
+                args.BATCH = k
+                convert_to_txt(args)
+                network_GT = simp_nets(args.NET, selfloop=True)
+                run_analysis(args,network_GT,include_selfloop)

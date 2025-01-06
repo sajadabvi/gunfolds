@@ -1,27 +1,19 @@
-import numpy as np
+import random
+from gunfolds.utils import zickle as zkl
 import matplotlib.pyplot as plt
 from datetime import datetime
 import matplotlib.patches as mpatches
-import argparse
-import distutils.util
-from gunfolds.utils import zickle  as zkl
-from os import listdir
+import numpy as np
 from collections import defaultdict
+from os import listdir
 import pandas as pd
 import seaborn as sns
-import matplotlib.pyplot as plt
 
-import glob
 
-parser = argparse.ArgumentParser(description='Run settings.')
-parser.add_argument("-p", "--PNUM", default=4, help="number of CPUs in machine.", type=int)
-parser.add_argument("-c", "--CONCAT", default="t", help="true to use concat data", type=str)
-parser.add_argument("-u", "--UNDERSAMPLED", default="f", help="true to use tr 3 time scale", type=str)
-args = parser.parse_args()
-PNUM = args.PNUM
-UNDERSAMPLED = bool(distutils.util.strtobool(args.UNDERSAMPLED))
+now = str(datetime.now())
+now = now[:-7].replace(' ', '_')
 
-methods = ['MVGC', 'MVAR', 'GIMME', 'PC','FASK', 'RASL']
+methods = ['MVGC', 'MVAR', 'GIMME', 'FASK']
 save_results = []
 for method in methods:
     # Initialize a defaultdict of lists to hold concatenated results for each method
@@ -37,10 +29,9 @@ for method in methods:
         'F1_C': [],
     }))
 
-    POSTFIX = 'VAAR_ruben_nets'
+    POSTFIX = 'ruben_nets_all_ways'
 
-
-    folder = f'/Users/mabavisani/Code_local/mygit/gunfolds/gunfolds/scripts/VAR_ruben/varuben/{method}/'
+    folder = f'/Users/mabavisani/Code_local/mygit/gunfolds/gunfolds/scripts/ruben_runs/{method}/'
     items = listdir(folder)
     items.sort()
 
@@ -67,36 +58,36 @@ for method in methods:
     # Optionally, save results or perform further operations
     save_results.append(result)
 
+
 # Convert the `save_results` list into a DataFrame
 data_records = []
 
 for result in save_results:
     for method, method_data in result.items():
-        for undersampling, metrics in method_data.items():
+        for approach, metrics in method_data.items():
             for metric in ['F1_O', 'F1_A', 'F1_C']:
                 if metric in metrics:
                     values = metrics[metric]
                     for value in values:
-                        data_records.append({'method': method, 'undersampling': undersampling, 'metric': metric, 'value': value})
+                        data_records.append({'method': method, 'approach': approach, 'metric': metric, 'value': value})
 
 df = pd.DataFrame(data_records)
 
-# Map metric names to facet titles
 facet_titles = {
     'F1_O': 'Orientation',
     'F1_A': 'Adjacency',
-    'F1_C': '2-Cycle'
+    'F1_C': 'Cycle Detection'
 }
 
 df['facet'] = df['metric'].map(facet_titles)
-df['undersampling'] = df['undersampling'].astype(str)  # Ensure 'undersampling' is a string for proper plotting
+df['approach'] = df['approach'].astype(str)  # Ensure 'approach' is a string for proper plotting
 # Convert 'method' to numeric codes for plotting
 df['method_code'] = pd.Categorical(df['method']).codes
 # Set up the FacetGrid
-g = sns.FacetGrid(df, col='facet', col_wrap=3, sharey=False, height=6)
+g = sns.FacetGrid(df, col='facet', col_wrap=3, sharey=False, height=10)
 
 # Map boxplots to the grid
-g.map_dataframe(sns.boxplot, x='method', y='value', hue='undersampling', palette='Set2', dodge=True)
+g.map_dataframe(sns.boxplot, x='method', y='value', hue='approach', palette='Set2', dodge=True)
 
 # Overlay individual data points
 def add_jittered_points(ax, data, x_col, y_col, hue_col):
@@ -108,15 +99,17 @@ def add_jittered_points(ax, data, x_col, y_col, hue_col):
         method_codes = subset['method_code'].unique()
         for method_code in method_codes:
             subset_method = subset[subset['method_code'] == method_code]
-            # Adjust x-coordinate based on undersampling
+            # Adjust x-coordinate based on approach
             jittered_x = []
             for _, row in subset_method.iterrows():
-                if row['undersampling'] == '1':
-                    jittered_x.append(method_code - 0.27)
-                elif row['undersampling'] == '2':
-                    jittered_x.append(method_code)
-                elif row['undersampling'] == '3':
-                    jittered_x.append(method_code + 0.27)
+                if row['approach'] == 'org':
+                    jittered_x.append(method_code - 0.3)
+                elif row['approach'] == 'gt2':
+                    jittered_x.append(method_code- 0.15)
+                elif row['approach'] == 'meta':
+                    jittered_x.append(method_code + 0.15)
+                elif row['approach'] == 'pc':
+                    jittered_x.append(method_code + 0.3)
             jittered_x = np.array(jittered_x) + np.random.uniform(-0.1, 0.1, size=len(jittered_x))
             ax.scatter(jittered_x, subset_method[y_col],
                        color=palette[i],
@@ -131,25 +124,26 @@ for ax in g.axes.flat:
     ax.grid(True)
     ax.set_ylim(0, 1)
     # Add jittered points
-    # add_jittered_points(ax, df, 'method_code', 'value', 'undersampling')
+    # add_jittered_points(ax, df, 'method_code', 'value', 'approach')
 
     # Set x-ticks to method names
     ax.set_xticks(np.arange(len(df['method'].unique())))
-    ax.set_xticklabels(df['method'].unique())
+    ax.set_xticklabels(df['method'].unique(), fontsize=12)  # Increase x-tick label size
+    # ax.set_yticklabels(ax.get_yticks(), fontsize=12)
 
 # Adjust titles and labels
-g.set_axis_labels('Method', 'F1 Score')
-g.set_titles(col_template="{col_name}")
-g.add_legend(title='Undersampling')
+g.set_axis_labels('Method', 'F1 Score', fontsize=17)  # Increase axis label size
+g.set_titles(col_template="{col_name}", size=16)  # Increase facet title size
+g.add_legend(title='approach', title_fontsize=22, fontsize=17)
 
 # Add an overall title
-plt.suptitle('F1 score of VAR simulations of simple networks in Ruben data through different levels of undersampling')
+plt.suptitle('F1 score of VAR simulations of random ring graphs of size 5 to 10 through different levels of approach',
+             fontsize=18)
 plt.tight_layout(rect=[0, 0, 0.92, 0.98])
 
 
 now = str(datetime.now())
 now = now[:-7].replace(' ', '_')
 filename = POSTFIX + '_' + now
-plt.savefig(filename + '_pc_added_grouped_boxplot.svg')
+plt.savefig(filename + '_fig5.svg')
 # plt.show()
-
