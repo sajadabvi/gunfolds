@@ -134,7 +134,7 @@ def FASK(args, network_GT):
     search.use_sem_bic()
     search.use_fisher_z(alpha=0.0000001)
 
-    search.run_fask(alpha=0.0000001, left_right_rule=1)
+    search.run_fask(alpha=0.00001, left_right_rule=1)
 
     graph_string = str(search.get_string())
     # Parse nodes and edges from the input string
