@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import glob
 
 
-methods = ['MVGC', 'MVAR', 'GIMME','PCMCI', 'FASK', 'RASL']
+methods = ['MVGC', 'MVAR', 'GIMME','PC', 'FASK', 'RASL']
 save_results = []
 for method in methods:
     # Initialize a defaultdict of lists to hold concatenated results for each method
@@ -30,7 +30,7 @@ for method in methods:
     POSTFIX = 'VAAR_ruben_nets'
 
 
-    folder = f'/Users/sajad/Code_local/mygit/gunfolds/gunfolds/scripts/VAR_ringmore/VAR_ringmore/{method}/'
+    folder = f'/Users/mabavisani/Code_local/mygit/gunfolds/gunfolds/scripts/VAR_ringmore/VAR_ringmore/{method}/'
     items = listdir(folder)
     items.sort()
 
@@ -83,7 +83,7 @@ df['undersampling'] = df['undersampling'].astype(str)  # Ensure 'undersampling' 
 # Convert 'method' to numeric codes for plotting
 df['method_code'] = pd.Categorical(df['method']).codes
 # Set up the FacetGrid
-g = sns.FacetGrid(df, col='facet', col_wrap=3, sharey=False, height=10)
+g = sns.FacetGrid(df, col='facet', col_wrap=3, sharey=False, height=7)
 
 # Map boxplots to the grid
 g.map_dataframe(sns.boxplot, x='method', y='value', hue='undersampling', palette='Set2', dodge=True)
@@ -142,6 +142,6 @@ plt.tight_layout(rect=[0, 0, 0.92, 0.98])
 now = str(datetime.now())
 now = now[:-7].replace(' ', '_')
 filename = POSTFIX + '_' + now
-plt.savefig(filename + '_grouped_boxplot.png')
-
+plt.savefig(filename + '_pcmci_added_ringmore.svg')
+# plt.show()
 
