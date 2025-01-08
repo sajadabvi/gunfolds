@@ -50,12 +50,12 @@ def parse_arguments(PNUM):
                         help="true for using g_estimate SCC members, false for using "
                              "GT SCC members", type=str)
     parser.add_argument("-u", "--UNDERSAMPLING", default=75, help="sampling rate in generated data", type=int)
-    parser.add_argument("-x", "--MAXU", default=8, help="maximum number of undersampling to look for solution.",
+    parser.add_argument("-x", "--MAXU", default=4, help="maximum number of undersampling to look for solution.",
                         type=int)
     parser.add_argument("-t", "--CONCAT", default="t", help="true to use concat data, false to not", type=str)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
     parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
-    parser.add_argument("-o", "--METHOD", default="FASK", help="method to run", type=str)
+    parser.add_argument("-o", "--METHOD", default="RASL", help="method to run", type=str)
     return parser.parse_args()
 
 def convert_str_to_bool(args):

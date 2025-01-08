@@ -42,7 +42,7 @@ def parse_arguments(PNUM):
     parser.add_argument("-b", "--BATCH", default=1, help="slurm batch.", type=int)
     parser.add_argument("-p", "--PNUM", default=PNUM, help="number of CPUs in machine.", type=int)
     parser.add_argument("-r", "--SNR", default=1, help="Signal to noise ratio", type=int)
-    parser.add_argument("-n", "--NET", default=1, help="number of simple network", type=int)
+    parser.add_argument("-n", "--NET", default=4, help="number of simple network", type=int)
     parser.add_argument("-l", "--MINLINK", default=5, help=" lower threshold transition matrix abs value x1000", type=int)
     parser.add_argument("-z", "--NOISE", default=10, help="noise str multiplied by 100", type=int)
     parser.add_argument("-s", "--SCC", default="f", help="true to use SCC structure, false to not", type=str)
@@ -356,9 +356,8 @@ if __name__ == "__main__":
     os.environ['OMP_NUM_THREADS'] = str(omp_num_threads)
     include_selfloop = True
 
-    # for i in range(1,7):
-    #     for j in range(1,61):
-    #         args.BATCH = j
-    #         args.NET = i
-    network_GT = simp_nets(args.NET, True)
-    run_analysis(args, network_GT, include_selfloop)
+    pattern = f'ruben_runs/{args.METHOD}/rubenNets_{args.METHOD}_net_{args.NET}_batch_{args.BATCH}.zkl'
+
+    if not glob.glob(pattern):
+        network_GT = simp_nets(args.NET, True)
+        run_analysis(args, network_GT, include_selfloop)
