@@ -39,10 +39,10 @@ def parse_arguments(PNUM):
     parser = argparse.ArgumentParser(description='Run settings.')
     parser.add_argument("-c", "--CAPSIZE", default=0,
                         help="stop traversing after growing equivalence class to this size.", type=int)
-    parser.add_argument("-b", "--BATCH", default=1, help="slurm batch.", type=int)
+    parser.add_argument("-b", "--BATCH", default=2, help="slurm batch.", type=int)
     parser.add_argument("-p", "--PNUM", default=PNUM, help="number of CPUs in machine.", type=int)
     parser.add_argument("-r", "--SNR", default=1, help="Signal to noise ratio", type=int)
-    parser.add_argument("-n", "--NET", default=4, help="number of simple network", type=int)
+    parser.add_argument("-n", "--NET", default=1, help="number of simple network", type=int)
     parser.add_argument("-l", "--MINLINK", default=5, help=" lower threshold transition matrix abs value x1000", type=int)
     parser.add_argument("-z", "--NOISE", default=10, help="noise str multiplied by 100", type=int)
     parser.add_argument("-s", "--SCC", default="f", help="true to use SCC structure, false to not", type=str)
@@ -55,7 +55,7 @@ def parse_arguments(PNUM):
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
     parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
-    parser.add_argument("-o", "--METHOD", default="MVAR", help="method to run", type=str)
+    parser.add_argument("-o", "--METHOD", default="GIMME", help="method to run", type=str)
     return parser.parse_args()
 
 def convert_str_to_bool(args):
@@ -327,11 +327,28 @@ def run_analysis(args,network_GT,include_selfloop):
             for metric in ['precision', 'recall', 'F1']:
                 metrics[method]['meta'][f"{metric.capitalize()}_{prefix}"].append(meta_rasl[category][metric])
 
-        pcmci_rasl_result = PCMCI_RASL(args, network_GT)
-        pcmci_rasl = mf.precision_recall(pcmci_rasl_result, network_GT, include_selfloop=include_selfloop)
-        for category, prefix in zip(['orientation', 'adjacency', 'cycle'], ['O', 'A', 'C']):
-            for metric in ['precision', 'recall', 'F1']:
-                metrics[method]['pc'][f"{metric.capitalize()}_{prefix}"].append(pcmci_rasl[category][metric])
+        pattern = f'ruben_runs/*/rubenNets_*_net_{args.NET}_batch_{args.BATCH}.zkl'
+        matching_files = glob.glob(pattern)
+        if matching_files:
+            file_to_load = matching_files[0]
+            data = zkl.load(file_to_load)
+            pc_value = None
+            for key, sub_dict in data.items():
+                if isinstance(sub_dict, dict) and 'pc' in sub_dict:
+                    pc_value = sub_dict['pc']
+                    break  # Stop at the first match (if needed)
+
+            if pc_value is not None:
+                metrics[method]['pc'] = pc_value
+            else:
+                print(f"No 'pc' key found in any sub-dictionaries. Available keys: {list(data.keys())}")
+
+        else:
+            pcmci_rasl_result = PCMCI_RASL(args, network_GT)
+            pcmci_rasl = mf.precision_recall(pcmci_rasl_result, network_GT, include_selfloop=include_selfloop)
+            for category, prefix in zip(['orientation', 'adjacency', 'cycle'], ['O', 'A', 'C']):
+                for metric in ['precision', 'recall', 'F1']:
+                    metrics[method]['pc'][f"{metric.capitalize()}_{prefix}"].append(pcmci_rasl[category][metric])
 
         if not os.path.exists(f'ruben_runs/{args.METHOD}'):
             os.makedirs(f'ruben_runs/{args.METHOD}')
