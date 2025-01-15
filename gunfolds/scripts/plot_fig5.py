@@ -13,7 +13,7 @@ import seaborn as sns
 now = str(datetime.now())
 now = now[:-7].replace(' ', '_')
 
-methods = ['GIMME']
+methods = ['MVGC', 'MVAR','GIMME', 'FASK']
 save_results = []
 for method in methods:
     # Initialize a defaultdict of lists to hold concatenated results for each method

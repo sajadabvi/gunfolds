@@ -153,12 +153,12 @@ def RASL(args, network_GT):
     if not args.CONCAT:
         data = pd.read_csv(
             os.path.expanduser(
-                f"~/DataSets_Feedbacks/2. Macaque_Networks/Full/data_fslfilter/BOLDfslfilter_{num}.txt"),
+                f"~/DataSets_Feedbacks/2. Macaque_Networks/SmallDegree/data_fslfilter/BOLDfslfilter_{num}.txt"),
             delimiter='\t')
     else:
         data = pd.read_csv(
             os.path.expanduser(
-                f'~/DataSets_Feedbacks/2. Macaque_Networks/Full/data_fslfilter_concat/concat_BOLDfslfilter_{num}.txt'),
+                f'~/DataSets_Feedbacks/2. Macaque_Networks/SmallDegree/data_fslfilter_concat/concat_BOLDfslfilter_{num}.txt'),
             delimiter='\t')
 
 
@@ -329,9 +329,9 @@ def run_analysis(args,network_GT,include_selfloop):
         metrics[method][args.UNDERSAMPLING]['F1_C'].append(normal_GT['cycle']['F1'])
 
     print(metrics)
-    if not os.path.exists('VAR_ringmore_v3'):
-        os.makedirs('VAR_ringmore_v3')
-    filename = f'VAR_ringmore_v3/VAR_{args.METHOD}_BOLD_ruben_ringmore_undersampled_by_{args.UNDERSAMPLING}_batch_{args.BATCH}.zkl'
+    if not os.path.exists('macaque_results'):
+        os.makedirs('macaque_results')
+    filename = f'macaque_results/macaque_{args.METHOD}_batch_{args.BATCH}.zkl'
     zkl.save(metrics,filename)
     print('file saved to :' + filename)
 

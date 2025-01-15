@@ -55,7 +55,7 @@ def parse_arguments(PNUM):
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
     parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
-    parser.add_argument("-o", "--METHOD", default="GIMME", help="method to run", type=str)
+    parser.add_argument("-o", "--METHOD", default="FASK", help="method to run", type=str)
     return parser.parse_args()
 
 def convert_str_to_bool(args):
@@ -372,9 +372,12 @@ if __name__ == "__main__":
     omp_num_threads = args.PNUM
     os.environ['OMP_NUM_THREADS'] = str(omp_num_threads)
     include_selfloop = True
+    for i in range(4,5):
+        for j in range(1,61):
+            args.BATCH = j
+            args.NET = i
+            pattern = f'ruben_runs/{args.METHOD}/rubenNets_{args.METHOD}_net_{args.NET}_batch_{args.BATCH}.zkl'
 
-    pattern = f'ruben_runs/{args.METHOD}/rubenNets_{args.METHOD}_net_{args.NET}_batch_{args.BATCH}.zkl'
-
-    if not glob.glob(pattern):
-        network_GT = simp_nets(args.NET, True)
-        run_analysis(args, network_GT, include_selfloop)
+            if not glob.glob(pattern):
+                network_GT = simp_nets(args.NET, True)
+                run_analysis(args, network_GT, include_selfloop)
