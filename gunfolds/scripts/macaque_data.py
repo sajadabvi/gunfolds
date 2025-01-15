@@ -62,7 +62,6 @@ def convert_str_to_bool(args):
     args.SCCMEMBERS = bool(strtobool(args.SCCMEMBERS))
     args.CONCAT = bool(strtobool(args.CONCAT))
     args.NOISE = args.NOISE / 100
-    args.ALPHA = args.ALPHA / 1000
     priprities = []
     for char in args.PRIORITY:
         priprities.append(int(char))
