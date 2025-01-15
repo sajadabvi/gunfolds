@@ -54,7 +54,7 @@ def parse_arguments(PNUM):
 
     parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
     parser.add_argument("-o", "--METHOD", default="FASK", help="method to run", type=str)
-    parser.add_argument("-v", "--VERSION", default="Full", help="version of macaque data", type=str)
+    parser.add_argument("-v", "--VERSION", default="LongRange", help="version of macaque data", type=str)
     return parser.parse_args()
 
 def convert_str_to_bool(args):
@@ -256,8 +256,7 @@ def mRASL(args, network_GT):
 def initialize_metrics():
     return {
         'Precision_O': [], 'Recall_O': [], 'F1_O': [],
-        'Precision_A': [], 'Recall_A': [], 'F1_A': [],
-        'Precision_C': [], 'Recall_C': [], 'F1_C': []
+        'Precision_A': [], 'Recall_A': [], 'F1_A': []
     }
 
 
@@ -272,7 +271,7 @@ def run_analysis(args,network_GT,include_selfloop):
 
         result = globals()[method](args, network_GT)
         print(f"Result from {method}: {result}")
-        normal_GT = mf.precision_recall_all_cycle(result, network_GT, include_selfloop=include_selfloop)
+        normal_GT = mf.precision_recall_no_cycle(result, network_GT, include_selfloop=include_selfloop)
         metrics[method][args.UNDERSAMPLING]['Precision_O'].append(normal_GT['orientation']['precision'])
         metrics[method][args.UNDERSAMPLING]['Recall_O'].append(normal_GT['orientation']['recall'])
         metrics[method][args.UNDERSAMPLING]['F1_O'].append(normal_GT['orientation']['F1'])
@@ -281,9 +280,6 @@ def run_analysis(args,network_GT,include_selfloop):
         metrics[method][args.UNDERSAMPLING]['Recall_A'].append(normal_GT['adjacency']['recall'])
         metrics[method][args.UNDERSAMPLING]['F1_A'].append(normal_GT['adjacency']['F1'])
 
-        metrics[method][args.UNDERSAMPLING]['Precision_C'].append(normal_GT['cycle']['precision'])
-        metrics[method][args.UNDERSAMPLING]['Recall_C'].append(normal_GT['cycle']['recall'])
-        metrics[method][args.UNDERSAMPLING]['F1_C'].append(normal_GT['cycle']['F1'])
 
     print(metrics)
     if not os.path.exists('macaque_results'):
@@ -309,4 +305,6 @@ if __name__ == "__main__":
 
 
     network_GT = macaque_net(args.VERSION)
-    run_analysis(args,network_GT,include_selfloop)
+    for i in range(1,61):
+        args.BATCH = i
+        run_analysis(args,network_GT,include_selfloop)
