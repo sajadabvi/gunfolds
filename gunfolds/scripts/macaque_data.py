@@ -45,7 +45,7 @@ def parse_arguments(PNUM):
     parser.add_argument("-n", "--NET", default=1, help="number of simple network", type=int)
     parser.add_argument("-l", "--MINLINK", default=5, help=" lower threshold transition matrix abs value x1000", type=int)
     parser.add_argument("-z", "--NOISE", default=10, help="noise str multiplied by 100", type=int)
-    parser.add_argument("-s", "--SCC", default="f", help="true to use SCC structure, false to not", type=str)
+    parser.add_argument("-s", "--SCC", default="t", help="true to use SCC structure, false to not", type=str)
     parser.add_argument("-m", "--SCCMEMBERS", default="f",
                         help="true for using g_estimate SCC members, false for using "
                              "GT SCC members", type=str)
@@ -167,6 +167,7 @@ def RASL(args, network_GT):
     pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
     results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.000001)
     g_estimated, A, B = cv.Glag2CG(results)
+    members = nx.strongly_connected_components(gk.graph2nx(g_estimated))
     MAXCOST = 10000
     DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
     BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
@@ -176,6 +177,7 @@ def RASL(args, network_GT):
                         dm=[DD],
                         bdm=[BD],
                         scc=True,
+                        scc_members=members,
                         GT_density=int(1000 * gk.density(network_GT)),
                         edge_weights=args.PRIORITY, pnum=PNUM, optim='optN', selfloop=True)
 
