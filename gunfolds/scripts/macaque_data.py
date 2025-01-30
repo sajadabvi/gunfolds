@@ -54,7 +54,7 @@ def parse_arguments(PNUM):
 
     parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
     parser.add_argument("-o", "--METHOD", default="FASK", help="method to run", type=str)
-    parser.add_argument("-v", "--VERSION", default="LongRange", help="version of macaque data", type=str)
+    parser.add_argument("-v", "--VERSION", default="Full", help="version of macaque data", type=str)
     return parser.parse_args()
 
 def convert_str_to_bool(args):
@@ -165,7 +165,8 @@ def RASL(args, network_GT):
     pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
     results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.000001)
     g_estimated, A, B = cv.Glag2CG(results)
-    members = nx.strongly_connected_components(gk.graph2nx(g_estimated))
+    # members = nx.strongly_connected_components(gk.graph2nx(g_estimated))
+    members = [s for s in nx.strongly_connected_components(gk.graph2nx(g_estimated))]
     MAXCOST = 10000
     DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
     BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)

@@ -100,7 +100,7 @@ df['undersampling'] = df['undersampling'].astype(str)  # Ensure 'undersampling' 
 # Convert 'method' to numeric codes for plotting
 df['method_code'] = pd.Categorical(df['method']).codes
 # Set up the FacetGrid
-g = sns.FacetGrid(df, col='facet', col_wrap=3, sharey=False, height=7)
+g = sns.FacetGrid(df, col='facet', col_wrap=3, sharey=False, height=5)
 
 # Map boxplots to the grid
 g.map_dataframe(sns.boxplot, x='method', y='value', hue='undersampling', palette='Set2', dodge=True)
@@ -159,6 +159,6 @@ plt.tight_layout(rect=[0, 0, 0.92, 0.98])
 now = str(datetime.now())
 now = now[:-7].replace(' ', '_')
 filename = POSTFIX + '_' + now
-plt.savefig(filename + '_bold.svg')
-# plt.show()
+# plt.savefig(filename + '_bold.svg')
+plt.show()
 
