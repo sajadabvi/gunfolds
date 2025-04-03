@@ -53,8 +53,8 @@ def parse_arguments(PNUM):
     parser.add_argument("-t", "--CONCAT", default="t", help="true to use concat data, false to not", type=str)
 
     parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
-    parser.add_argument("-o", "--METHOD", default="FASK", help="method to run", type=str)
-    parser.add_argument("-v", "--VERSION", default="Full", help="version of macaque data", type=str)
+    parser.add_argument("-o", "--METHOD", default="RASL", help="method to run", type=str)
+    parser.add_argument("-v", "--VERSION", default="LongRange", help="version of macaque data", type=str)
     return parser.parse_args()
 
 def convert_str_to_bool(args):
@@ -306,6 +306,6 @@ if __name__ == "__main__":
 
 
     network_GT = macaque_net(args.VERSION)
-    for i in range(1,61):
-        args.BATCH = i
-        run_analysis(args,network_GT,include_selfloop)
+    # for i in range(1,61):
+    #     args.BATCH = i
+    run_analysis(args,network_GT,include_selfloop)
