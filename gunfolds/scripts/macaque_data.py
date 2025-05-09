@@ -166,7 +166,7 @@ def RASL(args, network_GT):
     results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.01)
     g_estimated, A, B = cv.Glag2CG(results)
     # members = nx.strongly_connected_components(gk.graph2nx(g_estimated))
-    members = [s for s in nx.strongly_connected_components(gk.graph2nx(network_GT))]
+    members = [s for s in nx.strongly_connected_components(gk.graph2nx(g_estimated))]
     MAXCOST = 10000
     DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
     BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
