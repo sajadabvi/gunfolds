@@ -44,7 +44,7 @@ def parse_arguments(PNUM):
     parser.add_argument("-r", "--SNR", default=1, help="Signal to noise ratio", type=int)
     parser.add_argument("-z", "--NOISE", default=10, help="noise str multiplied by 100", type=int)
     parser.add_argument("-s", "--SCC", default="t", help="true to use SCC structure, false to not", type=str)
-    parser.add_argument("-m", "--SCCMEMBERS", default="f",
+    parser.add_argument("-m", "--SCCMEMBERS", default="t",
                         help="true for using g_estimate SCC members, false for using "
                              "GT SCC members", type=str)
     parser.add_argument("-u", "--UNDERSAMPLING", default=75, help="sampling rate in generated data", type=int)
@@ -166,7 +166,11 @@ def RASL(args, network_GT):
     results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.01)
     g_estimated, A, B = cv.Glag2CG(results)
     # members = nx.strongly_connected_components(gk.graph2nx(g_estimated))
-    members = [s for s in nx.strongly_connected_components(gk.graph2nx(g_estimated))]
+    if args.SCCMEMBERS:
+        members = [s for s in nx.strongly_connected_components(gk.graph2nx(g_estimated))]
+    else:
+        members = [s for s in nx.strongly_connected_components(gk.graph2nx(network_GT))]
+
     MAXCOST = 10000
     DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
     BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
