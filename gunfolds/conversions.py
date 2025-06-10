@@ -188,26 +188,35 @@ def dict_format_converter(H):
 
 def g2ian(g):
     """
-    (Ask)
+    Convert a set-based graph dictionary to its integer-encoded form.
 
-    :param g: ``gunfolds`` graph
-    :type g: dictionary (``gunfolds`` graphs)
-    
-    :returns: ``gunfolds`` graph 
-    :rtype: dictionary (``gunfolds`` graphs)
+    The input graph uses sets of edge tuples ``(0, 1)`` and ``(2, 0)`` to
+    indicate directed and bidirected edges respectively.  The returned graph
+    stores these edges as integers ``1`` (directed), ``2`` (bidirected) or
+    ``3`` (both).
+
+    :param g: graph in set-based format
+    :type g: dictionary
+
+    :returns: graph with integer-encoded edges
+    :rtype: dictionary
     """
     return dict_format_converter(g)
 
 
 def ian2g(g):
     """
-    (Ask)
+    Convert an integer-encoded graph dictionary to its set-based form.
 
-    :param g: ``gunfolds`` graph
-    :type g: dictionary (``gunfolds`` graphs)
-    
-    :returns: (Ask)
-    :rtype: (Ask)
+    Each edge in the input is encoded as ``1`` (directed), ``2`` (bidirected)
+    or ``3`` (both).  The output graph represents edges using sets of tuples
+    ``(0, 1)`` and ``(2, 0)`` to mark the corresponding edge types.
+
+    :param g: graph with integer-encoded edges
+    :type g: dictionary
+
+    :returns: graph in set-based format
+    :rtype: dictionary
     """
     c = {1: {(0, 1)}, 2: {(2, 0)}, 3: {(0, 1), (2, 0)}}
     gg = {}
