@@ -1694,7 +1694,13 @@ def esig(l, n):
     :rtype: integer
     """
     z = len(str(n))
-    n = map(lambda x: ''.join(map(lambda y: str(y).zfill(z), x)), l)
+    # ``map`` returns an iterator in Python 3, so we need to materialise
+    # the results before sorting. In Python 2 the original code relied on
+    # ``map`` returning a list which is mutable and sortable. Without
+    # converting to ``list`` a ``map`` object would raise an ``AttributeError``
+    # when ``sort`` is called.  By wrapping ``map`` with ``list`` we ensure
+    # compatibility with both versions of Python.
+    n = list(map(lambda x: ''.join(map(lambda y: str(y).zfill(z), x)), l))
     n.sort()
     n = ''.join(n[::-1])
     return int('1' + n)
