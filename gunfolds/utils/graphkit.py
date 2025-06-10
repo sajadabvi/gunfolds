@@ -335,7 +335,7 @@ def digonly(H):
 
 def _OCE(g1, g2):
     """
-    Omission/commision error of ``g1`` referenced to ``g2``
+    Omission/commission error of ``g1`` referenced to ``g2``
     
     :param g1: the graph to check
     :type g1: dictionary (``gunfolds`` graph)
@@ -343,7 +343,7 @@ def _OCE(g1, g2):
     :param g2: the ground truth graph
     :type g2: dictionary (``gunfolds`` graph)
     
-    :returns: Omission/commision error for directed and bidirected edges
+    :returns: Omission/commission error for directed and bidirected edges
     :rtype: dictionary
     """
     s1 = set(edgelist(g1))
@@ -367,7 +367,7 @@ def _normed_OCE(g1, g2):
     bidirected edges.
 
     Omission error is normalized by the number of edges present
-    in the ground truth. Commision error is normalized by the
+    in the ground truth. Commission error is normalized by the
     number of possible edges minus the number of edges present
     in the ground truth.
     
@@ -405,7 +405,7 @@ def _normed_OCE(g1, g2):
 
 def _undirected_OCE(g1, g2):
     """
-    Returns omission/commision error of ``g1`` referenced to ``g2``
+    Returns omission/commission error of ``g1`` referenced to ``g2``
     if both are undirected graphs.
     
     :param g1: the graph to check
@@ -430,7 +430,7 @@ def _normed_undirected_OCE(g1, g2):
     Return omission and commission errors for undirected edges.
 
     Omission error is normalized by the number of edges present
-    in the ground truth. Commision error is normalized by the
+    in the ground truth. Commission error is normalized by the
     number of possible edges minus the number of edges present
     in the ground truth.
 
