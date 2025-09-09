@@ -69,101 +69,18 @@ def convert_str_to_bool(args):
     return args
 
 
-# Define the functions
-def MVGC(args, network_GT):
-    path = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ri'
-            f'ngmore/u{args.UNDERSAMPLING}/MVGC')
-    mat_data = loadmat(path + f'/mat_file_{args.BATCH}.mat')['sig']
-    for i in range(len(network_GT)):
-        mat_data[i, i] = 0
-    B = np.zeros((len(network_GT), len(network_GT))).astype(int)
-    MVGC = cv.adjs2graph(mat_data, np.zeros((len(network_GT), len(network_GT))))
-    return MVGC
 
-def MVAR(args, network_GT):
-    path = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ri'
-            f'ngmore/u{args.UNDERSAMPLING}/MVAR')
-    mat_data = loadmat(path + f'/mat_file_{args.BATCH}.mat')['sig']
-    for i in range(len(network_GT)):
-        mat_data[i, i] = 0
-    B = np.zeros((len(network_GT), len(network_GT))).astype(int)
-    MVAR = cv.adjs2graph(mat_data, np.zeros((len(network_GT), len(network_GT))))
-    return MVAR
-
-def GIMME(args, network_GT):
-    size = len(network_GT)
-    path = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/'
-            f'ringmore/u{args.UNDERSAMPLING}/GIMME'
-           f'/data{args.BATCH}/individual/StdErrors/data{args.BATCH}StdErrors.csv')
-    with open(path, 'r') as file:
-        csv_reader = csv.reader(file)
-        next(csv_reader)  # Skip header if exists
-        rows = []
-        for row in csv_reader:
-            rows.append(row[1:2*size+1])
-        mat = np.array(rows, dtype=np.float32)
-        matrix1 = np.array(mat[:, 0:size])
-        for i in range(len(network_GT)):
-            matrix1[i, i] = 0
-        matrix2 = np.array(mat[:, size:2*size])
-        binary_matrixA = (matrix1 != 0).astype(int)
-        binary_matrixB = (matrix2 != 0).astype(int)
-    B0 = np.zeros((len(network_GT), len(network_GT))).astype(int)
-    GIMME = cv.adjs2graph(binary_matrixA.T, B0)
-    return GIMME
-
-def FASK(args, network_GT):
-    num = str(args.BATCH) if args.BATCH > 9 else '0' + str(args.BATCH)
-    print('reading file:' + num)
-    if not args.CONCAT:
-        data = pd.read_csv(
-            os.path.expanduser(
-                f"~/DataSets_Feedbacks/2. Macaque_Networks/{args.VERSION}/data_fslfilter/BOLDfslfilter_{num}.txt"), delimiter='\t')
-    else:
-        data = pd.read_csv(
-            os.path.expanduser(
-                f'~/DataSets_Feedbacks/2. Macaque_Networks/{args.VERSION}/data_fslfilter_concat/concat_BOLDfslfilter_{num}.txt'), delimiter='\t')
-
-
-    # path = os.path.expanduser(f'~/DataSets_Feedbacks/2. Macaque_Networks/Full/data_fslfilter_concat/concat_BOLDfslfilter_{args.BATCH}.txt')
-    # data = pd.read_csv(path, delimiter='\t')
-    search = ts.TetradSearch(data)
-    search.set_verbose(False)
-    search.use_sem_bic()
-    search.use_fisher_z(alpha=0.0000001)
-
-    search.run_fask(alpha=0.00001, left_right_rule=1)
-
-    graph_string = str(search.get_string())
-    # Parse nodes and edges from the input string
-    nodes = mf.parse_nodes(graph_string)
-    edges = mf.parse_edges(graph_string)
-
-    # Create adjacency matrix
-    adj_matrix = mf.create_adjacency_matrix(edges, nodes)
-    B = np.zeros((len(network_GT), len(network_GT))).astype(int)
-    FASK = cv.adjs2graph(adj_matrix, np.zeros((len(network_GT), len(network_GT))))
-    return FASK
 
 def RASL(args, network_GT):
-    num = str(args.BATCH) if args.BATCH > 9 else '0' + str(args.BATCH)
-    print('reading file:' + num)
-    if not args.CONCAT:
-        data = pd.read_csv(
-            os.path.expanduser(
-                f"~/DataSets_Feedbacks/2. Macaque_Networks/{args.VERSION}/data_fslfilter/BOLDfslfilter_{num}.txt"),
-            delimiter='\t')
-    else:
-        data = pd.read_csv(
-            os.path.expanduser(
-                f'~/DataSets_Feedbacks/2. Macaque_Networks/{args.VERSION}/data_fslfilter_concat/concat_BOLDfslfilter_{num}.txt'),
-            delimiter='\t')
+    npzfile = np.load("./fbirn/fbirn_sz_data.npz")
 
+    data = npzfile['data']
+    labels = npzfile['labels']
 
-    dataframe = pp.DataFrame(data.values)
+    dataframe = pp.DataFrame(npzfile['data'][0,:,[25,29,35,44,45,46]].T)
     cond_ind_test = ParCorr()
     pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
-    results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.01)
+    results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.1)
     g_estimated, A, B = cv.Glag2CG(results)
     # members = nx.strongly_connected_components(gk.graph2nx(g_estimated))
     if args.SCCMEMBERS:
@@ -181,64 +98,6 @@ def RASL(args, network_GT):
                         bdm=[BD],
                         scc=True,
                         scc_members=members,
-                        GT_density=int(1000 * gk.density(network_GT)),
-                        edge_weights=args.PRIORITY, pnum=PNUM, optim='optN', selfloop=True)
-
-    print('number of optimal solutions is', len(r_estimated))
-    max_f1_score = 0
-    for answer in r_estimated:
-        res_rasl = bfutils.num2CG(answer[0][0], len(network_GT))
-        rasl_sol = mf.precision_recall_all_cycle(res_rasl, network_GT, include_selfloop=include_selfloop)
-
-        curr_f1 = ((rasl_sol['orientation']['F1']))
-        # curr_f1 = (rasl_sol['orientation']['F1']) + (rasl_sol['adjacency']['F1']) + (rasl_sol['cycle']['F1'])
-
-        if curr_f1 > max_f1_score:
-            max_f1_score = curr_f1
-            max_answer = answer
-
-    res_rasl = bfutils.num2CG(max_answer[0][0], len(network_GT))
-    return res_rasl
-
-def mRASL(args, network_GT):
-    BATCH = args.BATCH*6
-    network_GT = zkl.load(os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{BATCH}.zkl'))
-    MAXCOST = 1000
-    N = len(network_GT)
-    base_g = {i: {} for i in range(1, N + 1)}
-    base_DD = np.zeros((N,N)).astype(int)
-    base_BD = np.zeros((N,N)).astype(int)
-    g_est_list = []
-    DD_list = []
-    BD_list = []
-    for i in range(6):
-        path = os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/txtSTD/data{BATCH-i}.txt')
-        data = pd.read_csv(path, delimiter='\t')
-        # dataframe = pp.DataFrame(data.values)
-        # cond_ind_test = ParCorr()
-        # pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
-        # results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.05)
-        # g_estimated, A, B = cv.Glag2CG(results)
-        # bold_out, _ = hrf.compute_bold_signals(data.values)
-        g_estimated, A, B = lm.data2graph(data.values.T, th=0.03)
-        DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
-        BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
-
-        g_est_list.append(g_estimated)
-        DD_list.append(DD)
-        BD_list.append(BD)
-
-        base_g = mf.update_base_graph(base_g, g_estimated)
-        base_DD, base_BD = mf.update_DD_BD(g_estimated, DD, BD, base_DD, base_BD,base_g)
-
-
-    base_DD = np.where(base_DD < 0, 6000 + base_DD, base_DD)
-    base_BD = np.where(base_BD < 0, 6000 + base_BD, base_BD)
-    r_estimated = drasl(g_est_list, weighted=True, capsize=0, timeout=0,
-                        urate=min(args.MAXU, (3 * len(g_estimated) + 1)),
-                        dm=DD_list,
-                        bdm=BD_list,
-                        scc=False,
                         GT_density=int(1000 * gk.density(network_GT)),
                         edge_weights=args.PRIORITY, pnum=PNUM, optim='optN', selfloop=False)
 
@@ -258,6 +117,8 @@ def mRASL(args, network_GT):
     res_rasl = bfutils.num2CG(max_answer[0][0], len(network_GT))
     return res_rasl
 
+
+
 def initialize_metrics():
     return {
         'Precision_O': [], 'Recall_O': [], 'F1_O': [],
@@ -269,10 +130,6 @@ def run_analysis(args,network_GT,include_selfloop):
     metrics = {key: {args.UNDERSAMPLING: initialize_metrics()} for key in [args.METHOD]}
 
     for method in metrics.keys():
-        # loading = f'datasets/{method}/net{args.NET}' \
-        #           f'_undersampled_by_{args.UNDERSAMPLING}_batch{args.BATCH}.*'
-        # if not glob.glob(loading):
-        #     save_dataset(args)
 
         result = globals()[method](args, network_GT)
         print(f"Result from {method}: {result}")
@@ -287,20 +144,20 @@ def run_analysis(args,network_GT,include_selfloop):
 
 
     print(metrics)
-    if not os.path.exists('macaque_results'):
-        os.makedirs('macaque_results')
-    filename = f'macaque_results/macaque_{args.VERSION}_{args.METHOD}_batch_{args.BATCH}.zkl'
+    if not os.path.exists('fbirin_results'):
+        os.makedirs('fbirin_results')
+    filename = f'fbirin_results/fbirin_{args.METHOD}_batch_{args.BATCH}.zkl'
     zkl.save(metrics,filename)
     print('file saved to :' + filename)
-
+    #gt.plotg(res_rasl,names=["rPPC","rFIC","rDPFC","ACC","PCC","VMPFC"],output='see_out.pdf')
 
 
 if __name__ == "__main__":
     error_normalization = True
     CLINGO_LIMIT = 64
     PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
-    POSTFIX = 'Macaque_data'
-    PreFix = 'ruben_sim'
+    POSTFIX = 'fbrirn_data'
+    PreFix = 'RASL_sim'
 
     args = parse_arguments(PNUM)
     args = convert_str_to_bool(args)
@@ -308,8 +165,8 @@ if __name__ == "__main__":
     os.environ['OMP_NUM_THREADS'] = str(omp_num_threads)
     include_selfloop = True
 
+    network_GT = {1: {2: 1, 3: 1, 4: 1, 5: 1, 6: 1}, 2: {1: 1, 3: 1, 4: 1, 5: 1, 6: 1},
+                  3: {1: 1, 2: 1, 4: 1, 5: 1, 6: 1}, 4: {1: 1, 2: 1, 3: 1, 5: 1, 6: 1},
+                  5: {1: 1, 2: 1, 3: 1, 4: 1, 6: 1}, 6: {1: 1, 2: 1, 3: 1, 4: 1, 5: 1}}
 
-    network_GT = macaque_net(args.VERSION)
-    # for i in range(1,61):
-    #     args.BATCH = i
     run_analysis(args,network_GT,include_selfloop)

@@ -320,6 +320,8 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
     # command += f":- M = N, {{u(M, 1..{n}); u(N, 1..{n})}} == 2, u(M, _), u(N, _). "
     if selfloop:
         command += ":- not edge1(X, X), node(X)."
+    else:
+        command += ":-  edge1(X, X), node(X)."
     command += ":- u(L,A), u(T,B), not T=L, A<B. "
     command += ":- not edge1(_, _)."
     command += "#show edge1/2. "
