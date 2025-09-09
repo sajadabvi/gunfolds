@@ -244,6 +244,11 @@ def _bh_fdr(pvals: np.ndarray, alpha: float) -> float:
     hits = np.where(pvals[order] <= thresh)[0]
     return float(pvals[order][hits[-1]]) if hits.size else 0.0
 
+def fixed_circle_positions(names):
+    # names order defines placement. First node at top, then clockwise.
+    N = len(names)
+    angles = np.linspace(-np.pi/2, 3*np.pi/2, N, endpoint=False)
+    return {i: (float(np.cos(a)), float(np.sin(a))) for i, a in enumerate(angles)}
 
 def run_roebroeck_gcm(
     data: np.ndarray,
@@ -351,7 +356,7 @@ def run_roebroeck_gcm(
             for j in range(N):
                 if i != j and Adj[i, j]:
                     G.add_edge(i, j, weight=float(W[i, j]), D=float(Fdiff[i, j]))
-        pos = nx.spring_layout(G, seed=3)
+        pos = fixed_circle_positions(names)
         plt.figure(figsize=(6, 5))
         nx.draw_networkx_nodes(G, pos, node_size=700)
         nx.draw_networkx_labels(G, pos, labels={k: names[k] for k in range(N)}, font_size=9)

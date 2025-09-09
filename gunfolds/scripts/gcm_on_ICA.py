@@ -13,7 +13,7 @@ names      = [label_map[k] for k in comp_idx]
 tr_sec     = 2.0
 n_cycles   = 0
 remove_linear = False
-alpha      = 0.05
+alpha      = 0.01
 pmax       = 8
 n_boot     = 200
 surr_mode  = "block"
@@ -46,7 +46,7 @@ def save_group_plot(edge_weight, node_names, out_png):
         for j in range(N):
             if i != j and edge_weight[i, j] > 0:
                 G.add_edge(i, j, weight=float(W[i, j]), raw=float(edge_weight[i, j]))
-    pos = fixed_circle_positions(names)  # names = ["rPPC","rFIC","rDLPFC","ACC","PCC","VMPFC"]
+    pos = fixed_circle_positions(node_names)  # names = ["rPPC","rFIC","rDLPFC","ACC","PCC","VMPFC"]
     plt.figure(figsize=(6, 5))
     nx.draw_networkx_nodes(G, pos, node_size=700)
     nx.draw_networkx_labels(G, pos, labels={k: node_names[k] for k in range(N)}, font_size=9)
