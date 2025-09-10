@@ -68,8 +68,252 @@ def convert_str_to_bool(args):
     args.PRIORITY = priprities
     return args
 
+# ---- Configuration for component selection and naming ----
+COMP_IDX = [25, 29, 35, 44, 45, 46]  # 0-based indices for rPPC, rFIC, rDPFC, ACC, PCC, VMPFC
+COMP_NAMES = ["rPPC", "rFIC", "rDPFC", "ACC", "PCC", "VMPFC"]
 
+def run_pcmci_to_cg(ts_2d):
+    """
+    ts_2d: ndarray [T, n_nodes] for one subject
+    Returns: (g_estimated, A, B) where g_estimated is CG, A forward lag, B backward lag
+    """
+    dataframe = pp.DataFrame(ts_2d.T)
+    cond_ind_test = ParCorr()
+    pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
+    results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.1)
+    g_estimated, A, B = cv.Glag2CG(results)
+    return g_estimated, A, B
 
+def RASL_subject(ts_2d, args, network_GT, include_selfloop):
+    """
+    Run RASL pipeline for a single subject given its time series.
+    """
+    g_estimated, A, B = run_pcmci_to_cg(ts_2d)
+
+    if args.SCCMEMBERS:
+        members = [s for s in nx.strongly_connected_components(gk.graph2nx(g_estimated))]
+    else:
+        members = [s for s in nx.strongly_connected_components(gk.graph2nx(network_GT))]
+
+    MAXCOST = 10000
+    # Normalize and build distance penalties
+    DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
+    BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
+
+    r_estimated = drasl(
+        [g_estimated],
+        weighted=True,
+        capsize=0,
+        timeout=0,
+        urate=min(args.MAXU, (3 * len(g_estimated) + 1)),
+        dm=[DD],
+        bdm=[BD],
+        scc=True,
+        scc_members=members,
+        GT_density=int(1000 * gk.density(network_GT)),
+        edge_weights=args.PRIORITY,
+        pnum=PNUM,
+        optim='optN',
+        selfloop=False,
+    )
+
+    # Rank all solutions by F1 and keep top 75%
+    kept = select_top_solutions(r_estimated, network_GT, include_selfloop)
+    # Return only the CGs in descending F1 order
+    return [res for _, res in kept]
+
+def select_top_solutions(r_estimated, network_GT, include_selfloop):
+    """
+    Score each candidate CG with F1 (orientation). Drop the worst 25%.
+    Return a list of (f1, res_cg) sorted by descending F1 for the retained set.
+    """
+    scored = []
+    for answer in r_estimated:
+        res = bfutils.num2CG(answer[0][0], len(network_GT))
+        scores = mf.precision_recall_all_cycle(res, network_GT, include_selfloop=include_selfloop)
+        f1 = scores['orientation']['F1']
+        scored.append((f1, res))
+    if not scored:
+        return []
+    scored.sort(key=lambda x: x[0], reverse=True)
+    k = max(1, int(np.ceil(0.75 * len(scored))))
+    return scored[:k]
+
+def cg_to_adj_binary(cg):
+    """Return binary adjacency (NxN) from a CG, ignoring weights."""
+    A = cv.graph2adj(cg)
+    A = (A > 0).astype(int)
+    np.fill_diagonal(A, 0)
+    return A
+
+def plot_group_graph(counts, names, outpath):
+    """
+    Draw a weighted directed group graph with edge widths proportional to counts.
+    counts: NxN integer matrix of edge frequencies (directed)
+    """
+    N = len(names)
+    G = nx.DiGraph()
+    for i in range(N):
+        G.add_node(i, label=names[i])
+    maxcount = int(counts.max()) if counts.size else 0
+    for i in range(N):
+        for j in range(N):
+            c = int(counts[i, j])
+            if c > 0:
+                G.add_edge(i, j, weight=c)
+
+    # Fixed circular layout for consistent positions across runs
+    theta = np.linspace(0, 2 * np.pi, N, endpoint=False)
+    pos = {i: (np.cos(theta[i]), np.sin(theta[i])) for i in range(N)}
+
+    plt.figure(figsize=(6, 6))
+    NODE_SIZE = 900
+    nx.draw_networkx_nodes(G, pos, node_size=NODE_SIZE)
+    nx.draw_networkx_labels(G, pos, labels={i: names[i] for i in range(N)}, font_size=10)
+
+    # Extreme-contrast mapping: exponential on normalized weights
+    weights = [G[u][v]['weight'] for u, v in G.edges()]
+    if weights:
+        w_min, w_max = min(weights), max(weights)
+        if w_min == w_max:
+            widths = [10.0] * len(weights)
+        else:
+            min_thick, max_thick = 0.3, 12.0  # very wide dynamic range
+            k = 5  # larger => more extreme separation
+            denom = np.exp(k) - 1.0
+            widths = []
+            for w in weights:
+                t = (w - w_min) / (w_max - w_min)
+                s = (np.exp(k * t) - 1.0) / denom
+                widths.append(min_thick + (max_thick - min_thick) * s)
+    else:
+        widths = []
+
+    # --- Make arrowheads sharp and ensure they reach the node border ---
+    if widths:
+        max_w = max(widths)
+    else:
+        max_w = 1.0
+    # Arrowsize must dominate shaft width to avoid deformation
+    arrowsize = int(max(22, np.ceil(2.5 * max_w)))
+    # Small positive margins in points: head stops at node border with no gap
+    margin = 2.0
+
+    # Draw directed edges. If both directions exist, draw two arcs with opposite curvature.
+    if widths:
+        # Map each edge to its computed width
+        widths_map = {edge: w for edge, w in zip(G.edges(), widths)}
+        drawn = set()
+        for (u, v) in G.edges():
+            if (u, v) in drawn:
+                continue
+            has_back = G.has_edge(v, u)
+            if has_back:
+                # Opposite curvatures to separate the pair visually
+                w_uv = widths_map.get((u, v), 1.0)
+                w_vu = widths_map.get((v, u), 1.0)
+                nx.draw_networkx_edges(
+                    G,
+                    pos,
+                    edgelist=[(u, v)],
+                    width=w_uv,
+                    arrows=True,
+                    arrowstyle='-|>',
+                    arrowsize=arrowsize,
+                    min_source_margin=margin,
+                    min_target_margin=margin,
+                    connectionstyle='arc3,rad=0.25',
+                )
+                nx.draw_networkx_edges(
+                    G,
+                    pos,
+                    edgelist=[(v, u)],
+                    width=w_vu,
+                    arrows=True,
+                    arrowstyle='-|>',
+                    arrowsize=arrowsize,
+                    min_source_margin=margin,
+                    min_target_margin=margin,
+                    connectionstyle='arc3,rad=0.25',
+                )
+                drawn.add((u, v))
+                drawn.add((v, u))
+            else:
+                # Single directed edge, straight line
+                w_uv = widths_map.get((u, v), 1.0)
+                nx.draw_networkx_edges(
+                    G,
+                    pos,
+                    edgelist=[(u, v)],
+                    width=w_uv,
+                    arrows=True,
+                    arrowstyle='-|>',
+                    arrowsize=arrowsize,
+                    min_source_margin=margin,
+                    min_target_margin=margin,
+                    connectionstyle='arc3,rad=0.0',
+                )
+
+    plt.axis('off')
+    os.makedirs(os.path.dirname(outpath), exist_ok=True)
+    plt.savefig(outpath, bbox_inches='tight')
+    plt.close()
+
+def run_all_subjects(args, network_GT, include_selfloop):
+    """
+    Run RASL for every subject in fbirn_sz_data.npz, save per-subject plots,
+    count edge frequencies, and make a weighted group graph.
+    """
+    npzfile = np.load("./fbirn/fbirn_sz_data.npz")
+    data = npzfile['data']  # [n_subjects, T, F]
+    n_subj = data.shape[0]
+    N = len(COMP_IDX)
+
+    out_dir = "fbirn_results"
+    per_subj_dir = os.path.join(out_dir, "subjects")
+    os.makedirs(per_subj_dir, exist_ok=True)
+
+    counts = np.zeros((N, N), dtype=int)
+
+    for s in range(n_subj):
+        ts_2d = data[s, :, COMP_IDX] # [N, T]
+        res_list = RASL_subject(ts_2d, args, network_GT, include_selfloop)
+
+        # Save plots for all kept solutions and accumulate counts
+        for r_idx, res_rasl in enumerate(res_list, start=1):
+            gt.plotg(
+                res_rasl,
+                names=COMP_NAMES,
+                output=os.path.join(per_subj_dir, f"rasl_subj_{s:04d}_sol_{r_idx:02d}.pdf"),
+            )
+            A = cg_to_adj_binary(res_rasl)
+            counts += A
+
+    # Persist counts
+    np.savez(os.path.join(out_dir, "group_edge_counts.npz"), counts=counts, names=np.array(COMP_NAMES))
+
+    # CSV table for convenience
+    with open(os.path.join(out_dir, "group_edge_counts.csv"), "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["src", "dst", "count"])
+        for i in range(N):
+            for j in range(N):
+                if counts[i, j] > 0:
+                    w.writerow([COMP_NAMES[i], COMP_NAMES[j], int(counts[i, j])])
+
+    # Build a weighted CG dict for gt.plotg (edge values = counts)
+    group_cg = {i + 1: {} for i in range(N)}
+    for i in range(N):
+        for j in range(N):
+            c = int(counts[i, j])
+            if c > 0:
+                group_cg[i + 1][j + 1] = 1  # preserve weights
+
+    # Plot group graph with gt.plotg (may or may not reflect thickness depending on gt)
+    gt.plotg(group_cg, names=COMP_NAMES, output=os.path.join(out_dir, "group_graph_gt.pdf"))
+
+    # Also plot a guaranteed weighted version with thicker edges
+    plot_group_graph(counts, COMP_NAMES, os.path.join(out_dir, "group_graph_weighted.pdf"))
 
 def RASL(args, network_GT):
     npzfile = np.load("./fbirn/fbirn_sz_data.npz")
@@ -101,20 +345,15 @@ def RASL(args, network_GT):
                         GT_density=int(1000 * gk.density(network_GT)),
                         edge_weights=args.PRIORITY, pnum=PNUM, optim='optN', selfloop=False)
 
-    print('number of optimal solutions is', len(r_estimated))
-    max_f1_score = 0
-    for answer in r_estimated:
-        res_rasl = bfutils.num2CG(answer[0][0], len(network_GT))
-        rasl_sol = mf.precision_recall_all_cycle(res_rasl, network_GT, include_selfloop=include_selfloop)
+    kept = select_top_solutions(r_estimated, network_GT, include_selfloop)
+    # Optional: plot all kept solutions for subject 0 when using RASL() directly
+    out_dir = "fbirn_results"
+    os.makedirs(out_dir, exist_ok=True)
+    for r_idx, (_, res_keep) in enumerate(kept, start=1):
+        gt.plotg(res_keep, names=COMP_NAMES, output=os.path.join(out_dir, f"rasl_single_run_sol_{r_idx:02d}.pdf"))
 
-        curr_f1 = ((rasl_sol['orientation']['F1']))
-        # curr_f1 = (rasl_sol['orientation']['F1']) + (rasl_sol['adjacency']['F1']) + (rasl_sol['cycle']['F1'])
-
-        if curr_f1 > max_f1_score:
-            max_f1_score = curr_f1
-            max_answer = answer
-
-    res_rasl = bfutils.num2CG(max_answer[0][0], len(network_GT))
+    # Use the best of the kept set as the return value
+    res_rasl = kept[0][1] if kept else bfutils.num2CG(r_estimated[0][0][0], len(network_GT))
     return res_rasl
 
 
@@ -169,4 +408,4 @@ if __name__ == "__main__":
                   3: {1: 1, 2: 1, 4: 1, 5: 1, 6: 1}, 4: {1: 1, 2: 1, 3: 1, 5: 1, 6: 1},
                   5: {1: 1, 2: 1, 3: 1, 4: 1, 6: 1}, 6: {1: 1, 2: 1, 3: 1, 4: 1, 5: 1}}
 
-    run_analysis(args,network_GT,include_selfloop)
+    run_all_subjects(args, network_GT, include_selfloop)

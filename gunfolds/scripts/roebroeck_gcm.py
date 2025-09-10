@@ -356,13 +356,87 @@ def run_roebroeck_gcm(
             for j in range(N):
                 if i != j and Adj[i, j]:
                     G.add_edge(i, j, weight=float(W[i, j]), D=float(Fdiff[i, j]))
+
         pos = fixed_circle_positions(names)
         plt.figure(figsize=(6, 5))
-        nx.draw_networkx_nodes(G, pos, node_size=700)
+        NODE_SIZE = 700
+        nx.draw_networkx_nodes(G, pos, node_size=NODE_SIZE)
         nx.draw_networkx_labels(G, pos, labels={k: names[k] for k in range(N)}, font_size=9)
-        widths = [1 + 4 * G[u][v]["weight"] for u, v in G.edges()]
-        nx.draw_networkx_edges(G, pos, width=widths, arrows=True, arrowstyle='-|>', arrowsize=12)
-        plt.title("Roebroeck GCM: edges by p_diff")
+
+        # Map edge weights (0..1) to visually separated widths
+        weights = [G[u][v]['weight'] for u, v in G.edges()]
+        if weights:
+            w_min, w_max = min(weights), max(weights)
+            if w_min == w_max:
+                widths = [10.0] * len(weights)
+            else:
+                min_thick, max_thick = 0.6, 16.0
+                k = 8.0  # larger -> more separation of larger weights
+                denom = np.exp(k) - 1.0
+                widths = []
+                for w in weights:
+                    t = (w - w_min) / (w_max - w_min)
+                    s = (np.exp(k * t) - 1.0) / denom
+                    widths.append(min_thick + (max_thick - min_thick) * s)
+        else:
+            widths = []
+
+        # Ensure arrowheads are sharp and reach node borders
+        max_w = max(widths) if widths else 1.0
+        arrowsize = int(max(18, np.ceil(2.5 * max_w)))
+        margin = 2.0  # points
+
+        # Draw edges: single-headed; if both directions exist, curve both with same rad
+        widths_map = {edge: w for edge, w in zip(G.edges(), widths)}
+        drawn = set()
+        for (u, v) in G.edges():
+            if (u, v) in drawn:
+                continue
+            has_back = G.has_edge(v, u)
+            if has_back:
+                w_uv = widths_map.get((u, v), 1.0)
+                w_vu = widths_map.get((v, u), 1.0)
+                nx.draw_networkx_edges(
+                    G,
+                    pos,
+                    edgelist=[(u, v)],
+                    width=w_uv,
+                    arrows=True,
+                    arrowstyle='-|>',
+                    arrowsize=arrowsize,
+                    min_source_margin=margin,
+                    min_target_margin=margin,
+                    connectionstyle='arc3,rad=0.25',
+                )
+                nx.draw_networkx_edges(
+                    G,
+                    pos,
+                    edgelist=[(v, u)],
+                    width=w_vu,
+                    arrows=True,
+                    arrowstyle='-|>',
+                    arrowsize=arrowsize,
+                    min_source_margin=margin,
+                    min_target_margin=margin,
+                    connectionstyle='arc3,rad=0.25',
+                )
+                drawn.add((u, v)); drawn.add((v, u))
+            else:
+                w_uv = widths_map.get((u, v), 1.0)
+                nx.draw_networkx_edges(
+                    G,
+                    pos,
+                    edgelist=[(u, v)],
+                    width=w_uv,
+                    arrows=True,
+                    arrowstyle='-|>',
+                    arrowsize=arrowsize,
+                    min_source_margin=margin,
+                    min_target_margin=margin,
+                    connectionstyle='arc3,rad=0.0',
+                )
+
+        plt.title("Roebroeck GCM: directed edges by p_diff")
         plt.axis('off')
         fig_path = os.path.join(fig_dir, f"gcm_{tag}.png")
         plt.tight_layout(); plt.savefig(fig_path, dpi=150); plt.close()
