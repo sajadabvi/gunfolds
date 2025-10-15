@@ -43,8 +43,8 @@ def parse_arguments(PNUM):
     parser.add_argument("-p", "--PNUM", default=PNUM, help="number of CPUs in machine.", type=int)
     parser.add_argument("-r", "--SNR", default=1, help="Signal to noise ratio", type=int)
     parser.add_argument("-z", "--NOISE", default=10, help="noise str multiplied by 100", type=int)
-    parser.add_argument("-s", "--SCC", default="t", help="true to use SCC structure, false to not", type=str)
-    parser.add_argument("-m", "--SCCMEMBERS", default="t",
+    parser.add_argument("-s", "--SCC", default="f", help="true to use SCC structure, false to not", type=str)
+    parser.add_argument("-m", "--SCCMEMBERS", default="f",
                         help="true for using g_estimate SCC members, false for using "
                              "GT SCC members", type=str)
     parser.add_argument("-u", "--UNDERSAMPLING", default=75, help="sampling rate in generated data", type=int)
@@ -259,61 +259,123 @@ def plot_group_graph(counts, names, outpath):
     plt.savefig(outpath, bbox_inches='tight')
     plt.close()
 
+def get_labels(npz):
+    # Support both 'labels' and 'label' keys
+    if 'labels' in npz.files:
+        return npz['labels']
+    if 'label' in npz.files:
+        return npz['label']
+    raise KeyError("Labels not found in NPZ. Expected key 'labels' or 'label'.")
+
 def run_all_subjects(args, network_GT, include_selfloop):
     """
-    Run RASL for every subject in fbirn_sz_data.npz, save per-subject plots,
-    count edge frequencies, and make a weighted group graph.
+    Run RASL for every subject in fbirn_sz_data.npz. Save per-subject plots and group graphs
+    separately for each label group, and also keep a combined set as before.
+    Directory layout:
+      fbirn_results/
+        combined/ ... (original behavior)
+        group_<LABEL>/
+          subjects/*.pdf
+          group_edge_counts_{LABEL}.npz
+          group_edge_counts_{LABEL}.csv
+          group_graph_gt_{LABEL}.pdf
+          group_graph_weighted_{LABEL}.pdf
     """
     npzfile = np.load("./fbirn/fbirn_sz_data.npz")
     data = npzfile['data']  # [n_subjects, T, F]
+    labels = get_labels(npzfile)  # shape [n_subjects]
+
     n_subj = data.shape[0]
     N = len(COMP_IDX)
 
-    out_dir = "fbirn_results"
-    per_subj_dir = os.path.join(out_dir, "subjects")
-    os.makedirs(per_subj_dir, exist_ok=True)
+    # --- Prepare output roots ---
+    root_dir = "fbirn_results"
+    combined_dir = os.path.join(root_dir, "combined")
+    os.makedirs(combined_dir, exist_ok=True)
 
-    counts = np.zeros((N, N), dtype=int)
+    # --- Set up containers for combined outputs ---
+    combined_counts = np.zeros((N, N), dtype=int)
 
-    for s in range(n_subj):
-        ts_2d = data[s, :, COMP_IDX] # [N, T]
-        res_list = RASL_subject(ts_2d, args, network_GT, include_selfloop)
+    # --- Identify unique label groups ---
+    unique_labels = list(pd.unique(labels))
 
-        # Save plots for all kept solutions and accumulate counts
-        for r_idx, res_rasl in enumerate(res_list, start=1):
-            gt.plotg(
-                res_rasl,
-                names=COMP_NAMES,
-                output=os.path.join(per_subj_dir, f"rasl_subj_{s:04d}_sol_{r_idx:02d}.pdf"),
-            )
-            A = cg_to_adj_binary(res_rasl)
-            counts += A
+    # For each label, process subjects and generate artifacts
+    for grp in unique_labels:
+        grp_mask = (labels == grp)
+        subj_indices = np.where(grp_mask)[0]
+        if subj_indices.size == 0:
+            continue
 
-    # Persist counts
-    np.savez(os.path.join(out_dir, "group_edge_counts.npz"), counts=counts, names=np.array(COMP_NAMES))
+        # Per-group output dirs
+        out_dir = os.path.join(root_dir, f"group_{grp}")
+        per_subj_dir = os.path.join(out_dir, "subjects")
+        os.makedirs(per_subj_dir, exist_ok=True)
 
-    # CSV table for convenience
-    with open(os.path.join(out_dir, "group_edge_counts.csv"), "w", newline="") as f:
+        counts = np.zeros((N, N), dtype=int)
+
+        for s in subj_indices:
+            ts_2d = data[s, :, COMP_IDX]  # [T, N]
+            res_list = RASL_subject(ts_2d, args, network_GT, include_selfloop)
+
+            # Save plots for all kept solutions and accumulate counts
+            for r_idx, res_rasl in enumerate(res_list, start=1):
+                gt.plotg(
+                    res_rasl,
+                    names=COMP_NAMES,
+                    output=os.path.join(per_subj_dir, f"rasl_subj_{s:04d}_sol_{r_idx:02d}_grp_{grp}.pdf"),
+                )
+                A = cg_to_adj_binary(res_rasl)
+                counts += A
+                combined_counts += A
+
+        # Persist per-group counts
+        np.savez(os.path.join(out_dir, f"group_edge_counts_{grp}.npz"), counts=counts, names=np.array(COMP_NAMES))
+
+        # CSV table for the group
+        with open(os.path.join(out_dir, f"group_edge_counts_{grp}.csv"), "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["src", "dst", "count"])
+            for i in range(N):
+                for j in range(N):
+                    if counts[i, j] > 0:
+                        w.writerow([COMP_NAMES[i], COMP_NAMES[j], int(counts[i, j])])
+
+        # Build a weighted CG dict for gt.plotg (edge values = 1 to indicate presence; weights are visualized via the weighted plot)
+        group_cg = {i + 1: {} for i in range(N)}
+        for i in range(N):
+            for j in range(N):
+                c = int(counts[i, j])
+                if c > 0:
+                    group_cg[i + 1][j + 1] = 1
+
+        # Plot with gt.plotg
+        gt.plotg(group_cg, names=COMP_NAMES, output=os.path.join(out_dir, f"group_graph_gt_{grp}.pdf"))
+        # Also plot a guaranteed weighted version
+        plot_group_graph(counts, COMP_NAMES, os.path.join(out_dir, f"group_graph_weighted_{grp}.pdf"))
+
+    # --- Preserve original combined outputs for compatibility ---
+    # Persist combined counts
+    np.savez(os.path.join(combined_dir, "group_edge_counts_combined.npz"), counts=combined_counts, names=np.array(COMP_NAMES))
+
+    # CSV table for combined
+    with open(os.path.join(combined_dir, "group_edge_counts_combined.csv"), "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["src", "dst", "count"])
         for i in range(N):
             for j in range(N):
-                if counts[i, j] > 0:
-                    w.writerow([COMP_NAMES[i], COMP_NAMES[j], int(counts[i, j])])
+                if combined_counts[i, j] > 0:
+                    w.writerow([COMP_NAMES[i], COMP_NAMES[j], int(combined_counts[i, j])])
 
-    # Build a weighted CG dict for gt.plotg (edge values = counts)
+    # Build combined graph for gt.plotg
     group_cg = {i + 1: {} for i in range(N)}
     for i in range(N):
         for j in range(N):
-            c = int(counts[i, j])
+            c = int(combined_counts[i, j])
             if c > 0:
-                group_cg[i + 1][j + 1] = 1  # preserve weights
+                group_cg[i + 1][j + 1] = 1
 
-    # Plot group graph with gt.plotg (may or may not reflect thickness depending on gt)
-    gt.plotg(group_cg, names=COMP_NAMES, output=os.path.join(out_dir, "group_graph_gt.pdf"))
-
-    # Also plot a guaranteed weighted version with thicker edges
-    plot_group_graph(counts, COMP_NAMES, os.path.join(out_dir, "group_graph_weighted.pdf"))
+    gt.plotg(group_cg, names=COMP_NAMES, output=os.path.join(combined_dir, "group_graph_gt_combined.pdf"))
+    plot_group_graph(combined_counts, COMP_NAMES, os.path.join(combined_dir, "group_graph_weighted_combined.pdf"))
 
 def RASL(args, network_GT):
     npzfile = np.load("./fbirn/fbirn_sz_data.npz")
