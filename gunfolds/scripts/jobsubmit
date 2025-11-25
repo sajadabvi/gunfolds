@@ -2,7 +2,7 @@
 #SBATCH -N 1
 #SBATCH -n 1
 #SBATCH -c 1
-#SBATCH --mem=10m
+#SBATCH --mem=100m
 #SBATCH -p qTRDGPU
 #SBATCH -t 5
 #SBATCH -J data
@@ -20,7 +20,7 @@ LOG_DIR="./logs"
 # Job-specific parameters
 b=$(( ($SLURM_ARRAY_TASK_ID - 1) % 60 + 1 ))
 n=$(( (($SLURM_ARRAY_TASK_ID - 1) / 60) + 1 ))
-p=15
+p=1
 o=RASL
 
 # Combine parameters into a single variable
