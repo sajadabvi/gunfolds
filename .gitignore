@@ -89,6 +89,18 @@ gunfolds/scripts/VAR_ruben/
 gunfolds/scripts/bold/
 gunfolds/scripts/datasets/test/
 pic/
+env.yml
+gunfolds/scripts/Python-3.10.0/
+gunfolds/scripts/err/
+gunfolds/scripts/fbirn_loader.py
+gunfolds/scripts/fbirn_sz_data.npz
+gunfolds/scripts/jobsubmitss
+gunfolds/scripts/mpich-3.3.2/
+gunfolds/scripts/new_jobsubmit
+gunfolds/scripts/old_err/
+gunfolds/scripts/old_out/
+gunfolds/scripts/out/
+gunfolds/scripts/save_sz_data.py
 
 # Generated files
 *.tex.tex
