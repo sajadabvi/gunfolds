@@ -69,7 +69,7 @@ def convert_str_to_bool(args):
     return args
 
 # ---- Configuration for component selection and naming ----
-COMP_IDX = [25, 29, 35, 44, 45, 46]  # 0-based indices for rPPC, rFIC, rDPFC, ACC, PCC, VMPFC
+COMP_IDX = [25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41]  # 0-based indices for rPPC, rFIC, rDPFC, ACC, PCC, VMPFC
 COMP_NAMES = ["rPPC", "rFIC", "rDPFC", "ACC", "PCC", "VMPFC"]
 
 def run_pcmci_to_cg(ts_2d):
