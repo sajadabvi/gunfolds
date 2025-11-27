@@ -2,6 +2,8 @@
 Script to analyze and visualize hyperparameter tuning results
 """
 import pandas as pd
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend to avoid hanging
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -51,7 +53,7 @@ def plot_f1_comparison(df, output_folder):
     plt.tight_layout()
     if output_folder:
         plt.savefig(f'{output_folder}/f1_comparison.png', dpi=300, bbox_inches='tight')
-    plt.show()
+    # plt.show()  # Commented - using Agg backend, plots saved to files
     plt.close()
 
 def plot_combined_f1(df, output_folder):
@@ -79,7 +81,7 @@ def plot_combined_f1(df, output_folder):
     plt.tight_layout()
     if output_folder:
         plt.savefig(f'{output_folder}/combined_f1.png', dpi=300, bbox_inches='tight')
-    plt.show()
+    # plt.show()  # Commented - using Agg backend, plots saved to files
     plt.close()
 
 def plot_priority_heatmap(df, output_folder):
@@ -117,7 +119,7 @@ def plot_priority_heatmap(df, output_folder):
     plt.tight_layout()
     if output_folder:
         plt.savefig(f'{output_folder}/priority_heatmap.png', dpi=300, bbox_inches='tight')
-    plt.show()
+    # plt.show()  # Commented - using Agg backend, plots saved to files
     plt.close()
 
 def plot_precision_recall(df, output_folder):
@@ -151,7 +153,7 @@ def plot_precision_recall(df, output_folder):
     plt.tight_layout()
     if output_folder:
         plt.savefig(f'{output_folder}/precision_recall.png', dpi=300, bbox_inches='tight')
-    plt.show()
+    # plt.show()  # Commented - using Agg backend, plots saved to files
     plt.close()
 
 def generate_summary_table(df, output_folder):

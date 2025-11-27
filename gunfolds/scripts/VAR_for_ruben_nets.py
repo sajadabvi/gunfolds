@@ -51,7 +51,7 @@ def parse_arguments(PNUM):
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
     parser.add_argument("-y", "--PRIORITY", default="42531", help="string of priorities", type=str)
-    parser.add_argument("-o", "--METHOD", default="PC", help="method to run", type=str)
+    parser.add_argument("-o", "--METHOD", default="RASL", help="method to run", type=str)
     return parser.parse_args()
 
 def convert_str_to_bool(args):
@@ -336,19 +336,19 @@ if __name__ == "__main__":
     args = convert_str_to_bool(args)
     omp_num_threads = args.PNUM
     os.environ['OMP_NUM_THREADS'] = str(omp_num_threads)
-    # network_GT = simp_nets(args.NET, selfloop=True)
+    network_GT = simp_nets(args.NET, selfloop=True)
     include_selfloop = True
     pattern = f'datasets/VAR_sim_ruben_simple_net{args.NET}_undersampled_by_{args.UNDERSAMPLING}.zkl'
 
     # if not glob.glob(pattern):
     #     save_dataset(args)
-    for i in range(1,10):
-        for j in range(2,4):
-            print(f'net {i}, u {j}')
-            for k in range(1,61):
-                args.NET = i
-                args.UNDERSAMPLING = j
-                args.BATCH = k
-                convert_to_txt(args)
-                network_GT = simp_nets(args.NET, selfloop=True)
-                run_analysis(args,network_GT,include_selfloop)
+    # for i in range(1,10):
+    #     for j in range(2,4):
+    #         print(f'net {i}, u {j}')
+    #         for k in range(1,61):
+    args.NET = 3
+    args.UNDERSAMPLING = 3
+    args.BATCH = args.BATCH
+    convert_to_txt(args)
+    network_GT = simp_nets(args.NET, selfloop=True)
+    run_analysis(args,network_GT,include_selfloop)

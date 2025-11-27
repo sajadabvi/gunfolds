@@ -2,12 +2,13 @@
 import os, numpy as np, pandas as pd, argparse, glob
 import networkx as nx
 import matplotlib.pyplot as plt
+from datetime import datetime
 from roebroeck_gcm import run_roebroeck_gcm
 
 # ---------- config ----------
 npz_path   = "./fbirn/fbirn_sz_data.npz"
-comp_idx   = [25, 29, 35, 44, 45, 46]       # ICA indices
-label_map  = {25:"rPPC", 29:"rFIC", 35:"rDLPFC", 44:"ACC", 45:"PCC", 46:"VMPFC"}
+comp_idx   = [25, 26, 35, 44, 45, 46]       # ICA indices
+label_map  = {25:"rPPC", 26:"rFIC", 35:"rDLPFC", 44:"ACC", 45:"PCC", 46:"VMPFC"}
 names      = [label_map[k] for k in comp_idx]
 
 tr_sec     = 2.0
@@ -19,17 +20,31 @@ n_boot     = 200
 surr_mode  = "block"
 block_len  = 16
 seed       = 0
-out_base   = "./gcm_roebroeck"              # figures -> ./gcm_roebroeck/figures ; CSVs -> ./gcm_roebroeck/csv
+out_base_root = "./gcm_roebroeck"           # Base directory for all results
 
 # ---------- args ----------
 parser = argparse.ArgumentParser(description="Run Roebroeck GCM per-subject and/or aggregate saved CSVs.")
-parser.add_argument('-S', '--subject', type=int, default=1, help='Subject index to run only this subject')
+parser.add_argument('-S', '--subject', type=int, default=None, help='Subject index to run only this subject (default: all subjects)')
 parser.add_argument('-A', '--alpha', type=int, default=50, help='Alpha x1000 (e.g., 50 -> 0.05)')
 parser.add_argument('--aggregate-csvs', type=str, default=None, help='Directory containing per-subject *Adj_labeled.csv to aggregate')
+parser.add_argument('-t', '--timestamp', type=str, default=None, help='Use existing timestamp directory (for aggregation or single subject runs)')
+parser.add_argument('--no-timestamp', action='store_true', help='Do not use timestamped directories (saves directly to gcm_roebroeck/)')
 args = parser.parse_args()
 
 if args.alpha is not None:
     alpha = args.alpha / 1000.0
+
+# Create timestamped output directory unless disabled
+if args.no_timestamp:
+    out_base = out_base_root
+else:
+    if args.timestamp:
+        timestamp = args.timestamp
+    else:
+        timestamp = datetime.now().strftime('%m%d%Y%H%M%S')
+    out_base = os.path.join(out_base_root, timestamp)
+    print(f"Saving results to: {out_base}")
+    print(f"Timestamp: {timestamp}")
 
 # ---------- io helpers ----------
 
@@ -40,8 +55,12 @@ def fixed_circle_positions(names):
     angles = np.linspace(-np.pi/2, 3*np.pi/2, N, endpoint=False)
     return {i: (float(np.cos(a)), float(np.sin(a))) for i, a in enumerate(angles)}
 def ensure_dirs(base):
+    """
+    Create output directories. Thread-safe for parallel execution.
+    """
     fig_dir = os.path.join(base, "figures")
     csv_dir = os.path.join(base, "csv")
+    # exist_ok=True makes this safe for parallel jobs
     os.makedirs(fig_dir, exist_ok=True)
     os.makedirs(csv_dir, exist_ok=True)
     return fig_dir, csv_dir
@@ -224,7 +243,10 @@ for s in subject_iter:
     print(f"Subject {s}: fig -> {res['fig_path']}")
 
 # ---------- group summaries ----------
+# Note: Group aggregation should be done after all subjects complete
+# Use analyze_gcm_results.py or aggregate-csvs option for final aggregation
 if args.subject is None:
+    # Running all subjects in this process
     edge_rate = edge_hits / S
     Fdiff_mean = Fdiff_sum / S
 
@@ -238,5 +260,17 @@ if args.subject is None:
     save_group_plot(edge_rate, names, grp_png)
     print('Group plot ->', grp_png)
     print('Group CSVs ->', grp_prefix + '_edge_{hits,rate}.csv, _Fdiff_mean.csv')
+    
+    # Save run parameters for future reference
+    params_file = os.path.join(out_base, "run_params.csv")
+    params_df = pd.DataFrame({
+        'parameter': ['n_subjects', 'components', 'tr_sec', 'n_cycles', 'remove_linear', 
+                      'alpha', 'pmax', 'n_boot', 'surr_mode', 'block_len', 'seed'],
+        'value': [S, ','.join(map(str, comp_idx)), tr_sec, n_cycles, remove_linear,
+                  alpha, pmax, n_boot, surr_mode, block_len, seed]
+    })
+    params_df.to_csv(params_file, index=False)
+    print(f"Run parameters saved to: {params_file}")
 else:
     print(f"Completed subject {subject_iter[0]} only. CSVs and figure saved above.")
+    print(f"Note: For parallel runs, use analyze_gcm_results.py to aggregate all subjects.")

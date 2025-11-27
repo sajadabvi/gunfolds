@@ -55,6 +55,16 @@ def parse_arguments(PNUM):
     parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
     parser.add_argument("-o", "--METHOD", default="RASL", help="method to run", type=str)
     parser.add_argument("-v", "--VERSION", default="SmallDegree", help="version of macaque data", type=str)
+    
+    # Solution selection parameters
+    parser.add_argument("--selection_mode", default="top_k", 
+                        choices=['top_k', 'delta_threshold'],
+                        help="Solution selection mode: 'top_k' (select top k by cost) or 'delta_threshold' (select all within delta * min_cost)")
+    parser.add_argument("--top_k", default=10, type=int,
+                        help="Number of top solutions to select (for 'top_k' mode)")
+    parser.add_argument("--delta_multiplier", default=1.9, type=float,
+                        help="Delta multiplier for threshold selection (for 'delta_threshold' mode). E.g., 1.9 means select solutions with cost <= 1.9 * min_cost")
+    
     return parser.parse_args()
 
 def convert_str_to_bool(args):
@@ -69,8 +79,8 @@ def convert_str_to_bool(args):
     return args
 
 # ---- Configuration for component selection and naming ----
-COMP_IDX = [25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41]  # 0-based indices for rPPC, rFIC, rDPFC, ACC, PCC, VMPFC
-COMP_NAMES = ["rPPC", "rFIC", "rDPFC", "ACC", "PCC", "VMPFC"]
+COMP_IDX = [25,26,35,44,45,46]  # 0-based indices for rPPC, rFIC, rDLPFC, ACC, PCC, VMPFC
+COMP_NAMES = ["rPPC", "rFIC", "rDLPFC", "ACC", "PCC", "VMPFC"]
 
 def run_pcmci_to_cg(ts_2d):
     """
@@ -84,9 +94,21 @@ def run_pcmci_to_cg(ts_2d):
     g_estimated, A, B = cv.Glag2CG(results)
     return g_estimated, A, B
 
-def RASL_subject(ts_2d, args, network_GT, include_selfloop):
+def RASL_subject(ts_2d, args, network_GT, include_selfloop, selection_mode='top_k', top_k=10, delta_multiplier=1.9):
     """
     Run RASL pipeline for a single subject given its time series.
+    
+    Args:
+        ts_2d: Time series data [T, n_nodes]
+        args: Arguments object
+        network_GT: Ground truth network (used only for GT_density and SCC members if needed)
+        include_selfloop: Whether to include self-loops
+        selection_mode: 'top_k' or 'delta_threshold'
+        top_k: Number of top solutions to keep (for 'top_k' mode)
+        delta_multiplier: Delta multiplier (for 'delta_threshold' mode)
+    
+    Returns:
+        Tuple: (list of selected CGs, list of full solution info with costs)
     """
     g_estimated, A, B = run_pcmci_to_cg(ts_2d)
 
@@ -117,27 +139,67 @@ def RASL_subject(ts_2d, args, network_GT, include_selfloop):
         selfloop=False,
     )
 
-    # Rank all solutions by F1 and keep top 75%
-    kept = select_top_solutions(r_estimated, network_GT, include_selfloop)
-    # Return only the CGs in descending F1 order
-    return [res for _, res in kept]
+    # Select solutions based on cost (no ground truth scoring)
+    n_nodes = len(g_estimated)
+    kept = select_top_solutions(
+        r_estimated, 
+        n_nodes, 
+        selection_mode=selection_mode,
+        k=top_k,
+        delta_multiplier=delta_multiplier
+    )
+    
+    # Return both the CGs and the full info (with costs) for analysis
+    res_cgs = [res for _, res, _ in kept]
+    return res_cgs, kept
 
-def select_top_solutions(r_estimated, network_GT, include_selfloop):
+def select_top_solutions(r_estimated, n_nodes, selection_mode='top_k', k=10, delta_multiplier=1.9):
     """
-    Score each candidate CG with F1 (orientation). Drop the worst 25%.
-    Return a list of (f1, res_cg) sorted by descending F1 for the retained set.
+    Select solutions based on cost (no ground truth needed).
+    
+    Args:
+        r_estimated: Set of solutions from RASL/DRASL
+        n_nodes: Number of nodes in the graph
+        selection_mode: Either 'top_k' or 'delta_threshold'
+            - 'top_k': Select top k solutions by lowest cost
+            - 'delta_threshold': Select all solutions where cost <= min_cost * delta_multiplier
+        k: Number of top solutions to select (for 'top_k' mode)
+        delta_multiplier: Multiplier for delta threshold (for 'delta_threshold' mode)
+    
+    Returns:
+        List of tuples: [(cost, res_cg, undersampling), ...] sorted by ascending cost
     """
-    scored = []
-    for answer in r_estimated:
-        res = bfutils.num2CG(answer[0][0], len(network_GT))
-        scores = mf.precision_recall_all_cycle(res, network_GT, include_selfloop=include_selfloop)
-        f1 = scores['orientation']['F1']
-        scored.append((f1, res))
-    if not scored:
+    if not r_estimated:
         return []
-    scored.sort(key=lambda x: x[0], reverse=True)
-    k = max(1, int(np.ceil(0.75 * len(scored))))
-    return scored[:k]
+    
+    # Extract solutions with their costs and undersampling
+    # r_estimated is a set of tuples: ((graph_number, (undersampling,)), cost)
+    solutions_with_costs = []
+    for answer in r_estimated:
+        graph_num = answer[0][0]  # Graph number
+        undersampling = answer[0][1]  # Undersampling tuple
+        cost = answer[1]  # Cost
+        res_cg = bfutils.num2CG(graph_num, n_nodes)
+        solutions_with_costs.append((cost, res_cg, undersampling))
+    
+    # Sort by cost (ascending - lower cost is better)
+    solutions_with_costs.sort(key=lambda x: x[0])
+    
+    if selection_mode == 'top_k':
+        # Select top k solutions by lowest cost
+        selected = solutions_with_costs[:min(k, len(solutions_with_costs))]
+    elif selection_mode == 'delta_threshold':
+        # Select all solutions within delta threshold
+        min_cost = solutions_with_costs[0][0]
+        threshold = min_cost * delta_multiplier
+        selected = [s for s in solutions_with_costs if s[0] <= threshold]
+        if not selected:
+            # Fallback: at least include the best solution
+            selected = [solutions_with_costs[0]]
+    else:
+        raise ValueError(f"Unknown selection_mode: {selection_mode}. Use 'top_k' or 'delta_threshold'.")
+    
+    return selected
 
 def cg_to_adj_binary(cg):
     """Return binary adjacency (NxN) from a CG, ignoring weights."""
@@ -267,15 +329,25 @@ def get_labels(npz):
         return npz['label']
     raise KeyError("Labels not found in NPZ. Expected key 'labels' or 'label'.")
 
-def run_all_subjects(args, network_GT, include_selfloop):
+def run_all_subjects(args, network_GT, include_selfloop, selection_mode='top_k', top_k=10, delta_multiplier=1.9):
     """
     Run RASL for every subject in fbirn_sz_data.npz. Save per-subject plots and group graphs
     separately for each label group, and also keep a combined set as before.
+    
+    Args:
+        args: Arguments object
+        network_GT: Ground truth network
+        include_selfloop: Whether to include self-loops
+        selection_mode: 'top_k' or 'delta_threshold'
+        top_k: Number of top solutions to keep (for 'top_k' mode)
+        delta_multiplier: Delta multiplier (for 'delta_threshold' mode)
+    
     Directory layout:
       fbirn_results/
         combined/ ... (original behavior)
         group_<LABEL>/
           subjects/*.pdf
+          solutions/ ... (saved solution data)
           group_edge_counts_{LABEL}.npz
           group_edge_counts_{LABEL}.csv
           group_graph_gt_{LABEL}.pdf
@@ -288,13 +360,20 @@ def run_all_subjects(args, network_GT, include_selfloop):
     n_subj = data.shape[0]
     N = len(COMP_IDX)
 
-    # --- Prepare output roots ---
-    root_dir = "fbirn_results"
+    # --- Prepare output roots with timestamp ---
+    timestamp = datetime.now().strftime('%m%d%Y%H%M%S')
+    root_dir = os.path.join("fbirn_results", timestamp)
     combined_dir = os.path.join(root_dir, "combined")
     os.makedirs(combined_dir, exist_ok=True)
+    
+    print(f"Saving results to: {root_dir}")
+    print(f"Timestamp: {timestamp}")
 
     # --- Set up containers for combined outputs ---
     combined_counts = np.zeros((N, N), dtype=int)
+    
+    # Storage for all solution info (for analysis)
+    all_solutions_info = []
 
     # --- Identify unique label groups ---
     unique_labels = list(pd.unique(labels))
@@ -309,16 +388,34 @@ def run_all_subjects(args, network_GT, include_selfloop):
         # Per-group output dirs
         out_dir = os.path.join(root_dir, f"group_{grp}")
         per_subj_dir = os.path.join(out_dir, "subjects")
+        solutions_dir = os.path.join(out_dir, "solutions")
         os.makedirs(per_subj_dir, exist_ok=True)
+        os.makedirs(solutions_dir, exist_ok=True)
 
         counts = np.zeros((N, N), dtype=int)
+        group_solutions_info = []
 
         for s in subj_indices:
             ts_2d = data[s, :, COMP_IDX]  # [T, N]
-            res_list = RASL_subject(ts_2d, args, network_GT, include_selfloop)
+            res_list, solution_info = RASL_subject(
+                ts_2d, args, network_GT, include_selfloop,
+                selection_mode=selection_mode,
+                top_k=top_k,
+                delta_multiplier=delta_multiplier
+            )
 
+            # Store solution info for this subject
+            subject_info = {
+                'subject_id': int(s),
+                'group': grp,
+                'num_solutions': len(solution_info),
+                'solutions': []
+            }
+            
             # Save plots for all kept solutions and accumulate counts
-            for r_idx, res_rasl in enumerate(res_list, start=1):
+            for r_idx, (res_rasl, sol_detail) in enumerate(zip(res_list, solution_info), start=1):
+                cost, res_cg, undersampling = sol_detail
+                
                 gt.plotg(
                     res_rasl,
                     names=COMP_NAMES,
@@ -327,6 +424,22 @@ def run_all_subjects(args, network_GT, include_selfloop):
                 A = cg_to_adj_binary(res_rasl)
                 counts += A
                 combined_counts += A
+                
+                # Save solution details
+                subject_info['solutions'].append({
+                    'solution_idx': r_idx,
+                    'cost': float(cost),
+                    'undersampling': undersampling,
+                    'graph': res_cg
+                })
+            
+            group_solutions_info.append(subject_info)
+            all_solutions_info.append(subject_info)
+        
+        # Save solutions info for this group
+        solutions_file = os.path.join(solutions_dir, f"solutions_info_{grp}.zkl")
+        zkl.save(group_solutions_info, solutions_file)
+        print(f"Saved solutions info for group {grp} to: {solutions_file}")
 
         # Persist per-group counts
         np.savez(os.path.join(out_dir, f"group_edge_counts_{grp}.npz"), counts=counts, names=np.array(COMP_NAMES))
@@ -354,6 +467,22 @@ def run_all_subjects(args, network_GT, include_selfloop):
         plot_group_graph(counts, COMP_NAMES, os.path.join(out_dir, f"group_graph_weighted_{grp}.pdf"))
 
     # --- Preserve original combined outputs for compatibility ---
+    # Save all solutions info (combined)
+    combined_solutions_file = os.path.join(combined_dir, "all_solutions_info.zkl")
+    zkl.save(all_solutions_info, combined_solutions_file)
+    print(f"Saved all solutions info to: {combined_solutions_file}")
+    
+    # Also save selection parameters used
+    selection_params = {
+        'selection_mode': selection_mode,
+        'top_k': top_k if selection_mode == 'top_k' else None,
+        'delta_multiplier': delta_multiplier if selection_mode == 'delta_threshold' else None,
+        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    params_file = os.path.join(combined_dir, "selection_params.zkl")
+    zkl.save(selection_params, params_file)
+    print(f"Saved selection parameters to: {params_file}")
+    
     # Persist combined counts
     np.savez(os.path.join(combined_dir, "group_edge_counts_combined.npz"), counts=combined_counts, names=np.array(COMP_NAMES))
 
@@ -377,48 +506,6 @@ def run_all_subjects(args, network_GT, include_selfloop):
     gt.plotg(group_cg, names=COMP_NAMES, output=os.path.join(combined_dir, "group_graph_gt_combined.pdf"))
     plot_group_graph(combined_counts, COMP_NAMES, os.path.join(combined_dir, "group_graph_weighted_combined.pdf"))
 
-def RASL(args, network_GT):
-    npzfile = np.load("./fbirn/fbirn_sz_data.npz")
-
-    data = npzfile['data']
-    labels = npzfile['labels']
-
-    dataframe = pp.DataFrame(npzfile['data'][0,:,[25,29,35,44,45,46]].T)
-    cond_ind_test = ParCorr()
-    pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
-    results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.1)
-    g_estimated, A, B = cv.Glag2CG(results)
-    # members = nx.strongly_connected_components(gk.graph2nx(g_estimated))
-    if args.SCCMEMBERS:
-        members = [s for s in nx.strongly_connected_components(gk.graph2nx(g_estimated))]
-    else:
-        members = [s for s in nx.strongly_connected_components(gk.graph2nx(network_GT))]
-
-    MAXCOST = 10000
-    DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
-    BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
-
-    r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=0,
-                        urate=min(args.MAXU, (3 * len(g_estimated) + 1)),
-                        dm=[DD],
-                        bdm=[BD],
-                        scc=True,
-                        scc_members=members,
-                        GT_density=int(1000 * gk.density(network_GT)),
-                        edge_weights=args.PRIORITY, pnum=PNUM, optim='optN', selfloop=False)
-
-    kept = select_top_solutions(r_estimated, network_GT, include_selfloop)
-    # Optional: plot all kept solutions for subject 0 when using RASL() directly
-    out_dir = "fbirn_results"
-    os.makedirs(out_dir, exist_ok=True)
-    for r_idx, (_, res_keep) in enumerate(kept, start=1):
-        gt.plotg(res_keep, names=COMP_NAMES, output=os.path.join(out_dir, f"rasl_single_run_sol_{r_idx:02d}.pdf"))
-
-    # Use the best of the kept set as the return value
-    res_rasl = kept[0][1] if kept else bfutils.num2CG(r_estimated[0][0][0], len(network_GT))
-    return res_rasl
-
-
 
 def initialize_metrics():
     return {
@@ -426,31 +513,6 @@ def initialize_metrics():
         'Precision_A': [], 'Recall_A': [], 'F1_A': []
     }
 
-
-def run_analysis(args,network_GT,include_selfloop):
-    metrics = {key: {args.UNDERSAMPLING: initialize_metrics()} for key in [args.METHOD]}
-
-    for method in metrics.keys():
-
-        result = globals()[method](args, network_GT)
-        print(f"Result from {method}: {result}")
-        normal_GT = mf.precision_recall_no_cycle(result, network_GT, include_selfloop=include_selfloop)
-        metrics[method][args.UNDERSAMPLING]['Precision_O'].append(normal_GT['orientation']['precision'])
-        metrics[method][args.UNDERSAMPLING]['Recall_O'].append(normal_GT['orientation']['recall'])
-        metrics[method][args.UNDERSAMPLING]['F1_O'].append(normal_GT['orientation']['F1'])
-
-        metrics[method][args.UNDERSAMPLING]['Precision_A'].append(normal_GT['adjacency']['precision'])
-        metrics[method][args.UNDERSAMPLING]['Recall_A'].append(normal_GT['adjacency']['recall'])
-        metrics[method][args.UNDERSAMPLING]['F1_A'].append(normal_GT['adjacency']['F1'])
-
-
-    print(metrics)
-    if not os.path.exists('fbirin_results'):
-        os.makedirs('fbirin_results')
-    filename = f'fbirin_results/fbirin_{args.METHOD}_batch_{args.BATCH}.zkl'
-    zkl.save(metrics,filename)
-    print('file saved to :' + filename)
-    #gt.plotg(res_rasl,names=["rPPC","rFIC","rDPFC","ACC","PCC","VMPFC"],output='see_out.pdf')
 
 
 if __name__ == "__main__":
@@ -470,4 +532,23 @@ if __name__ == "__main__":
                   3: {1: 1, 2: 1, 4: 1, 5: 1, 6: 1}, 4: {1: 1, 2: 1, 3: 1, 5: 1, 6: 1},
                   5: {1: 1, 2: 1, 3: 1, 4: 1, 6: 1}, 6: {1: 1, 2: 1, 3: 1, 4: 1, 5: 1}}
 
-    run_all_subjects(args, network_GT, include_selfloop)
+    # Print selection parameters
+    print("=" * 80)
+    print("FMRI EXPERIMENT - SOLUTION SELECTION CONFIGURATION")
+    print("=" * 80)
+    print(f"Selection mode: {args.selection_mode}")
+    if args.selection_mode == 'top_k':
+        print(f"  Top K: {args.top_k} (selecting top {args.top_k} solutions by lowest cost)")
+    elif args.selection_mode == 'delta_threshold':
+        print(f"  Delta multiplier: {args.delta_multiplier} (selecting solutions with cost <= {args.delta_multiplier} * min_cost)")
+    print("=" * 80)
+    print()
+
+    run_all_subjects(
+        args, 
+        network_GT, 
+        include_selfloop,
+        selection_mode=args.selection_mode,
+        top_k=args.top_k,
+        delta_multiplier=args.delta_multiplier
+    )
