@@ -838,6 +838,22 @@ def nx2graph(G):
         g[n] = {x: 1 for x in G[n]}
     return g
 
+def nxbp2graph(G):
+    """
+    Ask 
+
+    :param G: ``gunfolds`` format graph
+    :type G: dictionary (``gunfolds`` graphs)
+    
+    :returns: Ask
+    :rtype: 
+    """
+    nodesnum = len(G)//2
+    g = {n+1: {} for n in range(nodesnum)}
+    for n in g:
+        g[n] = {(x % nodesnum+1): 1 for x in G[n-1]}
+    return g
+
 def g2ig(g):
     """
     Converts our graph representation to an igraph for plotting
