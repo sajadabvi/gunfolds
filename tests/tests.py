@@ -362,7 +362,7 @@ class TestTraversalFunctions(unittest.TestCase):
                  (4, 2, 4), (1, 2, 4), (2, 1, 3),
                  (1, 1, 3), (5, 4), (5, 1, 3), (3, 1, 3),
                  (4, 1, 3)]
-        expected = (30112680, 1545134244133543132542131241130322L)
+        expected = (30112680, 1545134244133543132542131241130322)
         self.assertEqual(expected, traversal.signature(self.G1, edges))
 
     def test__inorder_check2(self):
