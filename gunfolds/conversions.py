@@ -337,32 +337,6 @@ def Glag2CG(results):
 
     return graph_dict, A_matrix, B_matrix
 
-def nxbp2graph(G):
-    """
-    Ask 
-
-    :param G: ``gunfolds`` format graph
-    :type G: dictionary (``gunfolds`` graphs)
-    
-    :returns: Ask
-    :rtype: 
-    """
-    nodesnum = len(G)//2
-    g = {n+1: {} for n in range(nodesnum)}
-    for n in g:
-        g[n] = {(x % nodesnum+1): 1 for x in G[n-1]}
-    return g
-
-
-################### Add new functions to internal conversions above #############
-################### End of Internal Conversions ########################
-
-# Dont remove this fake function for automating sphinx build.
-def sphinx_automation_fake():
-    return
-
-################### Start of Clingo Conversions ###################
-
 def rate(u):
     """
     Converts under sampling rate to ``clingo`` predicate
@@ -862,6 +836,22 @@ def nx2graph(G):
     g = {n: {} for n in G}
     for n in G:
         g[n] = {x: 1 for x in G[n]}
+    return g
+
+def nxbp2graph(G):
+    """
+    Ask 
+
+    :param G: ``gunfolds`` format graph
+    :type G: dictionary (``gunfolds`` graphs)
+    
+    :returns: Ask
+    :rtype: 
+    """
+    nodesnum = len(G)//2
+    g = {n+1: {} for n in range(nodesnum)}
+    for n in g:
+        g[n] = {(x % nodesnum+1): 1 for x in G[n-1]}
     return g
 
 def g2ig(g):
