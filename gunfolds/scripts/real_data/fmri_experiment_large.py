@@ -32,8 +32,10 @@ import scipy.sparse as sp
 from scipy.sparse.linalg import eigs
 import csv
 from gunfolds.scripts.simulation import bold_function as hrf
+
 sys.path.append('~/tread/py-tetrad')
 from py_tetrad.tools import TetradSearch as ts
+
 
 def parse_arguments(PNUM):
     parser = argparse.ArgumentParser(description='Run settings.')
@@ -55,17 +57,18 @@ def parse_arguments(PNUM):
     parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
     parser.add_argument("-o", "--METHOD", default="RASL", help="method to run", type=str)
     parser.add_argument("-v", "--VERSION", default="SmallDegree", help="version of macaque data", type=str)
-    
+
     # Solution selection parameters
-    parser.add_argument("--selection_mode", default="top_k", 
+    parser.add_argument("--selection_mode", default="top_k",
                         choices=['top_k', 'delta_threshold'],
                         help="Solution selection mode: 'top_k' (select top k by cost) or 'delta_threshold' (select all within delta * min_cost)")
     parser.add_argument("--top_k", default=10, type=int,
                         help="Number of top solutions to select (for 'top_k' mode)")
     parser.add_argument("--delta_multiplier", default=1.9, type=float,
                         help="Delta multiplier for threshold selection (for 'delta_threshold' mode). E.g., 1.9 means select solutions with cost <= 1.9 * min_cost")
-    
+
     return parser.parse_args()
+
 
 def convert_str_to_bool(args):
     args.SCC = bool(strtobool(args.SCC))
@@ -78,9 +81,11 @@ def convert_str_to_bool(args):
     args.PRIORITY = priprities
     return args
 
+
 # ---- Configuration for component selection and naming ----
-COMP_IDX = [25,26,35,44,45,46]  # 0-based indices for rPPC, rFIC, rDLPFC, ACC, PCC, VMPFC
+COMP_IDX = [25, 26, 35, 44, 45, 46]  # 0-based indices for rPPC, rFIC, rDLPFC, ACC, PCC, VMPFC
 COMP_NAMES = ["rPPC", "rFIC", "rDLPFC", "ACC", "PCC", "VMPFC"]
+
 
 def run_pcmci_to_cg(ts_2d):
     """
@@ -94,10 +99,11 @@ def run_pcmci_to_cg(ts_2d):
     g_estimated, A, B = cv.Glag2CG(results)
     return g_estimated, A, B
 
+
 def RASL_subject(ts_2d, args, network_GT, include_selfloop, selection_mode='top_k', top_k=10, delta_multiplier=1.9):
     """
     Run RASL pipeline for a single subject given its time series.
-    
+
     Args:
         ts_2d: Time series data [T, n_nodes]
         args: Arguments object
@@ -106,7 +112,7 @@ def RASL_subject(ts_2d, args, network_GT, include_selfloop, selection_mode='top_
         selection_mode: 'top_k' or 'delta_threshold'
         top_k: Number of top solutions to keep (for 'top_k' mode)
         delta_multiplier: Delta multiplier (for 'delta_threshold' mode)
-    
+
     Returns:
         Tuple: (list of selected CGs, list of full solution info with costs)
     """
@@ -142,21 +148,22 @@ def RASL_subject(ts_2d, args, network_GT, include_selfloop, selection_mode='top_
     # Select solutions based on cost (no ground truth scoring)
     n_nodes = len(g_estimated)
     kept = select_top_solutions(
-        r_estimated, 
-        n_nodes, 
+        r_estimated,
+        n_nodes,
         selection_mode=selection_mode,
         k=top_k,
         delta_multiplier=delta_multiplier
     )
-    
+
     # Return both the CGs and the full info (with costs) for analysis
     res_cgs = [res for _, res, _ in kept]
     return res_cgs, kept
 
+
 def select_top_solutions(r_estimated, n_nodes, selection_mode='top_k', k=10, delta_multiplier=1.9):
     """
     Select solutions based on cost (no ground truth needed).
-    
+
     Args:
         r_estimated: Set of solutions from RASL/DRASL
         n_nodes: Number of nodes in the graph
@@ -165,13 +172,13 @@ def select_top_solutions(r_estimated, n_nodes, selection_mode='top_k', k=10, del
             - 'delta_threshold': Select all solutions where cost <= min_cost * delta_multiplier
         k: Number of top solutions to select (for 'top_k' mode)
         delta_multiplier: Multiplier for delta threshold (for 'delta_threshold' mode)
-    
+
     Returns:
         List of tuples: [(cost, res_cg, undersampling), ...] sorted by ascending cost
     """
     if not r_estimated:
         return []
-    
+
     # Extract solutions with their costs and undersampling
     # r_estimated is a set of tuples: ((graph_number, (undersampling,)), cost)
     solutions_with_costs = []
@@ -181,10 +188,10 @@ def select_top_solutions(r_estimated, n_nodes, selection_mode='top_k', k=10, del
         cost = answer[1]  # Cost
         res_cg = bfutils.num2CG(graph_num, n_nodes)
         solutions_with_costs.append((cost, res_cg, undersampling))
-    
+
     # Sort by cost (ascending - lower cost is better)
     solutions_with_costs.sort(key=lambda x: x[0])
-    
+
     if selection_mode == 'top_k':
         # Select top k solutions by lowest cost
         selected = solutions_with_costs[:min(k, len(solutions_with_costs))]
@@ -198,8 +205,9 @@ def select_top_solutions(r_estimated, n_nodes, selection_mode='top_k', k=10, del
             selected = [solutions_with_costs[0]]
     else:
         raise ValueError(f"Unknown selection_mode: {selection_mode}. Use 'top_k' or 'delta_threshold'.")
-    
+
     return selected
+
 
 def cg_to_adj_binary(cg):
     """Return binary adjacency (NxN) from a CG, ignoring weights."""
@@ -207,6 +215,7 @@ def cg_to_adj_binary(cg):
     A = (A > 0).astype(int)
     np.fill_diagonal(A, 0)
     return A
+
 
 def plot_group_graph(counts, names, outpath):
     """
@@ -321,6 +330,7 @@ def plot_group_graph(counts, names, outpath):
     plt.savefig(outpath, bbox_inches='tight')
     plt.close()
 
+
 def get_labels(npz):
     # Support both 'labels' and 'label' keys
     if 'labels' in npz.files:
@@ -329,11 +339,12 @@ def get_labels(npz):
         return npz['label']
     raise KeyError("Labels not found in NPZ. Expected key 'labels' or 'label'.")
 
+
 def run_all_subjects(args, network_GT, include_selfloop, selection_mode='top_k', top_k=10, delta_multiplier=1.9):
     """
     Run RASL for every subject in fbirn_sz_data.npz. Save per-subject plots and group graphs
     separately for each label group, and also keep a combined set as before.
-    
+
     Args:
         args: Arguments object
         network_GT: Ground truth network
@@ -341,7 +352,7 @@ def run_all_subjects(args, network_GT, include_selfloop, selection_mode='top_k',
         selection_mode: 'top_k' or 'delta_threshold'
         top_k: Number of top solutions to keep (for 'top_k' mode)
         delta_multiplier: Delta multiplier (for 'delta_threshold' mode)
-    
+
     Directory layout:
       fbirn_results/
         combined/ ... (original behavior)
@@ -365,13 +376,13 @@ def run_all_subjects(args, network_GT, include_selfloop, selection_mode='top_k',
     root_dir = os.path.join("fbirn_results", timestamp)
     combined_dir = os.path.join(root_dir, "combined")
     os.makedirs(combined_dir, exist_ok=True)
-    
+
     print(f"Saving results to: {root_dir}")
     print(f"Timestamp: {timestamp}")
 
     # --- Set up containers for combined outputs ---
     combined_counts = np.zeros((N, N), dtype=int)
-    
+
     # Storage for all solution info (for analysis)
     all_solutions_info = []
 
@@ -411,11 +422,11 @@ def run_all_subjects(args, network_GT, include_selfloop, selection_mode='top_k',
                 'num_solutions': len(solution_info),
                 'solutions': []
             }
-            
+
             # Save plots for all kept solutions and accumulate counts
             for r_idx, (res_rasl, sol_detail) in enumerate(zip(res_list, solution_info), start=1):
                 cost, res_cg, undersampling = sol_detail
-                
+
                 gt.plotg(
                     res_rasl,
                     names=COMP_NAMES,
@@ -424,7 +435,7 @@ def run_all_subjects(args, network_GT, include_selfloop, selection_mode='top_k',
                 A = cg_to_adj_binary(res_rasl)
                 counts += A
                 combined_counts += A
-                
+
                 # Save solution details
                 subject_info['solutions'].append({
                     'solution_idx': r_idx,
@@ -432,10 +443,10 @@ def run_all_subjects(args, network_GT, include_selfloop, selection_mode='top_k',
                     'undersampling': undersampling,
                     'graph': res_cg
                 })
-            
+
             group_solutions_info.append(subject_info)
             all_solutions_info.append(subject_info)
-        
+
         # Save solutions info for this group
         solutions_file = os.path.join(solutions_dir, f"solutions_info_{grp}.zkl")
         zkl.save(group_solutions_info, solutions_file)
@@ -471,7 +482,7 @@ def run_all_subjects(args, network_GT, include_selfloop, selection_mode='top_k',
     combined_solutions_file = os.path.join(combined_dir, "all_solutions_info.zkl")
     zkl.save(all_solutions_info, combined_solutions_file)
     print(f"Saved all solutions info to: {combined_solutions_file}")
-    
+
     # Also save selection parameters used
     selection_params = {
         'selection_mode': selection_mode,
@@ -482,9 +493,10 @@ def run_all_subjects(args, network_GT, include_selfloop, selection_mode='top_k',
     params_file = os.path.join(combined_dir, "selection_params.zkl")
     zkl.save(selection_params, params_file)
     print(f"Saved selection parameters to: {params_file}")
-    
+
     # Persist combined counts
-    np.savez(os.path.join(combined_dir, "group_edge_counts_combined.npz"), counts=combined_counts, names=np.array(COMP_NAMES))
+    np.savez(os.path.join(combined_dir, "group_edge_counts_combined.npz"), counts=combined_counts,
+             names=np.array(COMP_NAMES))
 
     # CSV table for combined
     with open(os.path.join(combined_dir, "group_edge_counts_combined.csv"), "w", newline="") as f:
@@ -514,7 +526,6 @@ def initialize_metrics():
     }
 
 
-
 if __name__ == "__main__":
     error_normalization = True
     CLINGO_LIMIT = 64
@@ -540,13 +551,14 @@ if __name__ == "__main__":
     if args.selection_mode == 'top_k':
         print(f"  Top K: {args.top_k} (selecting top {args.top_k} solutions by lowest cost)")
     elif args.selection_mode == 'delta_threshold':
-        print(f"  Delta multiplier: {args.delta_multiplier} (selecting solutions with cost <= {args.delta_multiplier} * min_cost)")
+        print(
+            f"  Delta multiplier: {args.delta_multiplier} (selecting solutions with cost <= {args.delta_multiplier} * min_cost)")
     print("=" * 80)
     print()
 
     run_all_subjects(
-        args, 
-        network_GT, 
+        args,
+        network_GT,
         include_selfloop,
         selection_mode=args.selection_mode,
         top_k=args.top_k,

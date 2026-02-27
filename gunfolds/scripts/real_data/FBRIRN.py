@@ -14,7 +14,7 @@ from scipy.io import loadmat
 from scipy.io import savemat
 import matplotlib.patches as mpatches
 from gunfolds.scripts.datasets.simple_networks import simp_nets
-from gunfolds.scripts import my_functions as mf
+from gunfolds.scripts.utils import my_functions as mf
 from gunfolds.solvers.clingo_rasl import drasl
 from gunfolds.utils import graphkit as gk
 from gunfolds.utils.calc_procs import get_process_count
@@ -34,7 +34,7 @@ import networkx as nx
 import scipy.sparse as sp
 from scipy.sparse.linalg import eigs
 import csv
-from gunfolds.scripts import bold_function as hrf
+from gunfolds.scripts.simulation import bold_function as hrf
 sys.path.append('~/tread/py-tetrad')
 from py_tetrad.tools import TetradSearch as ts
 
