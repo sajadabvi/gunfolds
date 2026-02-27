@@ -24,21 +24,6 @@
 
 The `gunfolds/scripts/` directory has been completely reorganized to eliminate redundancy and improve maintainability. **118+ scripts** have been consolidated into **~33 core modules** organized by function.
 
-### Why the Change?
-
-- **99% code duplication** across multiple script families
-- **Hard to maintain**: Bug fixes required changing 6+ files
-- **Poor discoverability**: 118 files with unclear organization
-- **Documentation sprawl**: 14+ overlapping guide files
-
-### Key Improvements
-
-✅ **Unified scripts** with parameters instead of duplicates  
-✅ **Logical folder structure** (analysis/benchmarks/experiments/visualization)  
-✅ **Single source of truth** for shared functionality  
-✅ **Professional documentation** consolidated in `docs/`  
-✅ **Backward compatibility** via deprecated script wrappers (temporary)
-
 ---
 
 ## Quick Reference: Old → New Script Mapping
