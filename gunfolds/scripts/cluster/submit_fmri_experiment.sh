@@ -20,8 +20,6 @@
 #   - GCM baseline with N=10,20,53                      =>  3 jobs
 # =============================================================================
 
-set -e
-
 N_SUBJECTS=${1:-310}
 LAST_IDX=$((N_SUBJECTS - 1))
 TIMESTAMP=$(date +%m%d%Y%H%M%S)
@@ -49,18 +47,15 @@ submit_config() {
     local METHOD=$3
     local CONFIG_TAG="N${N_COMP}_${SCC}_${METHOD}"
 
-    # Adjust time and memory based on configuration
+    # Adjust memory based on configuration (time capped at 7200s per partition limit)
     local TIME_LIMIT=7200
     local MEM="4g"
     if [ "$METHOD" = "RASL" ]; then
         if [ "$N_COMP" -ge 53 ]; then
-            TIME_LIMIT=28800  # 8h for N=53 RASL
             MEM="16g"
         elif [ "$N_COMP" -ge 20 ]; then
-            TIME_LIMIT=14400  # 4h for N=20 RASL
             MEM="8g"
         else
-            TIME_LIMIT=7200   # 2h for N=10 RASL
             MEM="8g"
         fi
     fi
