@@ -4,10 +4,15 @@
 # =============================================================================
 #
 # Usage:
-#   bash submit_fmri_experiment_partial.sh [N_SUBJECTS]
+#   bash submit_fmri_experiment_partial.sh [N_SUBJECTS] [GT_DENSITY_MODE] [VALUE]
+#
+#   GT_DENSITY_MODE (optional): none (default) | fixed | fraction
+#   VALUE (optional): for fixed = 0-1000 (default 75); for fraction = 0-1 (default 0.5)
 #
 # Example:
 #   bash submit_fmri_experiment_partial.sh 310
+#   bash submit_fmri_experiment_partial.sh 310 fixed 75
+#   bash submit_fmri_experiment_partial.sh 310 fraction 0.5
 #
 # Runs RASL with N=10, SCC=domain on ALL subjects, using only qTRDGPU.
 # Use this for quick partial runs or when only GPU partition is available.
@@ -15,6 +20,8 @@
 # =============================================================================
 
 N_SUBJECTS=${1:-310}
+GT_DENSITY_MODE=${2:-}
+GT_DENSITY_VALUE=${3:-}
 LAST_IDX=$((N_SUBJECTS - 1))
 TIMESTAMP=$(date +%m%d%Y%H%M%S)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -49,8 +56,16 @@ echo "Config:       $CONFIG_TAG"
 echo "SLURM script: $SLURM_SCRIPT"
 echo "Resources:    ${CPUS} CPUs, ${MEM} mem, ${TIME_LIMIT} time"
 echo "Parallel:     ${MAX_PARALLEL} tasks"
+[ -n "$GT_DENSITY_MODE" ] && echo "GT_density:   mode=$GT_DENSITY_MODE${GT_DENSITY_VALUE:+ value=$GT_DENSITY_VALUE}"
 echo "=============================================================="
 echo ""
+
+SLURM_ARGS=("$SLURM_SCRIPT" "$TIMESTAMP" "$N_COMP" "$SCC" "$METHOD")
+if [ -n "$GT_DENSITY_MODE" ]; then
+    SLURM_ARGS+=("$GT_DENSITY_MODE")
+    [ "$GT_DENSITY_MODE" = "fixed" ] && SLURM_ARGS+=("${GT_DENSITY_VALUE:-75}")
+    [ "$GT_DENSITY_MODE" = "fraction" ] && SLURM_ARGS+=("${GT_DENSITY_VALUE:-0.5}")
+fi
 
 JOB_ID=$(sbatch \
     --array=${ARRAY_RANGE}%${MAX_PARALLEL} \
@@ -59,7 +74,7 @@ JOB_ID=$(sbatch \
     --cpus-per-task=${CPUS} \
     --mem=${MEM} \
     --job-name="fmri_${CONFIG_TAG}" \
-    "$SLURM_SCRIPT" "$TIMESTAMP" "$N_COMP" "$SCC" "$METHOD" \
+    "${SLURM_ARGS[@]}" \
     | awk '{print $NF}')
 
 echo "Submitted: $CONFIG_TAG on $PARTITION, array=$ARRAY_RANGE, JobID: $JOB_ID"
@@ -85,6 +100,7 @@ RECORD="./logs/submission_partial_${TIMESTAMP}.log"
     echo "N_SUBJECTS: $N_SUBJECTS"
     echo "Partition: $PARTITION"
     echo "Config: $CONFIG_TAG (N=$N_COMP, SCC=$SCC, METHOD=$METHOD)"
+    [ -n "$GT_DENSITY_MODE" ] && echo "GT_density: mode=$GT_DENSITY_MODE${GT_DENSITY_VALUE:+ value=$GT_DENSITY_VALUE}"
     echo "Job ID: $JOB_ID"
 } > "$RECORD"
 echo "Submission record: $RECORD"

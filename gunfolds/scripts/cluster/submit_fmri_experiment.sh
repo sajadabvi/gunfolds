@@ -4,10 +4,15 @@
 # =============================================================================
 #
 # Usage:
-#   bash submit_fmri_experiment.sh [N_SUBJECTS]
+#   bash submit_fmri_experiment.sh [N_SUBJECTS] [GT_DENSITY_MODE] [VALUE]
+#
+#   GT_DENSITY_MODE (optional): none (default) | fixed | fraction
+#   VALUE (optional): for fixed = 0-1000 (default 75); for fraction = 0-1 (default 0.5)
 #
 # Example:
 #   bash submit_fmri_experiment.sh 310
+#   bash submit_fmri_experiment.sh 310 fixed 75
+#   bash submit_fmri_experiment.sh 310 fraction 0.5
 #
 # Total jobs: 620 (310 subjects x 2 configs), no duplication.
 # Subjects are split across 3 partitions (qTRDGPU, qTRDHM, qTRD),
@@ -19,6 +24,8 @@
 # =============================================================================
 
 N_SUBJECTS=${1:-310}
+GT_DENSITY_MODE=${2:-}
+GT_DENSITY_VALUE=${3:-}
 LAST_IDX=$((N_SUBJECTS - 1))
 TIMESTAMP=$(date +%m%d%Y%H%M%S)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -56,6 +63,7 @@ echo "Subjects:     0-${LAST_IDX} (${N_SUBJECTS} total)"
 echo "SLURM script: $SLURM_SCRIPT"
 echo "Resources:    ${CPUS} CPUs, ${MEM} mem, ${TIME_LIMIT} time"
 echo "Parallel:     ${MAX_PARALLEL} per partition (30 total)"
+[ -n "$GT_DENSITY_MODE" ] && echo "GT_density:   mode=$GT_DENSITY_MODE${GT_DENSITY_VALUE:+ value=$GT_DENSITY_VALUE}"
 echo "=============================================================="
 echo "Subject distribution:"
 for i in 0 1 2; do
@@ -75,6 +83,13 @@ submit_config() {
     local ARRAY_RANGE=$5
     local CONFIG_TAG="N${N_COMP}_${SCC}_${METHOD}"
 
+    local SLURM_ARGS=("$SLURM_SCRIPT" "$TIMESTAMP" "$N_COMP" "$SCC" "$METHOD")
+    if [ -n "$GT_DENSITY_MODE" ] && [ "$METHOD" = "RASL" ]; then
+        SLURM_ARGS+=("$GT_DENSITY_MODE")
+        [ "$GT_DENSITY_MODE" = "fixed" ] && SLURM_ARGS+=("${GT_DENSITY_VALUE:-75}")
+        [ "$GT_DENSITY_MODE" = "fraction" ] && SLURM_ARGS+=("${GT_DENSITY_VALUE:-0.5}")
+    fi
+
     local JOB_ID
     JOB_ID=$(sbatch \
         --array=${ARRAY_RANGE}%${MAX_PARALLEL} \
@@ -83,7 +98,7 @@ submit_config() {
         --cpus-per-task=${CPUS} \
         --mem=${MEM} \
         --job-name="fmri_${CONFIG_TAG}" \
-        "$SLURM_SCRIPT" "$TIMESTAMP" "$N_COMP" "$SCC" "$METHOD" \
+        "${SLURM_ARGS[@]}" \
         | awk '{print $NF}')
 
     JOB_IDS+=("$JOB_ID")
@@ -139,5 +154,6 @@ RECORD="./logs/submission_${TIMESTAMP}.log"
     echo ""
     echo "Configurations:"
     echo "  RASL:  N=20,53 x SCC=domain"
+    [ -n "$GT_DENSITY_MODE" ] && echo "  GT_density: mode=$GT_DENSITY_MODE${GT_DENSITY_VALUE:+ value=$GT_DENSITY_VALUE}"
 } > "$RECORD"
 echo "Submission record: $RECORD"
