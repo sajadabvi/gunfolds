@@ -85,7 +85,7 @@ export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-15}
 export MODULEPATH=/apps/Compilers/modules-3.2.10/Debug-Build/Modules/3.2.10/modulefiles/
 
 echo "Activating conda environment..." >&2
-source /home/users/mabavisani/anaconda3/bin/activate
+source /home/users/mabavisani/anaconda3/etc/profile.d/conda.sh
 conda activate multi_v3
 
 echo "==========================================="

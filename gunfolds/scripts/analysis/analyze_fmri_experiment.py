@@ -44,6 +44,9 @@ def parse_args():
                    help="Generate comparison plots")
     p.add_argument("--alpha", default=0.05, type=float,
                    help="Significance level for edge-level tests")
+    p.add_argument("--correction", default="bonferroni",
+                   choices=["bonferroni", "fdr"],
+                   help="Multiple-comparison correction: bonferroni (FWER) or fdr (Benjamini-Hochberg)")
     return p.parse_args()
 
 
@@ -142,19 +145,44 @@ def compute_group_edge_matrices(subject_results):
     return dict(group_counts), dict(group_n_subjects), dict(group_n_solutions), n_nodes
 
 
-def edge_level_tests(group_counts, group_n_solutions, alpha=0.05):
+def _benjamini_hochberg(pvals_flat, alpha):
+    """Return a boolean mask of the same length indicating BH-FDR significance."""
+    m = len(pvals_flat)
+    if m == 0:
+        return np.array([], dtype=bool)
+    order = np.argsort(pvals_flat)
+    sorted_p = pvals_flat[order]
+    thresholds = alpha * np.arange(1, m + 1) / m
+    # largest rank where p <= threshold
+    below = np.where(sorted_p <= thresholds)[0]
+    if len(below) == 0:
+        return np.zeros(m, dtype=bool)
+    max_rank = below[-1]
+    sig = np.zeros(m, dtype=bool)
+    sig[order[:max_rank + 1]] = True
+    return sig
+
+
+def edge_level_tests(group_counts, group_n_solutions, alpha=0.05,
+                     correction="bonferroni"):
     """
     For each directed edge (i->j), test whether its frequency differs
     between groups using a chi-squared or Fisher exact test.
 
+    Parameters
+    ----------
+    correction : str
+        "bonferroni" (FWER) or "fdr" (Benjamini-Hochberg FDR).
+
     Returns
     -------
-    n_sig : int          (number of significant edges after Bonferroni)
+    n_sig : int          (number of significant edges after correction)
     pvalues : ndarray    (NxN matrix of raw p-values, NaN where untestable)
+    sig_mask : ndarray   (NxN boolean matrix, True where significant)
     """
     groups = sorted(group_counts.keys())
     if len(groups) < 2:
-        return 0, None
+        return 0, None, None
 
     g0, g1 = groups[0], groups[1]
     c0 = group_counts[g0]
@@ -163,11 +191,7 @@ def edge_level_tests(group_counts, group_n_solutions, alpha=0.05):
     n1 = group_n_solutions[g1]
     N = c0.shape[0]
 
-    n_tests = N * (N - 1)  # exclude diagonal
-    bonferroni = alpha / max(n_tests, 1)
-
     pvalues = np.full((N, N), np.nan)
-    n_sig = 0
 
     for i in range(N):
         for j in range(N):
@@ -186,12 +210,23 @@ def edge_level_tests(group_counts, group_n_solutions, alpha=0.05):
                 else:
                     _, p, _, _ = chi2_contingency(table, correction=True)
                 pvalues[i, j] = p
-                if p < bonferroni:
-                    n_sig += 1
             except Exception:
                 pass
 
-    return n_sig, pvalues
+    sig_mask = np.zeros((N, N), dtype=bool)
+    valid = ~np.isnan(pvalues) & (np.eye(N) == 0)
+    valid_p = pvalues[valid]
+
+    if correction == "fdr":
+        sig_flat = _benjamini_hochberg(valid_p, alpha)
+    else:
+        threshold = alpha / max(valid_p.size, 1)
+        sig_flat = valid_p < threshold
+
+    sig_mask[valid] = sig_flat
+    n_sig = int(sig_mask.sum())
+
+    return n_sig, pvalues, sig_mask
 
 
 def frobenius_distance(group_counts, group_n_solutions):
@@ -264,7 +299,7 @@ def undersampling_group_test(rates_by_group):
 # Analysis per configuration
 # ---------------------------------------------------------------------------
 
-def analyze_config(config_name, config_dir, alpha=0.05):
+def analyze_config(config_name, config_dir, alpha=0.05, correction="bonferroni"):
     """
     Analyze one configuration. Returns a dict of metrics.
     """
@@ -277,7 +312,9 @@ def analyze_config(config_name, config_dir, alpha=0.05):
     group_counts, group_n_subj, group_n_sol, n_nodes = \
         compute_group_edge_matrices(subject_results)
 
-    n_sig, pvalues = edge_level_tests(group_counts, group_n_sol, alpha=alpha)
+    n_sig, pvalues, sig_mask = edge_level_tests(
+        group_counts, group_n_sol, alpha=alpha, correction=correction,
+    )
     frob = frobenius_distance(group_counts, group_n_sol)
     dens_diff = density_difference(group_counts, group_n_sol)
 
@@ -319,6 +356,7 @@ def analyze_config(config_name, config_dir, alpha=0.05):
     result["_group_counts"] = group_counts
     result["_group_n_sol"] = group_n_sol
     result["_pvalues"] = pvalues
+    result["_sig_mask"] = sig_mask
 
     return result
 
@@ -393,13 +431,11 @@ def plot_edge_diff_heatmap(result, comp_names, outpath):
     plt.colorbar(im, ax=ax, shrink=0.8)
 
     # Mark significant edges
-    pvalues = result.get("_pvalues")
-    if pvalues is not None:
-        n_tests = N * (N - 1)
-        bonf = 0.05 / max(n_tests, 1)
+    sig_mask = result.get("_sig_mask")
+    if sig_mask is not None:
         for i in range(N):
             for j in range(N):
-                if i != j and not np.isnan(pvalues[i, j]) and pvalues[i, j] < bonf:
+                if sig_mask[i, j]:
                     ax.plot(j, i, "k*", markersize=max(3, 8 - N // 10))
 
     plt.tight_layout()
@@ -423,8 +459,10 @@ def main():
     print("=" * 80)
     print("FMRI EXPERIMENT - CROSS-CONFIGURATION ANALYSIS")
     print("=" * 80)
+    correction_label = "Bonferroni (FWER)" if args.correction == "bonferroni" else "Benjamini-Hochberg (FDR)"
     print(f"Timestamp:    {args.timestamp}")
     print(f"Results root: {root_dir}")
+    print(f"Correction:   {correction_label}")
     print()
 
     configs = discover_configs(root_dir)
@@ -441,7 +479,8 @@ def main():
     for cfg in configs:
         cfg_dir = os.path.join(root_dir, cfg)
         print(f"Analyzing {cfg}...")
-        result = analyze_config(cfg, cfg_dir, alpha=args.alpha)
+        result = analyze_config(cfg, cfg_dir, alpha=args.alpha,
+                                correction=args.correction)
         if result is not None:
             all_results.append(result)
             # Try to extract component names from a subject file
@@ -488,8 +527,8 @@ def main():
     print("=" * 80)
     print(summary_df.to_string(index=False))
 
-    # Save summary CSV
-    out_dir = os.path.join(root_dir, "analysis")
+    # Save summary CSV (per-correction subfolder so FDR and Bonferroni don't overwrite)
+    out_dir = os.path.join(root_dir, "analysis", args.correction)
     os.makedirs(out_dir, exist_ok=True)
     summary_csv = os.path.join(out_dir, "config_comparison.csv")
     summary_df.to_csv(summary_csv, index=False)

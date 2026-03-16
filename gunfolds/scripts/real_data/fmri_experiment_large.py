@@ -60,7 +60,7 @@ def parse_arguments():
         description="fMRI causal discovery experiment (RASL / PCMCI / GCM)."
     )
     # Experiment configuration
-    p.add_argument("--n_components", type=int, default=10, choices=[10, 20, 53],
+    p.add_argument("--n_components", type=int, default=20, choices=[10, 20, 53],
                    help="Number of ICA components to use")
     p.add_argument("--scc_strategy", type=str, default="domain",
                    choices=["domain", "correlation", "estimated", "none"],
@@ -68,7 +68,7 @@ def parse_arguments():
     p.add_argument("--method", type=str, default="RASL",
                    choices=["RASL", "PCMCI", "GCM"],
                    help="Causal discovery method")
-    p.add_argument("--subject_idx", type=int, default=None,
+    p.add_argument("--subject_idx", type=int, default=1,
                    help="Single subject index (for SLURM). Omit to run all.")
     p.add_argument("--timestamp", type=str, default=None,
                    help="Shared timestamp for grouping results")
