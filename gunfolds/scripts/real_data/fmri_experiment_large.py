@@ -90,6 +90,15 @@ def parse_arguments():
     p.add_argument("--delta_multiplier", default=1.9, type=float,
                    help="Delta multiplier for threshold selection")
 
+    # GT_density for RASL: none (default), fixed (0-1000), or fraction of g_estimated density
+    p.add_argument("--gt_density_mode", default="none",
+                   choices=["none", "fixed", "fraction"],
+                   help="GT_density: 'none' (default), 'fixed' (use --gt_density value), or 'fraction' (use fraction of g_estimated)")
+    p.add_argument("--gt_density", default=75, type=int,
+                   help="Fixed GT_density value (0-1000, density*1000). Used when --gt_density_mode=fixed.")
+    p.add_argument("--gt_density_fraction", default=0.5, type=float,
+                   help="Fraction of g_estimated density for GT_density. Used when --gt_density_mode=fraction.")
+
     # GCM parameters
     p.add_argument("--gcm_alpha", default=0.01, type=float,
                    help="GCM significance level")
@@ -221,7 +230,15 @@ def run_rasl_subject(ts_2d, args, comp_indices, scc_members_override=None,
     else:
         BD = (np.abs((cv.graph2badj(g_estimated) - 1) * MAXCOST)).astype(int)
 
-    gt_density = int(1000 * gk.density(g_estimated))
+    # GT_density: none (default), fixed value (0-1000), or fraction of g_estimated density
+    if args.gt_density_mode == "none":
+        gt_density = None
+    elif args.gt_density_mode == "fixed":
+        gt_density = max(0, min(1000, args.gt_density))
+    else:  # fraction
+        est_density = gk.density(g_estimated)
+        frac = max(0.0, min(1.0, args.gt_density_fraction))
+        gt_density = int(1000 * est_density * frac)
 
     priority = [int(c) for c in args.PRIORITY]
 

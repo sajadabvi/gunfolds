@@ -20,10 +20,14 @@
 # Runs ONE subject for a given (N_COMPONENTS, SCC_STRATEGY, METHOD) config.
 #
 # Usage:
-#   sbatch --array=0-309 slurm_fmri_large.sh <TIMESTAMP> <N_COMP> <SCC> <METHOD>
+#   sbatch --array=0-309 slurm_fmri_large.sh <TIMESTAMP> <N_COMP> <SCC> <METHOD> [GT_DENSITY_MODE] [VALUE]
+#   GT_DENSITY_MODE: none (default) | fixed | fraction
+#   Optional 6th arg: for fixed mode, value 0-1000 (default 75); for fraction mode, e.g. 0.5 (default)
 #
 # Examples:
 #   sbatch --array=0-309 slurm_fmri_large.sh 03012026120000 20 domain RASL
+#   sbatch --array=0-309 slurm_fmri_large.sh 03012026120000 20 domain RASL fixed 75
+#   sbatch --array=0-309 slurm_fmri_large.sh 03012026120000 20 domain RASL fraction 0.5
 #   sbatch --array=0-309 slurm_fmri_large.sh 03012026120000 53 none PCMCI
 #   sbatch --array=0-309 slurm_fmri_large.sh 03012026120000 10 none GCM
 # =============================================================================
@@ -108,6 +112,12 @@ PNUM=${SLURM_CPUS_PER_TASK:-15}
 EXTRA_ARGS="--PNUM $PNUM"
 if [ "$METHOD" = "RASL" ]; then
     EXTRA_ARGS="$EXTRA_ARGS --MAXU 4 --PRIORITY 11112 --selection_mode top_k --top_k 10"
+    # Optional GT_density: $5=mode (none|fixed|fraction), $6=value (fixed: 0-1000 default 75; fraction: e.g. 0.5 default)
+    if [ -n "${5:-}" ]; then
+        EXTRA_ARGS="$EXTRA_ARGS --gt_density_mode $5"
+        [ "$5" = "fixed" ] && EXTRA_ARGS="$EXTRA_ARGS --gt_density ${6:-75}"
+        [ "$5" = "fraction" ] && EXTRA_ARGS="$EXTRA_ARGS --gt_density_fraction ${6:-0.5}"
+    fi
 fi
 
 CMD="python fmri_experiment_large.py \
