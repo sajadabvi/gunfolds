@@ -2,10 +2,10 @@
 
 #SBATCH -N 1
 #SBATCH -n 1
-#SBATCH -c 1
-#SBATCH --mem=8g
-#SBATCH -p qTRDGPU
-#SBATCH -t 7200
+#SBATCH -c 15
+#SBATCH --mem=230g
+#SBATCH -p qTRDHM
+#SBATCH -t 5-08:00:00
 #SBATCH -J fmri_large
 #SBATCH -e ./err/fmri_error%A-%a.err
 #SBATCH -o ./out/fmri_out%A-%a.out
@@ -81,7 +81,7 @@ TASK_LOG="$LOG_DIR/fmri_task_${CONFIG_TAG}_subj${SUBJECT_IDX}.log"
 job_name="fmri_${CONFIG_TAG}_${SUBJECT_IDX}"
 scontrol update jobid=$SLURM_JOB_ID name=$job_name
 
-export OMP_NUM_THREADS=1
+export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-15}
 export MODULEPATH=/apps/Compilers/modules-3.2.10/Debug-Build/Modules/3.2.10/modulefiles/
 
 echo "Activating conda environment..." >&2
@@ -104,9 +104,10 @@ cd $SLURM_SUBMIT_DIR
 # =============================================================================
 
 # Build RASL-specific args only when needed
-EXTRA_ARGS=""
+PNUM=${SLURM_CPUS_PER_TASK:-15}
+EXTRA_ARGS="--PNUM $PNUM"
 if [ "$METHOD" = "RASL" ]; then
-    EXTRA_ARGS="--MAXU 4 --PRIORITY 11112 --selection_mode top_k --top_k 10"
+    EXTRA_ARGS="$EXTRA_ARGS --MAXU 4 --PRIORITY 11112 --selection_mode top_k --top_k 10"
 fi
 
 CMD="python fmri_experiment_large.py \
