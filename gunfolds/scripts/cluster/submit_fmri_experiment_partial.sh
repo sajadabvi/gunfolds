@@ -30,8 +30,8 @@ SLURM_SCRIPT="${SCRIPT_DIR}/slurm_fmri_large.sh"
 # Resource limits (same as full script)
 TIME_LIMIT="5-08:00:00"
 CPUS=15
-MEM="230g"
-MAX_PARALLEL=10
+MEM="20g"
+MAX_PARALLEL=310
 
 # Single partition: qTRDGPU only
 PARTITION="qTRDGPU"
