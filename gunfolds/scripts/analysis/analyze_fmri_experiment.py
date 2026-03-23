@@ -25,6 +25,77 @@ from collections import defaultdict
 from gunfolds.utils import zickle as zkl
 from gunfolds import conversions as cv
 
+_REAL_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "real_data")
+if _REAL_DATA_DIR not in sys.path:
+    sys.path.insert(0, _REAL_DATA_DIR)
+from component_config import INDEX_TO_DOMAIN, get_comp_indices
+
+
+# ---------------------------------------------------------------------------
+# Domain boundaries and parameter formatting helpers
+# ---------------------------------------------------------------------------
+
+def get_domain_boundaries(comp_indices):
+    """
+    Compute network domain group boundaries for heatmap dividers.
+
+    Given an ordered list of 0-based component indices, identifies where the
+    NeuroMark functional domain changes (SC, AU, SM, VI, CC, DM, CB).
+
+    Returns
+    -------
+    boundaries : list[int]
+        Positions where the domain changes (used for divider lines).
+    domain_labels : list[str]
+        Domain name for each contiguous group.
+    domain_centers : list[float]
+        Center index for each domain group (for label placement).
+    """
+    if not comp_indices:
+        return [], [], []
+
+    domains = [INDEX_TO_DOMAIN.get(idx, "?") for idx in comp_indices]
+    boundaries = []
+    group_start = 0
+    groups = []
+
+    for i in range(1, len(domains)):
+        if domains[i] != domains[i - 1]:
+            boundaries.append(i)
+            groups.append((group_start, i, domains[i - 1]))
+            group_start = i
+    groups.append((group_start, len(domains), domains[-1]))
+
+    domain_labels = [g[2] for g in groups]
+    domain_centers = [(g[0] + g[1] - 1) / 2.0 for g in groups]
+    return boundaries, domain_labels, domain_centers
+
+
+def _build_params_parts(analysis_args, run_params=None):
+    """Build a list of parameter key=value strings for plot annotation."""
+    parts = []
+    if run_params:
+        gt_mode = run_params.get("gt_density_mode")
+        if gt_mode is not None:
+            if gt_mode == "fixed":
+                val = run_params.get("gt_density", "?")
+                parts.append(f"GT Density: fixed ({val}/1000)")
+            elif gt_mode == "fraction":
+                frac = run_params.get("gt_density_fraction", "?")
+                parts.append(f"GT Density: fraction ({frac})")
+            else:
+                parts.append(f"GT Density: {gt_mode}")
+        sel = run_params.get("selection_mode")
+        if sel:
+            k = run_params.get("top_k", "?")
+            parts.append(f"Selection: {sel} (k={k})")
+    if analysis_args is not None:
+        corr = ("Bonferroni" if analysis_args.correction == "bonferroni"
+                else "FDR (BH)")
+        parts.append(f"Correction: {corr}")
+        parts.append(f"\u03b1 = {analysis_args.alpha}")
+    return parts
+
 
 # ---------------------------------------------------------------------------
 # CLI
@@ -365,7 +436,8 @@ def analyze_config(config_name, config_dir, alpha=0.05, correction="bonferroni")
 # Plotting
 # ---------------------------------------------------------------------------
 
-def plot_comparison_bar(summary_df, metric, ylabel, title, outpath):
+def plot_comparison_bar(summary_df, metric, ylabel, title, outpath,
+                        analysis_args=None, run_params=None):
     """Bar chart comparing a metric across all configurations."""
     fig, ax = plt.subplots(figsize=(max(10, len(summary_df) * 0.8), 6))
     colors = []
@@ -393,15 +465,25 @@ def plot_comparison_bar(summary_df, metric, ylabel, title, outpath):
     ]
     ax.legend(handles=legend_elements, loc="upper right")
 
-    plt.tight_layout()
+    params_parts = _build_params_parts(analysis_args, run_params)
+    if params_parts:
+        fig.suptitle("  |  ".join(params_parts), fontsize=8, style="italic",
+                     y=0.99,
+                     bbox=dict(boxstyle="round,pad=0.3", facecolor="lightyellow",
+                               edgecolor="gray", alpha=0.8))
+
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
     os.makedirs(os.path.dirname(outpath), exist_ok=True)
-    plt.savefig(outpath, dpi=150)
+    plt.savefig(outpath, dpi=150, bbox_inches="tight")
     plt.close()
 
 
-def plot_edge_diff_heatmap(result, comp_names, outpath):
+def plot_edge_diff_heatmap(result, comp_names, outpath, comp_indices=None,
+                           analysis_args=None, run_params=None):
     """
-    Heatmap of (HC_freq - SZ_freq) for one configuration.
+    Heatmap of (HC_freq - SZ_freq) for one configuration, with NeuroMark
+    network domain dividers (SC, AU, SM, VI, CC, DM, CB) and parameter
+    annotation.
     """
     group_counts = result["_group_counts"]
     group_n_sol = result["_group_n_sol"]
@@ -417,7 +499,7 @@ def plot_edge_diff_heatmap(result, comp_names, outpath):
     if comp_names is None or len(comp_names) != N:
         comp_names = [str(i) for i in range(N)]
 
-    fig, ax = plt.subplots(figsize=(max(8, N * 0.4), max(7, N * 0.35)))
+    fig, ax = plt.subplots(figsize=(max(10, N * 0.45), max(9, N * 0.4)))
     vmax = max(abs(diff.min()), abs(diff.max()), 0.01)
     im = ax.imshow(diff, cmap="RdBu_r", vmin=-vmax, vmax=vmax, aspect="auto")
     ax.set_xticks(range(N))
@@ -425,9 +507,11 @@ def plot_edge_diff_heatmap(result, comp_names, outpath):
     tick_size = max(4, 8 - N // 10)
     ax.set_xticklabels(comp_names, rotation=90, fontsize=tick_size)
     ax.set_yticklabels(comp_names, fontsize=tick_size)
-    ax.set_xlabel("Target")
-    ax.set_ylabel("Source")
-    ax.set_title(f"{result['config']}: Group {groups[0]} - Group {groups[1]} edge freq")
+    ax.set_xlabel("Target", labelpad=25)
+    ax.set_ylabel("Source", labelpad=35)
+    title_main = (f"{result['config']}: Group {groups[0]} \u2212 Group {groups[1]} "
+                  "edge freq")
+    ax.set_title(title_main, pad=12)
     plt.colorbar(im, ax=ax, shrink=0.8)
 
     # Mark significant edges
@@ -438,9 +522,47 @@ def plot_edge_diff_heatmap(result, comp_names, outpath):
                 if sig_mask[i, j]:
                     ax.plot(j, i, "k*", markersize=max(3, 8 - N // 10))
 
-    plt.tight_layout()
+    # --- Network domain dividers ---
+    if comp_indices is not None and len(comp_indices) == N:
+        boundaries, domain_labels, domain_centers = get_domain_boundaries(
+            comp_indices)
+        if boundaries:
+            for b in boundaries:
+                ax.axhline(y=b - 0.5, color="black", linewidth=2, zorder=5)
+                ax.axvline(x=b - 0.5, color="black", linewidth=2, zorder=5)
+
+            for edge in (-0.5, N - 0.5):
+                ax.axhline(y=edge, color="black", linewidth=2, zorder=5)
+                ax.axvline(x=edge, color="black", linewidth=2, zorder=5)
+
+            dom_fs = max(7, min(11, 12 - N // 15))
+            max_label_chars = max(len(str(c)) for c in comp_names)
+            y_offset = -(tick_size * max_label_chars * 0.6 + 12)
+            x_offset = -(tick_size * max_label_chars * 0.7 + 12)
+            yax_trans = ax.get_yaxis_transform()
+            xax_trans = ax.get_xaxis_transform()
+
+            for label, center in zip(domain_labels, domain_centers):
+                ax.annotate(label, xy=(0, center), xycoords=yax_trans,
+                            xytext=(y_offset, 0), textcoords="offset points",
+                            fontsize=dom_fs, fontweight="bold",
+                            ha="center", va="center", clip_on=False)
+                ax.annotate(label, xy=(center, 0), xycoords=xax_trans,
+                            xytext=(0, x_offset), textcoords="offset points",
+                            fontsize=dom_fs, fontweight="bold",
+                            ha="center", va="top", clip_on=False)
+
+    # --- Parameter annotation ---
+    params_parts = _build_params_parts(analysis_args, run_params)
+    if params_parts:
+        fig.suptitle("  |  ".join(params_parts), fontsize=8, style="italic",
+                     y=0.99,
+                     bbox=dict(boxstyle="round,pad=0.3", facecolor="lightyellow",
+                               edgecolor="gray", alpha=0.8))
+
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
     os.makedirs(os.path.dirname(outpath), exist_ok=True)
-    plt.savefig(outpath, dpi=150)
+    plt.savefig(outpath, dpi=150, bbox_inches="tight")
     plt.close()
 
 
@@ -472,8 +594,9 @@ def main():
 
     print(f"Found {len(configs)} configurations: {configs}\n")
 
-    # Load component names for labelling (from the first config that has them)
     comp_names_map = {}
+    comp_indices_map = {}
+    run_params_map = {}
 
     all_results = []
     for cfg in configs:
@@ -483,7 +606,6 @@ def main():
                                 correction=args.correction)
         if result is not None:
             all_results.append(result)
-            # Try to extract component names from a subject file
             if cfg not in comp_names_map:
                 subj_files = sorted(glob.glob(
                     os.path.join(cfg_dir, "subject_*", "result.zkl")
@@ -493,8 +615,24 @@ def main():
                         info = zkl.load(subj_files[0])
                         if "comp_names" in info:
                             comp_names_map[cfg] = info["comp_names"]
+                        if "comp_indices" in info:
+                            comp_indices_map[cfg] = info["comp_indices"]
+                        rp = {}
+                        for key in ("gt_density_mode", "gt_density",
+                                    "gt_density_fraction", "selection_mode",
+                                    "top_k"):
+                            if key in info:
+                                rp[key] = info[key]
+                        if rp:
+                            run_params_map[cfg] = rp
                     except Exception:
                         pass
+            if cfg not in comp_indices_map:
+                try:
+                    n_comp = int(cfg.split("_")[0][1:])
+                    comp_indices_map[cfg] = get_comp_indices(n_comp)
+                except Exception:
+                    pass
 
     if not all_results:
         print("No results to analyze.")
@@ -569,11 +707,16 @@ def main():
         print("GENERATING PLOTS")
         print("=" * 80)
 
+        common_run_params = None
+        if run_params_map:
+            common_run_params = dict(next(iter(run_params_map.values())))
+
         plot_comparison_bar(
             summary_df, "n_sig_edges",
             "Number of Significant Edges",
             "HC vs SZ: Significant Edge Differences by Configuration",
             os.path.join(out_dir, "bar_sig_edges.png"),
+            analysis_args=args, run_params=common_run_params,
         )
         print(f"  Saved: {out_dir}/bar_sig_edges.png")
 
@@ -582,6 +725,7 @@ def main():
             "Frobenius Distance",
             "HC vs SZ: Edge Frequency Frobenius Distance by Configuration",
             os.path.join(out_dir, "bar_frobenius.png"),
+            analysis_args=args, run_params=common_run_params,
         )
         print(f"  Saved: {out_dir}/bar_frobenius.png")
 
@@ -590,16 +734,23 @@ def main():
             "Density Difference",
             "HC vs SZ: Graph Density Difference by Configuration",
             os.path.join(out_dir, "bar_density_diff.png"),
+            analysis_args=args, run_params=common_run_params,
         )
         print(f"  Saved: {out_dir}/bar_density_diff.png")
 
         # Per-config heatmaps
         heatmap_dir = os.path.join(out_dir, "heatmaps")
         for r in all_results:
-            cnames = comp_names_map.get(r["config"])
+            cfg_name = r["config"]
+            cnames = comp_names_map.get(cfg_name)
+            cindices = comp_indices_map.get(cfg_name)
+            rparams = run_params_map.get(cfg_name)
             plot_edge_diff_heatmap(
                 r, cnames,
-                os.path.join(heatmap_dir, f"diff_{r['config']}.png"),
+                os.path.join(heatmap_dir, f"diff_{cfg_name}.png"),
+                comp_indices=cindices,
+                analysis_args=args,
+                run_params=rparams,
             )
         print(f"  Saved heatmaps: {heatmap_dir}/")
 

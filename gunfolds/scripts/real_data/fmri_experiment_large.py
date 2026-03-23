@@ -431,6 +431,12 @@ def run_single_subject(args, data, labels, comp_indices, comp_names):
         "scc_strategy": args.scc_strategy,
         "comp_indices": comp_indices,
         "comp_names": comp_names,
+        "gt_density_mode": args.gt_density_mode,
+        "gt_density": args.gt_density if args.gt_density_mode == "fixed" else None,
+        "gt_density_fraction": (args.gt_density_fraction
+                                if args.gt_density_mode == "fraction" else None),
+        "selection_mode": args.selection_mode,
+        "top_k": args.top_k,
         "solutions": [],
     }
 
@@ -610,6 +616,10 @@ def run_all_subjects(args, data, labels, comp_indices, comp_names):
         "top_k": args.top_k,
         "delta_multiplier": args.delta_multiplier,
         "timestamp": timestamp,
+        "gt_density_mode": args.gt_density_mode,
+        "gt_density": args.gt_density if args.gt_density_mode == "fixed" else None,
+        "gt_density_fraction": (args.gt_density_fraction
+                                if args.gt_density_mode == "fraction" else None),
     }
     zkl.save(params, os.path.join(combined_dir, "run_params.zkl"))
     print(f"\nDone. Results in {root_dir}")
