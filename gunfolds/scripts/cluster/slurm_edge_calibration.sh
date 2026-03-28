@@ -4,7 +4,7 @@
 #SBATCH -n 1
 #SBATCH -c 15
 #SBATCH --mem=10g
-#SBATCH -p qTRDHM
+#SBATCH -p qTRDGPU
 #SBATCH -t 1-00:00:00
 #SBATCH -J edge_cal
 #SBATCH -e ./err/edge_cal_error%A-%a.err
@@ -89,7 +89,9 @@ echo "Task ID:      $TASK_ID"
 echo "Timestamp:    $TIMESTAMP"
 echo "==========================================="
 
-cd $SLURM_SUBMIT_DIR
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EXPERIMENT_DIR="${SCRIPT_DIR}/../experiments"
+cd "$EXPERIMENT_DIR"
 
 # =============================================================================
 # Run experiment
