@@ -60,7 +60,7 @@ def parse_arguments():
         description="fMRI causal discovery experiment (RASL / PCMCI / GCM)."
     )
     # Experiment configuration
-    p.add_argument("--n_components", type=int, default=20, choices=[10, 20, 53],
+    p.add_argument("--n_components", type=int, default=10, choices=[10, 20, 53],
                    help="Number of ICA components to use")
     p.add_argument("--scc_strategy", type=str, default="domain",
                    choices=["domain", "correlation", "estimated", "none"],
@@ -96,7 +96,7 @@ def parse_arguments():
                    help="GT_density: 'none' (default), 'fixed' (use --gt_density value), or 'fraction' (use fraction of g_estimated)")
     p.add_argument("--gt_density", default=75, type=int,
                    help="Fixed GT_density value (0-1000, density*1000). Used when --gt_density_mode=fixed.")
-    p.add_argument("--gt_density_fraction", default=0.5, type=float,
+    p.add_argument("--gt_density_fraction", default=1, type=float,
                    help="Fraction of g_estimated density for GT_density. Used when --gt_density_mode=fraction.")
 
     # GCM parameters
