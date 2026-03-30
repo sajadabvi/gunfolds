@@ -14,6 +14,9 @@ Modes:
   aggregate  - Combine individual task results and produce calibration plots
   local      - Run all tasks sequentially in a single process (original behavior)
   plot_only  - Re-plot from saved aggregated results
+
+By default, self-loops (edges from a node to itself) are excluded from the
+precision calculation. Use --include-selfloops to include them.
 """
 import os
 import sys
@@ -82,6 +85,8 @@ def parse_args():
                         help="output directory")
     shared.add_argument("--timestamp", default=None,
                         help="shared timestamp for grouping results")
+    shared.add_argument("--include-selfloops", action="store_true", default=False,
+                        help="include self-loops in precision calculation (ignored by default)")
 
     # --- 'run' mode: single SLURM array task ---
     run_parser = sub.add_parser('run', parents=[shared],
@@ -170,7 +175,7 @@ def Glag2CG(results):
 # Edge frequency analysis
 # =========================================================================
 
-def compute_edge_frequencies(solutions, n_nodes):
+def compute_edge_frequencies(solutions, n_nodes, ignore_selfloops=True):
     """Compute frequency of each directed and bidirected edge across solutions."""
     directed_counts = defaultdict(int)
     bidirected_counts = defaultdict(int)
@@ -180,6 +185,8 @@ def compute_edge_frequencies(solutions, n_nodes):
         g = bfutils.num2CG(answer[0][0], n_nodes)
         for node in g:
             for neighbor, edge_type in g[node].items():
+                if ignore_selfloops and node == neighbor:
+                    continue
                 if edge_type in (1, 3):
                     directed_counts[(node, neighbor)] += 1
                 if edge_type in (2, 3):
@@ -191,7 +198,7 @@ def compute_edge_frequencies(solutions, n_nodes):
     return directed_freq, bidirected_freq
 
 
-def compute_calibration_data(solutions, gt, n_nodes):
+def compute_calibration_data(solutions, gt, n_nodes, ignore_selfloops=True):
     """
     For each edge appearing in any solution, compute:
     - Its frequency across solutions
@@ -202,7 +209,11 @@ def compute_calibration_data(solutions, gt, n_nodes):
     gt_bidirected_raw = gk.bedgelist(gt)
     gt_bidirected = set(tuple(sorted(e)) for e in gt_bidirected_raw)
 
-    directed_freq, bidirected_freq = compute_edge_frequencies(solutions, n_nodes)
+    if ignore_selfloops:
+        gt_directed = {(u, v) for u, v in gt_directed if u != v}
+
+    directed_freq, bidirected_freq = compute_edge_frequencies(
+        solutions, n_nodes, ignore_selfloops=ignore_selfloops)
 
     directed_calibration = []
     for edge, freq in directed_freq.items():
@@ -230,7 +241,7 @@ def compute_calibration_data(solutions, gt, n_nodes):
 # =========================================================================
 
 def run_single_experiment(network_num, u_rate, batch_idx, ssize, noise,
-                          timeout_hours, pnum):
+                          timeout_hours, pnum, ignore_selfloops=True):
     """Run a single configuration and return calibration data."""
     GT = simp_nets(network_num, selfloop=True)
     n_nodes = len(GT)
@@ -273,7 +284,8 @@ def run_single_experiment(network_num, u_rate, batch_idx, ssize, noise,
     n_keep = max(1, len(r_sorted) // 5)
     r = r_sorted[:n_keep]
 
-    dir_cal, bidir_cal = compute_calibration_data(r, GT, n_nodes)
+    dir_cal, bidir_cal = compute_calibration_data(r, GT, n_nodes,
+                                                    ignore_selfloops=ignore_selfloops)
 
     return {
         'directed_calibration': dir_cal,
@@ -393,9 +405,11 @@ def mode_run(args):
     print(f"[Task {args.task_id}/{total_tasks - 1}] "
           f"Network={net_num}, u={u_rate}, batch={batch}")
 
+    ignore_sl = not args.include_selfloops
     result = run_single_experiment(net_num, u_rate, batch,
                                    args.ssize, args.noise,
-                                   args.TIMEOUT, args.PNUM)
+                                   args.TIMEOUT, args.PNUM,
+                                   ignore_selfloops=ignore_sl)
 
     ts = args.timestamp or "notimestamp"
     out_dir = os.path.join(args.output_dir, ts, "tasks")
@@ -480,6 +494,7 @@ def mode_local(args):
     all_bidirected_cal = []
     all_results = []
 
+    ignore_sl = not args.include_selfloops
     tasks = build_task_list(args.NETWORKS, args.UNDERSAMPLING, args.BATCHES)
     total = len(tasks)
 
@@ -487,7 +502,8 @@ def mode_local(args):
         print(f"[{idx + 1}/{total}] Network={net_num}, u={u_rate}, batch={batch}")
         result = run_single_experiment(net_num, u_rate, batch,
                                        args.ssize, args.noise,
-                                       args.TIMEOUT, args.PNUM)
+                                       args.TIMEOUT, args.PNUM,
+                                       ignore_selfloops=ignore_sl)
         if result is not None:
             all_directed_cal.extend(result['directed_calibration'])
             all_bidirected_cal.extend(result['bidirected_calibration'])
