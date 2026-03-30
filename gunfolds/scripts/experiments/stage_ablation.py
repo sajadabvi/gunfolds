@@ -188,7 +188,7 @@ def evaluate_solution_set(solutions, GT, n_nodes):
     density_gt = gk.density(GT)
 
     sorted_solutions = sorted(solutions, key=lambda s: s[1])
-    top_k = max(1, int(np.ceil(len(sorted_solutions) * 0.1)))
+    top_k = max(1, int(np.ceil(len(sorted_solutions) * 0.9)))
     top_solutions = sorted_solutions[:top_k]
 
     metrics_accum = defaultdict(list)
@@ -374,58 +374,69 @@ def print_summary_table(aggregated):
     print("=" * 90)
 
 
-def plot_ablation(aggregated, output_path):
-    """Create a grouped bar chart of stage-wise metrics."""
+def _bar_chart(ax, stage_names, short_names, aggregated, metric_key,
+               ylabel, title, fmt='.3f', ylim=None):
+    """Helper to draw a single bar chart panel."""
+    colors = ['#4ECDC4', '#45B7D1', '#2C3E50']
+    means = [aggregated[s][metric_key]['mean'] for s in stage_names]
+    stds = [aggregated[s][metric_key]['std'] for s in stage_names]
+    bars = ax.bar(range(len(stage_names)), means, yerr=stds,
+                  capsize=5, color=colors[:len(stage_names)],
+                  edgecolor='black', linewidth=0.5)
+    ax.set_xticks(range(len(stage_names)))
+    ax.set_xticklabels(short_names[:len(stage_names)], fontsize=10)
+    ax.set_ylabel(ylabel, fontsize=12)
+    ax.set_title(title, fontsize=13)
+    if ylim is not None:
+        ax.set_ylim(ylim)
+    for bar, m in zip(bars, means):
+        label = f'{m:{fmt}}'
+        ax.text(bar.get_x() + bar.get_width() / 2., bar.get_height() + 0.02 * ax.get_ylim()[1],
+                label, ha='center', va='bottom', fontsize=9)
+
+
+def plot_ablation(aggregated, output_dir):
+    """Produce three PDF figures: metrics, runtime, and solution count."""
     stage_names = [s for s in STAGES if s in aggregated]
     if not stage_names:
         print("No data to plot.")
         return
 
     short_names = ['Density\nOnly', 'Density+\nBidirected', 'Full\nPipeline']
-    metrics_to_plot = [
-        ('orientation_f1', 'Orientation F1'),
-        ('adjacency_f1', 'Adjacency F1'),
-    ]
 
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    # --- Figure 1: F1 metrics + density deviation ---
+    fig1, axes1 = plt.subplots(1, 3, figsize=(15, 5))
+    _bar_chart(axes1[0], stage_names, short_names, aggregated,
+               'orientation_f1', 'Orientation F1', 'Orientation F1', ylim=(0, 1.05))
+    _bar_chart(axes1[1], stage_names, short_names, aggregated,
+               'adjacency_f1', 'Adjacency F1', 'Adjacency F1', ylim=(0, 1.05))
+    _bar_chart(axes1[2], stage_names, short_names, aggregated,
+               'density_deviation', 'Density Deviation', 'Density Deviation from GT')
+    fig1.tight_layout()
+    path1 = os.path.join(output_dir, 'stage_ablation_metrics.pdf')
+    fig1.savefig(path1, dpi=300, bbox_inches='tight')
+    plt.close(fig1)
+    print(f"Metrics plot saved to {path1}")
 
-    for ax_idx, (metric_key, metric_label) in enumerate(metrics_to_plot):
-        means = [aggregated[s][metric_key]['mean'] for s in stage_names]
-        stds = [aggregated[s][metric_key]['std'] for s in stage_names]
+    # --- Figure 2: Runtime per stage ---
+    fig2, ax2 = plt.subplots(figsize=(6, 5))
+    _bar_chart(ax2, stage_names, short_names, aggregated,
+               'runtime_sec', 'Runtime (seconds)', 'Compute Time per Stage', fmt='.1f')
+    fig2.tight_layout()
+    path2 = os.path.join(output_dir, 'stage_ablation_runtime.pdf')
+    fig2.savefig(path2, dpi=300, bbox_inches='tight')
+    plt.close(fig2)
+    print(f"Runtime plot saved to {path2}")
 
-        colors = ['#4ECDC4', '#45B7D1', '#2C3E50']
-        bars = axes[ax_idx].bar(range(len(stage_names)), means, yerr=stds,
-                                capsize=5, color=colors[:len(stage_names)],
-                                edgecolor='black', linewidth=0.5)
-        axes[ax_idx].set_xticks(range(len(stage_names)))
-        axes[ax_idx].set_xticklabels(short_names[:len(stage_names)], fontsize=10)
-        axes[ax_idx].set_ylabel(metric_label, fontsize=12)
-        axes[ax_idx].set_ylim(0, 1.05)
-        axes[ax_idx].set_title(metric_label, fontsize=13)
-
-        for bar, m in zip(bars, means):
-            axes[ax_idx].text(bar.get_x() + bar.get_width() / 2., bar.get_height() + 0.02,
-                              f'{m:.3f}', ha='center', va='bottom', fontsize=9)
-
-    if 'density_deviation' in aggregated.get(stage_names[0], {}):
-        means = [aggregated[s]['density_deviation']['mean'] for s in stage_names]
-        stds = [aggregated[s]['density_deviation']['std'] for s in stage_names]
-        colors = ['#4ECDC4', '#45B7D1', '#2C3E50']
-        bars = axes[2].bar(range(len(stage_names)), means, yerr=stds,
-                           capsize=5, color=colors[:len(stage_names)],
-                           edgecolor='black', linewidth=0.5)
-        axes[2].set_xticks(range(len(stage_names)))
-        axes[2].set_xticklabels(short_names[:len(stage_names)], fontsize=10)
-        axes[2].set_ylabel('Density Deviation', fontsize=12)
-        axes[2].set_title('Density Deviation from GT', fontsize=13)
-        for bar, m in zip(bars, means):
-            axes[2].text(bar.get_x() + bar.get_width() / 2., bar.get_height() + 0.005,
-                         f'{m:.3f}', ha='center', va='bottom', fontsize=9)
-
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    plt.close()
-    print(f"Ablation plot saved to {output_path}")
+    # --- Figure 3: Solution set size per stage ---
+    fig3, ax3 = plt.subplots(figsize=(6, 5))
+    _bar_chart(ax3, stage_names, short_names, aggregated,
+               'n_solutions', 'Number of Solutions', 'Solution Set Size per Stage', fmt='.0f')
+    fig3.tight_layout()
+    path3 = os.path.join(output_dir, 'stage_ablation_solutions.pdf')
+    fig3.savefig(path3, dpi=300, bbox_inches='tight')
+    plt.close(fig3)
+    print(f"Solutions plot saved to {path3}")
 
 
 # =========================================================================
@@ -514,8 +525,7 @@ def mode_aggregate(args):
 
     aggregated = aggregate_results(all_results)
     print_summary_table(aggregated)
-    plot_path = os.path.join(agg_dir, 'stage_ablation.pdf')
-    plot_ablation(aggregated, plot_path)
+    plot_ablation(aggregated, agg_dir)
 
 
 # =========================================================================
@@ -547,8 +557,7 @@ def mode_local(args):
 
     aggregated = aggregate_results(all_results)
     print_summary_table(aggregated)
-    plot_path = os.path.join(args.output_dir, 'stage_ablation.pdf')
-    plot_ablation(aggregated, plot_path)
+    plot_ablation(aggregated, args.output_dir)
 
 
 # =========================================================================
@@ -560,7 +569,7 @@ def mode_plot_only(args):
     saved = zkl.load(args.path)
     aggregated = aggregate_results(saved['all_results'])
     print_summary_table(aggregated)
-    plot_ablation(aggregated, args.path.replace('.zkl', '_ablation.pdf'))
+    plot_ablation(aggregated, os.path.dirname(os.path.abspath(args.path)))
 
 
 # =========================================================================
