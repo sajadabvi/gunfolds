@@ -13,8 +13,16 @@ density deviation, and omission/commission errors.
 
 This addresses Reviewer jQK7 Q2: "What does the solution set look like after
 stage 1 alone, and how does it change through stages 2 and 3?"
+
+Modes:
+  run        - Execute a single task identified by --task_id (for SLURM array jobs)
+  aggregate  - Combine individual task results and produce summary + plots
+  local      - Run all tasks sequentially in a single process (original behavior)
+  plot_only  - Re-plot from saved aggregated results
 """
 import os
+import sys
+import glob
 import copy
 import numpy as np
 import argparse
@@ -48,25 +56,69 @@ STAGES = {
     'Stage 3: Full pipeline':      [1, 2, 1, 2, 3],
 }
 
-parser = argparse.ArgumentParser(description='Stage-by-stage ablation experiment.')
-parser.add_argument("-n", "--NETWORKS", nargs='+', default=[1, 2, 3, 4, 5],
-                    type=int, help="Sanchez-Romero network numbers")
-parser.add_argument("-u", "--UNDERSAMPLING", nargs='+', default=[2, 3],
-                    type=int, help="undersampling rates")
-parser.add_argument("-b", "--BATCHES", default=10, type=int,
-                    help="number of batches per configuration")
-parser.add_argument("-p", "--PNUM", default=PNUM, type=int, help="number of CPUs")
-parser.add_argument("-t", "--TIMEOUT", default=2, type=int, help="timeout in hours")
-parser.add_argument("--ssize", default=5000, type=int, help="sample size")
-parser.add_argument("--noise", default=0.1, type=float, help="noise level")
-parser.add_argument("--output_dir", default="results_stage_ablation",
-                    help="output directory")
-parser.add_argument("--plot_only", default=None,
-                    help="path to saved results .zkl to just plot")
-args = parser.parse_args()
 
-TIMEOUT_SEC = args.TIMEOUT * 60 * 60
+def build_task_list(networks, undersampling_rates, batches):
+    """Build an ordered list of (network, u_rate, batch) tuples.
 
+    The SLURM array task ID indexes into this list.
+    """
+    tasks = []
+    for net_num in networks:
+        for u_rate in undersampling_rates:
+            for batch in range(1, batches + 1):
+                tasks.append((net_num, u_rate, batch))
+    return tasks
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description='Stage-by-stage ablation experiment (SLURM array compatible).')
+
+    sub = parser.add_subparsers(dest='mode', help='Execution mode')
+
+    shared = argparse.ArgumentParser(add_help=False)
+    shared.add_argument("-n", "--NETWORKS", nargs='+', default=[1, 2, 3, 4, 5],
+                        type=int, help="Sanchez-Romero network numbers")
+    shared.add_argument("-u", "--UNDERSAMPLING", nargs='+', default=[2, 3],
+                        type=int, help="undersampling rates")
+    shared.add_argument("-b", "--BATCHES", default=10, type=int,
+                        help="number of batches per configuration")
+    shared.add_argument("--ssize", default=5000, type=int, help="sample size")
+    shared.add_argument("--noise", default=0.1, type=float, help="noise level")
+    shared.add_argument("--output_dir", default="results_stage_ablation",
+                        help="output directory")
+    shared.add_argument("--timestamp", default=None,
+                        help="shared timestamp for grouping results")
+
+    run_parser = sub.add_parser('run', parents=[shared],
+                                help='Run a single task (SLURM array element)')
+    run_parser.add_argument("--task_id", required=True, type=int,
+                            help="SLURM_ARRAY_TASK_ID (0-based index into task list)")
+    run_parser.add_argument("-p", "--PNUM", default=PNUM, type=int,
+                            help="number of CPUs for clingo")
+    run_parser.add_argument("-t", "--TIMEOUT", default=2, type=int,
+                            help="timeout in hours")
+
+    agg_parser = sub.add_parser('aggregate', parents=[shared],
+                                help='Aggregate task results and produce plots')
+
+    local_parser = sub.add_parser('local', parents=[shared],
+                                  help='Run all tasks sequentially in one process')
+    local_parser.add_argument("-p", "--PNUM", default=PNUM, type=int,
+                              help="number of CPUs for clingo")
+    local_parser.add_argument("-t", "--TIMEOUT", default=2, type=int,
+                              help="timeout in hours")
+
+    plot_parser = sub.add_parser('plot_only',
+                                 help='Re-plot from saved aggregated .zkl file')
+    plot_parser.add_argument("path", help="path to saved results .zkl")
+
+    return parser.parse_args()
+
+
+# =========================================================================
+# Simulation helpers
+# =========================================================================
 
 def create_stable_weighted_matrix(A, threshold=0.1, powers=[1, 2, 3, 4],
                                   max_attempts=10000000, damping_factor=0.99):
@@ -112,6 +164,10 @@ def Glag2CG(results):
     return graph_dict, A_matrix, B_matrix
 
 
+# =========================================================================
+# Metrics
+# =========================================================================
+
 def compute_f1(omission, commission, n_gt_edges, n_possible_edges):
     """Compute F1 from omission/commission counts."""
     tp = n_gt_edges - omission
@@ -124,71 +180,64 @@ def compute_f1(omission, commission, n_gt_edges, n_possible_edges):
 
 
 def evaluate_solution_set(solutions, GT, n_nodes):
-    """Evaluate solution set against ground truth, returning metrics for the best solution."""
-    gt_directed = set(gk.edgelist(GT))
-    gt_bidirected_raw = gk.bedgelist(GT)
-    gt_bidirected = set(tuple(sorted(e)) for e in gt_bidirected_raw)
-    n_gt_dir = len(gt_directed)
-    n_gt_bidir = len(gt_bidirected)
+    """Evaluate the top 10% lowest-cost solutions and return averaged metrics."""
+    n_gt_dir = len(set(gk.edgelist(GT)))
+    n_gt_bidir = len(set(tuple(sorted(e)) for e in gk.bedgelist(GT)))
     n_possible_dir = n_nodes * n_nodes
     n_possible_bidir = n_nodes * (n_nodes - 1) // 2
+    density_gt = gk.density(GT)
 
-    best_total_err = float('inf')
-    best_metrics = None
+    sorted_solutions = sorted(solutions, key=lambda s: s[1])
+    top_k = max(1, int(np.ceil(len(sorted_solutions) * 0.1)))
+    top_solutions = sorted_solutions[:top_k]
 
-    for answer in solutions:
+    metrics_accum = defaultdict(list)
+    for answer in top_solutions:
         g1 = bfutils.num2CG(answer[0][0], n_nodes)
-
         oce = gk.OCE(g1, GT, normalized=False)
+
+        dir_omission = oce['directed'][0]
+        dir_commission = oce['directed'][1]
+        bidir_omission = oce['bidirected'][0]
+        bidir_commission = oce['bidirected'][1]
+
+        orient_f1, orient_p, orient_r = compute_f1(
+            dir_omission, dir_commission, n_gt_dir, n_possible_dir)
+        adj_f1, adj_p, adj_r = compute_f1(
+            oce['total'][0], oce['total'][1],
+            n_gt_dir + n_gt_bidir, n_possible_dir + n_possible_bidir)
+
+        density_g1 = gk.density(g1)
         total_err = oce['total'][0] + oce['total'][1]
 
-        if total_err < best_total_err:
-            best_total_err = total_err
+        metrics_accum['orientation_f1'].append(orient_f1)
+        metrics_accum['orientation_precision'].append(orient_p)
+        metrics_accum['orientation_recall'].append(orient_r)
+        metrics_accum['adjacency_f1'].append(adj_f1)
+        metrics_accum['adjacency_precision'].append(adj_p)
+        metrics_accum['adjacency_recall'].append(adj_r)
+        metrics_accum['dir_omission'].append(dir_omission)
+        metrics_accum['dir_commission'].append(dir_commission)
+        metrics_accum['bidir_omission'].append(bidir_omission)
+        metrics_accum['bidir_commission'].append(bidir_commission)
+        metrics_accum['density_deviation'].append(abs(density_g1 - density_gt))
+        metrics_accum['density_solution'].append(density_g1)
+        metrics_accum['density_gt'].append(density_gt)
+        metrics_accum['total_error'].append(total_err)
 
-            dir_omission = oce['directed'][0]
-            dir_commission = oce['directed'][1]
-            bidir_omission = oce['bidirected'][0]
-            bidir_commission = oce['bidirected'][1]
-
-            orient_f1, orient_p, orient_r = compute_f1(
-                dir_omission, dir_commission, n_gt_dir, n_possible_dir)
-            adj_f1, adj_p, adj_r = compute_f1(
-                oce['total'][0], oce['total'][1],
-                n_gt_dir + n_gt_bidir, n_possible_dir + n_possible_bidir)
-
-            density_g1 = gk.density(g1)
-            density_gt = gk.density(GT)
-            density_dev = abs(density_g1 - density_gt)
-
-            best_metrics = {
-                'orientation_f1': orient_f1,
-                'orientation_precision': orient_p,
-                'orientation_recall': orient_r,
-                'adjacency_f1': adj_f1,
-                'adjacency_precision': adj_p,
-                'adjacency_recall': adj_r,
-                'dir_omission': dir_omission,
-                'dir_commission': dir_commission,
-                'bidir_omission': bidir_omission,
-                'bidir_commission': bidir_commission,
-                'density_deviation': density_dev,
-                'density_solution': density_g1,
-                'density_gt': density_gt,
-                'total_error': best_total_err,
-            }
-
-    return best_metrics
+    return {key: np.mean(vals) for key, vals in metrics_accum.items()}
 
 
-def run_single_config(GT, g_estimated, DD, BD, priorities, n_nodes):
+def run_single_config(GT, g_estimated, DD, BD, priorities, n_nodes,
+                      timeout_sec, pnum):
     """Run drasl with specific priorities and return metrics."""
     start = time.time()
     r = drasl([g_estimated], weighted=True, capsize=0,
-              timeout=TIMEOUT_SEC,
-              urate=min(15, 3 * n_nodes + 1),
+              timeout=timeout_sec,
+              urate=min(4, 3 * n_nodes + 1),
               dm=[DD], bdm=[BD],
               GT_density=int(1000 * gk.density(GT)),
-              edge_weights=priorities, pnum=args.PNUM, optim='optN')
+              edge_weights=priorities, pnum=pnum, optim='optN', selfloop=True)
     elapsed = time.time() - start
 
     if len(r) == 0:
@@ -203,12 +252,18 @@ def run_single_config(GT, g_estimated, DD, BD, priorities, n_nodes):
     return metrics
 
 
-def run_ablation(network_num, u_rate, batch_idx):
+# =========================================================================
+# Single experiment (one task = one network × u_rate × batch)
+# =========================================================================
+
+def run_ablation(network_num, u_rate, batch_idx, ssize, noise,
+                 timeout_hours, pnum):
     """Run all three stages for one configuration."""
     GT = simp_nets(network_num, selfloop=True)
     n_nodes = len(GT)
     A = cv.graph2adj(GT)
     MAXCOST = 10000
+    timeout_sec = timeout_hours * 60 * 60
 
     try:
         W = create_stable_weighted_matrix(A, threshold=0.2, powers=[2, 3, 4])
@@ -216,7 +271,7 @@ def run_ablation(network_num, u_rate, batch_idx):
         print(f"  Skipping: could not create stable matrix")
         return None
 
-    dd = genData(W, rate=u_rate, ssize=args.ssize, noise=args.noise)
+    dd = genData(W, rate=u_rate, ssize=ssize, noise=noise)
 
     dataframe = pp.DataFrame(np.transpose(dd))
     cond_ind_test = ParCorr()
@@ -232,7 +287,8 @@ def run_ablation(network_num, u_rate, batch_idx):
     stage_results = {}
     for stage_name, priorities in STAGES.items():
         print(f"    Running {stage_name} with priorities={priorities}")
-        metrics = run_single_config(GT, g_estimated, DD, BD, priorities, n_nodes)
+        metrics = run_single_config(GT, g_estimated, DD, BD, priorities,
+                                    n_nodes, timeout_sec, pnum)
         if metrics is not None:
             stage_results[stage_name] = metrics
             print(f"      Orient F1={metrics['orientation_f1']:.3f}, "
@@ -245,6 +301,10 @@ def run_ablation(network_num, u_rate, batch_idx):
 
     return stage_results
 
+
+# =========================================================================
+# Aggregation & reporting
+# =========================================================================
 
 def aggregate_results(all_results):
     """Aggregate metrics across all runs, grouped by stage."""
@@ -368,32 +428,117 @@ def plot_ablation(aggregated, output_path):
     print(f"Ablation plot saved to {output_path}")
 
 
-def main():
-    if args.plot_only:
-        print(f"Loading saved results from {args.plot_only}")
-        saved = zkl.load(args.plot_only)
-        aggregated = aggregate_results(saved['all_results'])
-        print_summary_table(aggregated)
-        plot_ablation(aggregated, args.plot_only.replace('.zkl', '_ablation.pdf'))
-        return
+# =========================================================================
+# Mode: run (single SLURM array task)
+# =========================================================================
 
+def mode_run(args):
+    tasks = build_task_list(args.NETWORKS, args.UNDERSAMPLING, args.BATCHES)
+    total_tasks = len(tasks)
+
+    if args.task_id < 0 or args.task_id >= total_tasks:
+        print(f"ERROR: task_id {args.task_id} out of range [0, {total_tasks - 1}]")
+        sys.exit(1)
+
+    net_num, u_rate, batch = tasks[args.task_id]
+    print(f"[Task {args.task_id}/{total_tasks - 1}] "
+          f"Network={net_num}, u={u_rate}, batch={batch}")
+
+    result = run_ablation(net_num, u_rate, batch,
+                          args.ssize, args.noise,
+                          args.TIMEOUT, args.PNUM)
+
+    ts = args.timestamp or "notimestamp"
+    out_dir = os.path.join(args.output_dir, ts, "tasks")
+    os.makedirs(out_dir, exist_ok=True)
+
+    out_path = os.path.join(out_dir, f"task_{args.task_id:04d}.zkl")
+    save_payload = {
+        'task_id': args.task_id,
+        'network': net_num,
+        'u_rate': u_rate,
+        'batch': batch,
+        'result': result,
+    }
+    zkl.save(save_payload, out_path)
+    print(f"Task result saved to {out_path}")
+
+    if result is not None:
+        for stage_name, metrics in result.items():
+            print(f"  {stage_name}: Orient F1={metrics['orientation_f1']:.3f}, "
+                  f"Adj F1={metrics['adjacency_f1']:.3f}")
+    else:
+        print("  Task returned no result (skipped or no solutions).")
+
+
+# =========================================================================
+# Mode: aggregate
+# =========================================================================
+
+def mode_aggregate(args):
+    ts = args.timestamp or "notimestamp"
+    task_dir = os.path.join(args.output_dir, ts, "tasks")
+
+    if not os.path.isdir(task_dir):
+        print(f"ERROR: task directory not found: {task_dir}")
+        sys.exit(1)
+
+    task_files = sorted(glob.glob(os.path.join(task_dir, "task_*.zkl")))
+    tasks = build_task_list(args.NETWORKS, args.UNDERSAMPLING, args.BATCHES)
+    total_expected = len(tasks)
+
+    print(f"Found {len(task_files)} / {total_expected} task result files in {task_dir}")
+
+    all_results = []
+    n_skipped = 0
+
+    for fpath in task_files:
+        payload = zkl.load(fpath)
+        result = payload['result']
+        if result is not None:
+            all_results.append(result)
+        else:
+            n_skipped += 1
+
+    print(f"Loaded {len(all_results)} successful results, {n_skipped} skipped/empty")
+
+    agg_dir = os.path.join(args.output_dir, ts)
+    save_data = {
+        'all_results': all_results,
+        'args': {k: v for k, v in vars(args).items() if k != 'mode'},
+        'stages': {k: v for k, v in STAGES.items()},
+    }
+    save_path = os.path.join(agg_dir, 'stage_ablation_results.zkl')
+    zkl.save(save_data, save_path)
+    print(f"Aggregated results saved to {save_path}")
+
+    aggregated = aggregate_results(all_results)
+    print_summary_table(aggregated)
+    plot_path = os.path.join(agg_dir, 'stage_ablation.pdf')
+    plot_ablation(aggregated, plot_path)
+
+
+# =========================================================================
+# Mode: local (original sequential behavior)
+# =========================================================================
+
+def mode_local(args):
     os.makedirs(args.output_dir, exist_ok=True)
     all_results = []
 
-    total = len(args.NETWORKS) * len(args.UNDERSAMPLING) * args.BATCHES
-    count = 0
+    tasks = build_task_list(args.NETWORKS, args.UNDERSAMPLING, args.BATCHES)
+    total = len(tasks)
 
-    for net_num in args.NETWORKS:
-        for u_rate in args.UNDERSAMPLING:
-            for batch in range(1, args.BATCHES + 1):
-                count += 1
-                print(f"\n[{count}/{total}] Network={net_num}, u={u_rate}, batch={batch}")
-                result = run_ablation(net_num, u_rate, batch)
-                all_results.append(result)
+    for idx, (net_num, u_rate, batch) in enumerate(tasks):
+        print(f"\n[{idx + 1}/{total}] Network={net_num}, u={u_rate}, batch={batch}")
+        result = run_ablation(net_num, u_rate, batch,
+                              args.ssize, args.noise,
+                              args.TIMEOUT, args.PNUM)
+        all_results.append(result)
 
     save_data = {
         'all_results': all_results,
-        'args': vars(args),
+        'args': {k: v for k, v in vars(args).items() if k != 'mode'},
         'stages': {k: v for k, v in STAGES.items()},
     }
     save_path = os.path.join(args.output_dir, 'stage_ablation_results.zkl')
@@ -404,6 +549,42 @@ def main():
     print_summary_table(aggregated)
     plot_path = os.path.join(args.output_dir, 'stage_ablation.pdf')
     plot_ablation(aggregated, plot_path)
+
+
+# =========================================================================
+# Mode: plot_only
+# =========================================================================
+
+def mode_plot_only(args):
+    print(f"Loading saved results from {args.path}")
+    saved = zkl.load(args.path)
+    aggregated = aggregate_results(saved['all_results'])
+    print_summary_table(aggregated)
+    plot_ablation(aggregated, args.path.replace('.zkl', '_ablation.pdf'))
+
+
+# =========================================================================
+# Main
+# =========================================================================
+
+def main():
+    args = parse_args()
+
+    if args.mode is None:
+        print("ERROR: specify a mode: run | aggregate | local | plot_only")
+        print("  run        - single SLURM array task (use with --task_id)")
+        print("  aggregate  - combine task results and produce plots")
+        print("  local      - run all tasks sequentially (original behavior)")
+        print("  plot_only  - re-plot from saved .zkl file")
+        sys.exit(1)
+
+    dispatch = {
+        'run': mode_run,
+        'aggregate': mode_aggregate,
+        'local': mode_local,
+        'plot_only': mode_plot_only,
+    }
+    dispatch[args.mode](args)
 
 
 if __name__ == '__main__':

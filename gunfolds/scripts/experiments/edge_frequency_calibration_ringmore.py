@@ -307,7 +307,7 @@ def run_single_experiment(n_nodes, target_density, u_rate, batch_idx,
     priorities = [1, 2, 1, 2, 3]
     r = drasl([g_estimated], weighted=True, capsize=0,
               timeout=60 * 60 * timeout_hours,
-              urate=min(15, 3 * n_nodes + 1),
+              urate=min(4, 3 * n_nodes + 1),
               dm=[DD], bdm=[BD],
               GT_density=int(1000 * gk.density(GT)),
               edge_weights=priorities, pnum=pnum, optim='optN',

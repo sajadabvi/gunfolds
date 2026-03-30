@@ -85,7 +85,7 @@ def parse_args():
                         help="use individual (non-concatenated) data files")
     shared.add_argument("--tau_max", default=1, type=int,
                         help="maximum lag for PCMCI")
-    shared.add_argument("--maxu", default=8, type=int,
+    shared.add_argument("--maxu", default=4, type=int,
                         help="maximum undersampling rate to search")
     shared.add_argument("--output_dir",
                         default="results_edge_calibration_ruben",
