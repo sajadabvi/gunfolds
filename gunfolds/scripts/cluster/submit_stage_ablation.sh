@@ -7,7 +7,7 @@
 #   bash submit_stage_ablation.sh [OPTIONS]
 #
 # Options:
-#   -n NETWORKS        Space-separated network numbers (default: "1 2 3 4 5")
+#   -n NETWORKS        Space-separated network numbers (default: "1 2 3 5")
 #   -u UNDERSAMPLING   Space-separated undersampling rates (default: "2 3")
 #   -b BATCHES         Number of batches per config (default: 10)
 #   -m MAX_PARALLEL    Max simultaneous array tasks (default: 20)
@@ -21,17 +21,17 @@
 #   bash submit_stage_ablation.sh -n "1 2 3" -u "2 3 4" -b 20
 #   bash submit_stage_ablation.sh -p qTRDGPU -m 30
 #
-# Default configuration: 5 networks × 2 rates × 10 batches = 100 tasks
-# Each task runs all 3 ablation stages: 15 CPUs, 10GB memory
+# Default configuration: 4 networks × 2 rates × 10 batches = 80 tasks
+# Each task runs all 3 ablation stages: 15 CPUs, 1GB memory, 1 hour
 # =============================================================================
 
 # Defaults
-NETWORKS="1 2 3 4 5"
+NETWORKS="1 2 3 5"
 UNDERSAMPLING="2 3"
 BATCHES=10
 MAX_PARALLEL=100
 PARTITION="qTRDGPU"
-TIME_LIMIT="1-00:00:00"
+TIME_LIMIT="1:00:00"
 SSIZE=5000
 NOISE=0.1
 
@@ -64,7 +64,7 @@ SLURM_SCRIPT="${SCRIPT_DIR}/slurm_stage_ablation.sh"
 
 # Resource limits
 CPUS=15
-MEM="10g"
+MEM="1g"
 
 # Ensure directories exist
 mkdir -p ./logs ./err ./out

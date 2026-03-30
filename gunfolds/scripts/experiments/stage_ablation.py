@@ -77,7 +77,7 @@ def parse_args():
     sub = parser.add_subparsers(dest='mode', help='Execution mode')
 
     shared = argparse.ArgumentParser(add_help=False)
-    shared.add_argument("-n", "--NETWORKS", nargs='+', default=[1, 2, 3, 4, 5],
+    shared.add_argument("-n", "--NETWORKS", nargs='+', default=[1, 2, 3, 5],
                         type=int, help="Sanchez-Romero network numbers")
     shared.add_argument("-u", "--UNDERSAMPLING", nargs='+', default=[2, 3],
                         type=int, help="undersampling rates")

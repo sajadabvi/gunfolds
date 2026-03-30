@@ -3,9 +3,9 @@
 #SBATCH -N 1
 #SBATCH -n 1
 #SBATCH -c 15
-#SBATCH --mem=10g
+#SBATCH --mem=1g
 #SBATCH -p qTRDGPU
-#SBATCH -t 1-00:00:00
+#SBATCH -t 1:00:00
 #SBATCH -J stg_abl
 #SBATCH -e ./err/stg_abl_error%A-%a.err
 #SBATCH -o ./out/stg_abl_out%A-%a.out
@@ -25,7 +25,7 @@
 #   sbatch --array=0-99 slurm_stage_ablation.sh <TIMESTAMP> [EXTRA_ARGS...]
 #
 # The total number of tasks = len(NETWORKS) × len(UNDERSAMPLING) × BATCHES.
-# With defaults (networks=[1,2,3,4,5], u=[2,3], batches=10): 5×2×10 = 100 tasks.
+# With defaults (networks=[1,2,3,5], u=[2,3], batches=10): 4×2×10 = 80 tasks.
 #
 # Examples:
 #   sbatch --array=0-99%20  slurm_stage_ablation.sh 03302026120000
