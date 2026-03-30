@@ -237,7 +237,7 @@ def run_single_config(GT, g_estimated, DD, BD, priorities, n_nodes,
               urate=min(4, 3 * n_nodes + 1),
               dm=[DD], bdm=[BD],
               GT_density=int(1000 * gk.density(GT)),
-              edge_weights=priorities, pnum=pnum, optim='optN', selfloop=True)
+              edge_weights=priorities, pnum=pnum, optim='optN', selfloop=False)
     elapsed = time.time() - start
 
     if len(r) == 0:
@@ -259,7 +259,7 @@ def run_single_config(GT, g_estimated, DD, BD, priorities, n_nodes,
 def run_ablation(network_num, u_rate, batch_idx, ssize, noise,
                  timeout_hours, pnum):
     """Run all three stages for one configuration."""
-    GT = simp_nets(network_num, selfloop=True)
+    GT = simp_nets(network_num, selfloop=False)
     n_nodes = len(GT)
     A = cv.graph2adj(GT)
     MAXCOST = 10000
