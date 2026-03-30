@@ -64,7 +64,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description='Edge frequency calibration experiment (SLURM array compatible).')
 
-    sub = parser.add_subparsers(dest='mode', help='Execution mode')
+    sub = parser.add_subparsers(dest='mode',help='Execution mode')
 
     # --- shared arguments across modes ---
     shared = argparse.ArgumentParser(add_help=False)
@@ -263,11 +263,15 @@ def run_single_experiment(network_num, u_rate, batch_idx, ssize, noise,
               urate=min(15, 3 * n_nodes + 1),
               dm=[DD], bdm=[BD],
               GT_density=int(1000 * gk.density(GT)),
-              edge_weights=priorities, pnum=pnum, optim='optN')
+              edge_weights=priorities, pnum=pnum, optim='optN',selfloop=True)
 
     if len(r) == 0:
         print(f"  No solutions for net={network_num}, u={u_rate}, batch={batch_idx}")
         return None
+
+    r_sorted = sorted(r, key=lambda sol: sol[1])
+    n_keep = max(1, len(r_sorted) // 3)
+    r = r_sorted[:n_keep]
 
     dir_cal, bidir_cal = compute_calibration_data(r, GT, n_nodes)
 
