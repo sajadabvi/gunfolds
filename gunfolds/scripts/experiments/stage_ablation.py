@@ -188,7 +188,7 @@ def evaluate_solution_set(solutions, GT, n_nodes):
     density_gt = gk.density(GT)
 
     sorted_solutions = sorted(solutions, key=lambda s: s[1])
-    top_k = max(1, int(np.ceil(len(sorted_solutions) * 0.9)))
+    top_k = min(5, len(sorted_solutions))
     top_solutions = sorted_solutions[:top_k]
 
     metrics_accum = defaultdict(list)
