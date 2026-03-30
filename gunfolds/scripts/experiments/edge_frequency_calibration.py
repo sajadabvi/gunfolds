@@ -270,7 +270,7 @@ def run_single_experiment(network_num, u_rate, batch_idx, ssize, noise,
         return None
 
     r_sorted = sorted(r, key=lambda sol: sol[1])
-    n_keep = max(1, len(r_sorted) // 3)
+    n_keep = max(1, len(r_sorted) // 5)
     r = r_sorted[:n_keep]
 
     dir_cal, bidir_cal = compute_calibration_data(r, GT, n_nodes)
