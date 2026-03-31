@@ -69,7 +69,7 @@ SLURM_SCRIPT="${SCRIPT_DIR}/slurm_stage_ablation.sh"
 
 # Resource limits
 CPUS=15
-MEM="1g"
+MEM="15g"
 
 # Ensure directories exist
 mkdir -p ./logs ./err ./out

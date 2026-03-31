@@ -3,7 +3,7 @@
 #SBATCH -N 1
 #SBATCH -n 1
 #SBATCH -c 15
-#SBATCH --mem=1g
+#SBATCH --mem=15g
 #SBATCH -p qTRDGPU
 #SBATCH -t 1:00:00
 #SBATCH -J stg_abl
