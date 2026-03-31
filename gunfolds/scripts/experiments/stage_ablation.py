@@ -52,9 +52,9 @@ CLINGO_LIMIT = 64
 PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
 
 STAGES = {
-    'Stage 1: Density only':       {'priorities': [0, 0, 0, 0, 1], 'tercile': 'bottom'},
-    'Stage 2: Density+Bidirected': {'priorities': [0, 1, 0, 1, 2], 'tercile': 'middle'},
-    'Stage 3: Full pipeline':      {'priorities': [1, 2, 1, 2, 3], 'tercile': 'top'},
+    'Stage 1: Density only':       [0, 0, 0, 0, 1],
+    'Stage 2: Density+Bidirected': [0, 1, 0, 1, 2],
+    'Stage 3: Full pipeline':      [1, 2, 1, 2, 3],
 }
 
 
@@ -202,44 +202,19 @@ def compute_f1(omission, commission, n_gt_edges, n_possible_edges):
     return f1, precision, recall
 
 
-def evaluate_solution_set(solutions, GT, n_nodes, tercile='top'):
-    """Compute OCE for all solutions, select a tercile, return averaged metrics.
-
-    Solutions are sorted by total OCE error (ascending = best first).
-      tercile='bottom' -> worst 1/3   (Stage 1: density only)
-      tercile='middle' -> middle 1/3  (Stage 2: density + bidirected)
-      tercile='top'    -> best 1/3    (Stage 3: full pipeline)
-    """
+def evaluate_solution_set(solutions, GT, n_nodes):
+    """Compute OCE for all solutions and return averaged metrics."""
     n_gt_dir = len(set(gk.edgelist(GT)))
     n_gt_bidir = len(set(tuple(sorted(e)) for e in gk.bedgelist(GT)))
     n_possible_dir = n_nodes * n_nodes
     n_possible_bidir = n_nodes * (n_nodes - 1) // 2
     density_gt = gk.density(GT)
 
-    scored = []
+    metrics_accum = defaultdict(list)
     for answer in solutions:
         g1 = bfutils.num2CG(answer[0][0], n_nodes)
         oce = gk.OCE(g1, GT, normalized=False)
         total_err = oce['total'][0] + oce['total'][1]
-        scored.append((total_err, g1, oce))
-
-    scored.sort(key=lambda x: x[0])
-    n = len(scored)
-    t1 = max(1, n // 3)
-    t2 = max(t1 + 1, 2 * n // 3)
-
-    if tercile == 'top':
-        selected = scored[:t1]
-    elif tercile == 'middle':
-        selected = scored[t1:t2]
-    else:
-        selected = scored[t2:]
-
-    if not selected:
-        selected = scored
-
-    metrics_accum = defaultdict(list)
-    for total_err, g1, oce in selected:
         dir_omission = oce['directed'][0]
         dir_commission = oce['directed'][1]
         bidir_omission = oce['bidirected'][0]
@@ -272,7 +247,7 @@ def evaluate_solution_set(solutions, GT, n_nodes, tercile='top'):
 
 
 def run_single_config(GT, g_estimated, DD, BD, priorities, n_nodes,
-                      timeout_sec, pnum, tercile='top'):
+                      timeout_sec, pnum):
     """Run drasl with specific priorities and return metrics."""
     start = time.time()
     r = drasl([g_estimated], weighted=True, capsize=0,
@@ -286,7 +261,7 @@ def run_single_config(GT, g_estimated, DD, BD, priorities, n_nodes,
     if len(r) == 0:
         return None
 
-    metrics = evaluate_solution_set(r, GT, n_nodes, tercile=tercile)
+    metrics = evaluate_solution_set(r, GT, n_nodes)
     if metrics is None:
         return None
 
@@ -331,12 +306,10 @@ def run_ablation(n_nodes, target_density, u_rate, batch_idx, ssize, noise,
                   (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
 
     stage_results = {}
-    for stage_name, cfg in STAGES.items():
-        priorities = cfg['priorities']
-        tercile = cfg['tercile']
+    for stage_name, priorities in STAGES.items():
         print(f"    Running {stage_name} with priorities={priorities}")
         metrics = run_single_config(GT, g_estimated, DD, BD, priorities,
-                                    n_nodes, timeout_sec, pnum, tercile=tercile)
+                                    n_nodes, timeout_sec, pnum)
         if metrics is not None:
             stage_results[stage_name] = metrics
             print(f"      Orient F1={metrics['orientation_f1']:.3f}, "
@@ -461,7 +434,7 @@ def plot_ablation(aggregated, output_dir):
     _bar_chart(axes1[2], stage_names, short_names, aggregated,
                'density_deviation', 'Density Deviation', 'Density Deviation from GT')
     fig1.tight_layout()
-    path1 = os.path.join(output_dir, 'stage_ablation_metrics.pdf')
+    path1 = os.path.join(output_dir, 'stage_ablation_metrics.svg')
     fig1.savefig(path1, dpi=300, bbox_inches='tight')
     plt.close(fig1)
     print(f"Metrics plot saved to {path1}")
@@ -471,7 +444,7 @@ def plot_ablation(aggregated, output_dir):
     _bar_chart(ax2, stage_names, short_names, aggregated,
                'runtime_sec', 'Runtime (seconds)', 'Compute Time per Stage', fmt='.1f')
     fig2.tight_layout()
-    path2 = os.path.join(output_dir, 'stage_ablation_runtime.pdf')
+    path2 = os.path.join(output_dir, 'stage_ablation_runtime.svg')
     fig2.savefig(path2, dpi=300, bbox_inches='tight')
     plt.close(fig2)
     print(f"Runtime plot saved to {path2}")
@@ -481,7 +454,7 @@ def plot_ablation(aggregated, output_dir):
     _bar_chart(ax3, stage_names, short_names, aggregated,
                'n_solutions', 'Number of Solutions', 'Solution Set Size per Stage', fmt='.0f')
     fig3.tight_layout()
-    path3 = os.path.join(output_dir, 'stage_ablation_solutions.pdf')
+    path3 = os.path.join(output_dir, 'stage_ablation_solutions.svg')
     fig3.savefig(path3, dpi=300, bbox_inches='tight')
     plt.close(fig3)
     print(f"Solutions plot saved to {path3}")
