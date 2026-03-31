@@ -479,7 +479,7 @@ def mode_aggregate(args):
     zkl.save(save_data, save_path)
     print(f"Aggregated results saved to {save_path}")
 
-    plot_path = os.path.join(agg_dir, 'edge_frequency_calibration.pdf')
+    plot_path = os.path.join(agg_dir, 'edge_frequency_calibration.svg')
     plot_calibration(all_directed_cal, all_bidirected_cal, plot_path)
     print_summary(all_directed_cal, all_bidirected_cal)
 
@@ -521,7 +521,7 @@ def mode_local(args):
     zkl.save(save_data, save_path)
     print(f"\nResults saved to {save_path}")
 
-    plot_path = os.path.join(args.output_dir, 'edge_frequency_calibration.pdf')
+    plot_path = os.path.join(args.output_dir, 'edge_frequency_calibration.svg')
     plot_calibration(all_directed_cal, all_bidirected_cal, plot_path)
     print_summary(all_directed_cal, all_bidirected_cal)
 
@@ -534,7 +534,7 @@ def mode_plot_only(args):
     print(f"Loading saved results from {args.path}")
     saved = zkl.load(args.path)
     plot_calibration(saved['all_directed_cal'], saved['all_bidirected_cal'],
-                     args.path.replace('.zkl', '_calibration.pdf'))
+                     args.path.replace('.zkl', '_calibration.svg'))
     print_summary(saved['all_directed_cal'], saved['all_bidirected_cal'])
 
 

@@ -6,8 +6,16 @@ the true ground-truth density by -30%, -10%, 0% (correct), +10%, +30%.
 
 This addresses Reviewer rp9v Q2 and Reviewer cuMG's concern: "How sensitive
 is RnR to misspecification of the target density d?"
+
+Modes:
+  run        - Execute a single task identified by --task_id (for SLURM array jobs)
+  aggregate  - Combine individual task results and produce summary + plots
+  local      - Run all tasks sequentially in a single process (original behavior)
+  plot_only  - Re-plot from saved aggregated .zkl file
 """
 import os
+import sys
+import glob
 import numpy as np
 import argparse
 import time
@@ -34,25 +42,69 @@ PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
 
 DENSITY_SCALES = [0.7, 0.9, 1.0, 1.1, 1.3]
 
-parser = argparse.ArgumentParser(description='Density sensitivity analysis.')
-parser.add_argument("-n", "--NETWORKS", nargs='+', default=[1, 2, 3, 4, 5],
-                    type=int, help="Sanchez-Romero network numbers")
-parser.add_argument("-u", "--UNDERSAMPLING", nargs='+', default=[2, 3],
-                    type=int, help="undersampling rates")
-parser.add_argument("-b", "--BATCHES", default=10, type=int,
-                    help="number of batches per configuration")
-parser.add_argument("-p", "--PNUM", default=PNUM, type=int, help="number of CPUs")
-parser.add_argument("-t", "--TIMEOUT", default=2, type=int, help="timeout in hours")
-parser.add_argument("--ssize", default=5000, type=int, help="sample size")
-parser.add_argument("--noise", default=0.1, type=float, help="noise level")
-parser.add_argument("--output_dir", default="results_density_sensitivity",
-                    help="output directory")
-parser.add_argument("--plot_only", default=None,
-                    help="path to saved results .zkl to just plot")
-args = parser.parse_args()
 
-TIMEOUT_SEC = args.TIMEOUT * 60 * 60
+def build_task_list(networks, undersampling_rates, batches):
+    """Build an ordered list of (network_num, u_rate, batch) tuples.
 
+    The SLURM array task ID indexes into this list.
+    """
+    tasks = []
+    for net in networks:
+        for u in undersampling_rates:
+            for batch in range(1, batches + 1):
+                tasks.append((net, u, batch))
+    return tasks
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description='Density sensitivity analysis (SLURM array compatible).')
+
+    sub = parser.add_subparsers(dest='mode', help='Execution mode')
+
+    shared = argparse.ArgumentParser(add_help=False)
+    shared.add_argument("-n", "--NETWORKS", nargs='+', default=[1, 2, 3, 4, 5],
+                        type=int, help="Sanchez-Romero network numbers")
+    shared.add_argument("-u", "--UNDERSAMPLING", nargs='+', default=[2, 3],
+                        type=int, help="undersampling rates")
+    shared.add_argument("-b", "--BATCHES", default=10, type=int,
+                        help="number of batches per configuration")
+    shared.add_argument("--ssize", default=5000, type=int, help="sample size")
+    shared.add_argument("--noise", default=0.1, type=float, help="noise level")
+    shared.add_argument("--output_dir", default="results_density_sensitivity",
+                        help="output directory")
+    shared.add_argument("--timestamp", default=None,
+                        help="shared timestamp for grouping results")
+
+    run_parser = sub.add_parser('run', parents=[shared],
+                                help='Run a single task (SLURM array element)')
+    run_parser.add_argument("--task_id", required=True, type=int,
+                            help="SLURM_ARRAY_TASK_ID (0-based index into task list)")
+    run_parser.add_argument("-p", "--PNUM", default=PNUM, type=int,
+                            help="number of CPUs for clingo")
+    run_parser.add_argument("-t", "--TIMEOUT", default=2, type=int,
+                            help="timeout in hours")
+
+    agg_parser = sub.add_parser('aggregate', parents=[shared],
+                                help='Aggregate task results and produce plots')
+
+    local_parser = sub.add_parser('local', parents=[shared],
+                                  help='Run all tasks sequentially in one process')
+    local_parser.add_argument("-p", "--PNUM", default=PNUM, type=int,
+                              help="number of CPUs for clingo")
+    local_parser.add_argument("-t", "--TIMEOUT", default=2, type=int,
+                              help="timeout in hours")
+
+    plot_parser = sub.add_parser('plot_only',
+                                 help='Re-plot from saved aggregated .zkl file')
+    plot_parser.add_argument("path", help="path to saved results .zkl")
+
+    return parser.parse_args()
+
+
+# =========================================================================
+# Simulation helpers
+# =========================================================================
 
 def create_stable_weighted_matrix(A, threshold=0.1, powers=[1, 2, 3, 4],
                                   max_attempts=10000000, damping_factor=0.99):
@@ -98,6 +150,10 @@ def Glag2CG(results):
     return graph_dict, A_matrix, B_matrix
 
 
+# =========================================================================
+# Metrics
+# =========================================================================
+
 def compute_f1(omission, commission, n_gt_edges):
     tp = n_gt_edges - omission
     fp = commission
@@ -139,12 +195,18 @@ def evaluate_best_solution(solutions, GT, n_nodes):
     return best_metrics
 
 
-def run_density_sweep(network_num, u_rate, batch_idx):
+# =========================================================================
+# Single experiment (one task = one network x undersampling x batch)
+# =========================================================================
+
+def run_density_sweep(network_num, u_rate, batch_idx, ssize, noise,
+                      timeout_hours, pnum):
     """Run the solver at multiple density scales for one data generation."""
     GT = simp_nets(network_num, selfloop=True)
     n_nodes = len(GT)
     A = cv.graph2adj(GT)
     MAXCOST = 10000
+    timeout_sec = timeout_hours * 60 * 60
 
     try:
         W = create_stable_weighted_matrix(A, threshold=0.2, powers=[2, 3, 4])
@@ -152,7 +214,7 @@ def run_density_sweep(network_num, u_rate, batch_idx):
         print(f"  Skipping: could not create stable matrix")
         return None
 
-    dd = genData(W, rate=u_rate, ssize=args.ssize, noise=args.noise)
+    dd = genData(W, rate=u_rate, ssize=ssize, noise=noise)
 
     dataframe = pp.DataFrame(np.transpose(dd))
     cond_ind_test = ParCorr()
@@ -175,12 +237,14 @@ def run_density_sweep(network_num, u_rate, batch_idx):
         print(f"    Density scale={scale} ({label}), "
               f"true={true_density}, assumed={scaled_density}")
 
+        start = time.time()
         r = drasl([g_estimated], weighted=True, capsize=0,
-                  timeout=TIMEOUT_SEC,
+                  timeout=timeout_sec,
                   urate=min(15, 3 * n_nodes + 1),
                   dm=[DD], bdm=[BD],
                   GT_density=scaled_density,
-                  edge_weights=priorities, pnum=args.PNUM, optim='optN')
+                  edge_weights=priorities, pnum=pnum, optim='optN')
+        elapsed = time.time() - start
 
         if len(r) == 0:
             print(f"      No solutions")
@@ -192,12 +256,17 @@ def run_density_sweep(network_num, u_rate, batch_idx):
             metrics['density_label'] = label
             metrics['true_density'] = true_density
             metrics['assumed_density'] = scaled_density
+            metrics['runtime_sec'] = elapsed
             sweep_results[label] = metrics
             print(f"      Orient F1={metrics['orientation_f1']:.3f}, "
                   f"Adj F1={metrics['adjacency_f1']:.3f}")
 
     return sweep_results
 
+
+# =========================================================================
+# Aggregation & reporting
+# =========================================================================
 
 def aggregate_density_results(all_results):
     """Aggregate across all runs, grouped by density scale."""
@@ -279,32 +348,117 @@ def plot_density_sensitivity(aggregated, output_path):
     print(f"Density sensitivity plot saved to {output_path}")
 
 
-def main():
-    if args.plot_only:
-        saved = zkl.load(args.plot_only)
-        aggregated = aggregate_density_results(saved['all_results'])
-        print_summary(aggregated)
-        plot_density_sensitivity(aggregated,
-                                 args.plot_only.replace('.zkl', '_sensitivity.pdf'))
-        return
+# =========================================================================
+# Mode: run (single SLURM array task)
+# =========================================================================
 
+def mode_run(args):
+    tasks = build_task_list(args.NETWORKS, args.UNDERSAMPLING, args.BATCHES)
+    total_tasks = len(tasks)
+
+    if args.task_id < 0 or args.task_id >= total_tasks:
+        print(f"ERROR: task_id {args.task_id} out of range [0, {total_tasks - 1}]")
+        sys.exit(1)
+
+    network_num, u_rate, batch = tasks[args.task_id]
+    print(f"[Task {args.task_id}/{total_tasks - 1}] "
+          f"network={network_num}, u={u_rate}, batch={batch}")
+
+    result = run_density_sweep(network_num, u_rate, batch,
+                               args.ssize, args.noise,
+                               args.TIMEOUT, args.PNUM)
+
+    ts = args.timestamp or "notimestamp"
+    out_dir = os.path.join(args.output_dir, ts, "tasks")
+    os.makedirs(out_dir, exist_ok=True)
+
+    out_path = os.path.join(out_dir, f"task_{args.task_id:04d}.zkl")
+    save_payload = {
+        'task_id': args.task_id,
+        'network_num': network_num,
+        'u_rate': u_rate,
+        'batch': batch,
+        'result': result,
+    }
+    zkl.save(save_payload, out_path)
+    print(f"Task result saved to {out_path}")
+
+    if result is not None:
+        for label, metrics in result.items():
+            print(f"  {label}: Orient F1={metrics['orientation_f1']:.3f}, "
+                  f"Adj F1={metrics['adjacency_f1']:.3f}")
+    else:
+        print("  Task returned no result (skipped or no solutions).")
+
+
+# =========================================================================
+# Mode: aggregate
+# =========================================================================
+
+def mode_aggregate(args):
+    ts = args.timestamp or "notimestamp"
+    task_dir = os.path.join(args.output_dir, ts, "tasks")
+
+    if not os.path.isdir(task_dir):
+        print(f"ERROR: task directory not found: {task_dir}")
+        sys.exit(1)
+
+    task_files = sorted(glob.glob(os.path.join(task_dir, "task_*.zkl")))
+    tasks = build_task_list(args.NETWORKS, args.UNDERSAMPLING, args.BATCHES)
+    total_expected = len(tasks)
+
+    print(f"Found {len(task_files)} / {total_expected} task result files in {task_dir}")
+
+    all_results = []
+    n_skipped = 0
+
+    for fpath in task_files:
+        payload = zkl.load(fpath)
+        result = payload['result']
+        if result is not None:
+            all_results.append(result)
+        else:
+            n_skipped += 1
+
+    print(f"Loaded {len(all_results)} successful results, {n_skipped} skipped/empty")
+
+    agg_dir = os.path.join(args.output_dir, ts)
+    save_data = {
+        'all_results': all_results,
+        'args': {k: v for k, v in vars(args).items() if k != 'mode'},
+        'density_scales': DENSITY_SCALES,
+    }
+    save_path = os.path.join(agg_dir, 'density_sensitivity_results.zkl')
+    zkl.save(save_data, save_path)
+    print(f"Aggregated results saved to {save_path}")
+
+    aggregated = aggregate_density_results(all_results)
+    print_summary(aggregated)
+    plot_path = os.path.join(agg_dir, 'density_sensitivity.pdf')
+    plot_density_sensitivity(aggregated, plot_path)
+
+
+# =========================================================================
+# Mode: local (original sequential behavior)
+# =========================================================================
+
+def mode_local(args):
     os.makedirs(args.output_dir, exist_ok=True)
     all_results = []
 
-    total = len(args.NETWORKS) * len(args.UNDERSAMPLING) * args.BATCHES
-    count = 0
+    tasks = build_task_list(args.NETWORKS, args.UNDERSAMPLING, args.BATCHES)
+    total = len(tasks)
 
-    for net_num in args.NETWORKS:
-        for u_rate in args.UNDERSAMPLING:
-            for batch in range(1, args.BATCHES + 1):
-                count += 1
-                print(f"\n[{count}/{total}] Network={net_num}, u={u_rate}, batch={batch}")
-                result = run_density_sweep(net_num, u_rate, batch)
-                all_results.append(result)
+    for idx, (network_num, u_rate, batch) in enumerate(tasks):
+        print(f"\n[{idx + 1}/{total}] Network={network_num}, u={u_rate}, batch={batch}")
+        result = run_density_sweep(network_num, u_rate, batch,
+                                   args.ssize, args.noise,
+                                   args.TIMEOUT, args.PNUM)
+        all_results.append(result)
 
     save_data = {
         'all_results': all_results,
-        'args': vars(args),
+        'args': {k: v for k, v in vars(args).items() if k != 'mode'},
         'density_scales': DENSITY_SCALES,
     }
     save_path = os.path.join(args.output_dir, 'density_sensitivity_results.zkl')
@@ -315,6 +469,45 @@ def main():
     print_summary(aggregated)
     plot_path = os.path.join(args.output_dir, 'density_sensitivity.pdf')
     plot_density_sensitivity(aggregated, plot_path)
+
+
+# =========================================================================
+# Mode: plot_only
+# =========================================================================
+
+def mode_plot_only(args):
+    print(f"Loading saved results from {args.path}")
+    saved = zkl.load(args.path)
+    aggregated = aggregate_density_results(saved['all_results'])
+    print_summary(aggregated)
+    plot_density_sensitivity(
+        aggregated,
+        os.path.join(os.path.dirname(os.path.abspath(args.path)),
+                     'density_sensitivity.pdf'))
+
+
+# =========================================================================
+# Main
+# =========================================================================
+
+def main():
+    args = parse_args()
+
+    if args.mode is None:
+        print("ERROR: specify a mode: run | aggregate | local | plot_only")
+        print("  run        - single SLURM array task (use with --task_id)")
+        print("  aggregate  - combine task results and produce plots")
+        print("  local      - run all tasks sequentially (original behavior)")
+        print("  plot_only  - re-plot from saved .zkl file")
+        sys.exit(1)
+
+    dispatch = {
+        'run': mode_run,
+        'aggregate': mode_aggregate,
+        'local': mode_local,
+        'plot_only': mode_plot_only,
+    }
+    dispatch[args.mode](args)
 
 
 if __name__ == '__main__':
