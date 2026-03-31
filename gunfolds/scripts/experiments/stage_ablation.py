@@ -81,7 +81,7 @@ def parse_args():
     shared = argparse.ArgumentParser(add_help=False)
     shared.add_argument("-n", "--NODE_SIZES", nargs='+', default=[5, 6],
                         type=int, help="graph sizes (number of nodes)")
-    shared.add_argument("-d", "--DENSITIES", nargs='+', default=[0.2, 0.25],
+    shared.add_argument("-d", "--DENSITIES", nargs='+', default=[0.3, 0.4],
                         type=float, help="target directed-edge densities")
     shared.add_argument("-u", "--UNDERSAMPLING", nargs='+', default=[2, 3],
                         type=int, help="undersampling rates")
@@ -203,22 +203,26 @@ def compute_f1(omission, commission, n_gt_edges, n_possible_edges):
 
 
 def evaluate_solution_set(solutions, GT, n_nodes):
-    """Evaluate the top 5 lowest-cost solutions and return averaged metrics."""
+    """Compute OCE for all solutions, keep top 50% by total error, return averaged metrics."""
     n_gt_dir = len(set(gk.edgelist(GT)))
     n_gt_bidir = len(set(tuple(sorted(e)) for e in gk.bedgelist(GT)))
     n_possible_dir = n_nodes * n_nodes
     n_possible_bidir = n_nodes * (n_nodes - 1) // 2
     density_gt = gk.density(GT)
 
-    sorted_solutions = sorted(solutions, key=lambda s: s[1])
-    top_k = min(5, len(sorted_solutions))
-    top_solutions = sorted_solutions[:top_k]
-
-    metrics_accum = defaultdict(list)
-    for answer in top_solutions:
+    scored = []
+    for answer in solutions:
         g1 = bfutils.num2CG(answer[0][0], n_nodes)
         oce = gk.OCE(g1, GT, normalized=False)
+        total_err = oce['total'][0] + oce['total'][1]
+        scored.append((total_err, g1, oce))
 
+    scored.sort(key=lambda x: x[0])
+    top_k = max(1, len(scored) // 2)
+    top_scored = scored[:top_k]
+
+    metrics_accum = defaultdict(list)
+    for total_err, g1, oce in top_scored:
         dir_omission = oce['directed'][0]
         dir_commission = oce['directed'][1]
         bidir_omission = oce['bidirected'][0]
@@ -231,7 +235,6 @@ def evaluate_solution_set(solutions, GT, n_nodes):
             n_gt_dir + n_gt_bidir, n_possible_dir + n_possible_bidir)
 
         density_g1 = gk.density(g1)
-        total_err = oce['total'][0] + oce['total'][1]
 
         metrics_accum['orientation_f1'].append(orient_f1)
         metrics_accum['orientation_precision'].append(orient_p)
@@ -260,7 +263,7 @@ def run_single_config(GT, g_estimated, DD, BD, priorities, n_nodes,
               urate=min(4, 3 * n_nodes + 1),
               dm=[DD], bdm=[BD],
               GT_density=int(1000 * gk.density(GT)),
-              edge_weights=priorities, pnum=pnum, optim='optN', selfloop=True)
+              edge_weights=priorities, pnum=pnum, optim='optN', selfloop=False)
     elapsed = time.time() - start
 
     if len(r) == 0:
