@@ -17,20 +17,20 @@
 # =============================================================================
 # Stage Ablation - SLURM Array Job Script
 # =============================================================================
-# Runs ONE task (network × undersampling × batch combination) per array element.
-# Each task runs all three ablation stages (density-only, density+bidirected,
-# full pipeline) and saves results to a per-task file.
+# Runs ONE task (n_nodes × density × undersampling × batch) per array element.
+# Each task generates a ringmore graph and runs all three ablation stages
+# (density-only, density+bidirected, full pipeline), saving results per task.
 #
 # Usage:
-#   sbatch --array=0-99 slurm_stage_ablation.sh <TIMESTAMP> [EXTRA_ARGS...]
+#   sbatch --array=0-79 slurm_stage_ablation.sh <TIMESTAMP> [EXTRA_ARGS...]
 #
-# The total number of tasks = len(NETWORKS) × len(UNDERSAMPLING) × BATCHES.
-# With defaults (networks=[1,2,3,5], u=[2,3], batches=10): 4×2×10 = 80 tasks.
+# The total number of tasks = len(NODE_SIZES) × len(DENSITIES) × len(UNDERSAMPLING) × BATCHES.
+# With defaults (nodes=[5,6], densities=[0.2,0.25], u=[2,3], batches=10): 2×2×2×10 = 80 tasks.
 #
 # Examples:
-#   sbatch --array=0-99%20  slurm_stage_ablation.sh 03302026120000
-#   sbatch --array=0-99%20  slurm_stage_ablation.sh 03302026120000 --ssize 10000 --noise 0.05
-#   sbatch --array=0-79%20  slurm_stage_ablation.sh 03302026120000 -n 1 2 3 4 -u 2 3
+#   sbatch --array=0-79%20  slurm_stage_ablation.sh 03302026120000
+#   sbatch --array=0-79%20  slurm_stage_ablation.sh 03302026120000 --ssize 10000 --noise 0.05
+#   sbatch --array=0-119%20 slurm_stage_ablation.sh 03302026120000 -n 5 6 7 -d 0.2 0.25
 #
 # After all tasks complete, aggregate results:
 #   python stage_ablation.py aggregate --timestamp 03302026120000

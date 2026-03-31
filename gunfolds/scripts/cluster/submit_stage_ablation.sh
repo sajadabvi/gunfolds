@@ -7,26 +7,28 @@
 #   bash submit_stage_ablation.sh [OPTIONS]
 #
 # Options:
-#   -n NETWORKS        Space-separated network numbers (default: "1 2 3 5")
+#   -n NODE_SIZES      Space-separated node sizes (default: "5 6")
+#   -d DENSITIES       Space-separated densities (default: "0.2 0.25")
 #   -u UNDERSAMPLING   Space-separated undersampling rates (default: "2 3")
 #   -b BATCHES         Number of batches per config (default: 10)
-#   -m MAX_PARALLEL    Max simultaneous array tasks (default: 20)
+#   -m MAX_PARALLEL    Max simultaneous array tasks (default: 100)
 #   -p PARTITION       SLURM partition (default: qTRDGPU)
-#   -t TIME_LIMIT      Time limit per task (default: 1-00:00:00)
+#   -t TIME_LIMIT      Time limit per task (default: 1:00:00)
 #   -s SSIZE           Sample size (default: 5000)
 #   --noise NOISE      Noise level (default: 0.1)
 #
 # Examples:
 #   bash submit_stage_ablation.sh
-#   bash submit_stage_ablation.sh -n "1 2 3" -u "2 3 4" -b 20
+#   bash submit_stage_ablation.sh -n "5 6 7" -d "0.2 0.25 0.3" -b 20
 #   bash submit_stage_ablation.sh -p qTRDGPU -m 30
 #
-# Default configuration: 4 networks × 2 rates × 10 batches = 80 tasks
+# Default configuration: 2 sizes × 2 densities × 2 rates × 10 batches = 80 tasks
 # Each task runs all 3 ablation stages: 15 CPUs, 1GB memory, 1 hour
 # =============================================================================
 
 # Defaults
-NETWORKS="1 2 3 5"
+NODE_SIZES="5 6"
+DENSITIES="0.2 0.25"
 UNDERSAMPLING="2 3"
 BATCHES=10
 MAX_PARALLEL=100
@@ -38,7 +40,8 @@ NOISE=0.1
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        -n) NETWORKS="$2"; shift 2 ;;
+        -n) NODE_SIZES="$2"; shift 2 ;;
+        -d) DENSITIES="$2"; shift 2 ;;
         -u) UNDERSAMPLING="$2"; shift 2 ;;
         -b) BATCHES="$2"; shift 2 ;;
         -m) MAX_PARALLEL="$2"; shift 2 ;;
@@ -50,12 +53,14 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Compute total tasks: |networks| × |undersampling| × batches
-read -ra NET_ARR <<< "$NETWORKS"
+# Compute total tasks: |node_sizes| × |densities| × |undersampling| × batches
+read -ra N_ARR <<< "$NODE_SIZES"
+read -ra D_ARR <<< "$DENSITIES"
 read -ra U_ARR <<< "$UNDERSAMPLING"
-N_NETS=${#NET_ARR[@]}
+N_SIZES=${#N_ARR[@]}
+N_DENS=${#D_ARR[@]}
 N_URATES=${#U_ARR[@]}
-TOTAL_TASKS=$((N_NETS * N_URATES * BATCHES))
+TOTAL_TASKS=$((N_SIZES * N_DENS * N_URATES * BATCHES))
 LAST_IDX=$((TOTAL_TASKS - 1))
 
 TIMESTAMP=$(date +%m%d%Y%H%M%S)
@@ -73,7 +78,8 @@ echo "=============================================================="
 echo "STAGE ABLATION - BATCH SUBMISSION"
 echo "=============================================================="
 echo "Timestamp:       $TIMESTAMP"
-echo "Networks:        $NETWORKS ($N_NETS)"
+echo "Node sizes:      $NODE_SIZES ($N_SIZES)"
+echo "Densities:       $DENSITIES ($N_DENS)"
 echo "Undersampling:   $UNDERSAMPLING ($N_URATES)"
 echo "Batches:         $BATCHES"
 echo "Total tasks:     $TOTAL_TASKS (array 0-${LAST_IDX})"
@@ -87,7 +93,7 @@ echo "=============================================================="
 echo ""
 
 # Build extra args string to forward to the Python script
-EXTRA_ARGS="-n ${NETWORKS} -u ${UNDERSAMPLING} -b ${BATCHES} --ssize ${SSIZE} --noise ${NOISE}"
+EXTRA_ARGS="-n ${NODE_SIZES} -d ${DENSITIES} -u ${UNDERSAMPLING} -b ${BATCHES} --ssize ${SSIZE} --noise ${NOISE}"
 
 JOB_ID=$(sbatch \
     --array=0-${LAST_IDX}%${MAX_PARALLEL} \
@@ -115,7 +121,7 @@ echo ""
 echo "After all tasks complete, aggregate results:"
 echo "  python stage_ablation.py aggregate \\"
 echo "      --timestamp $TIMESTAMP \\"
-echo "      -n ${NETWORKS} -u ${UNDERSAMPLING} -b ${BATCHES}"
+echo "      -n ${NODE_SIZES} -d ${DENSITIES} -u ${UNDERSAMPLING} -b ${BATCHES}"
 echo "=============================================================="
 
 # Save submission record
@@ -123,7 +129,8 @@ RECORD="./logs/stg_abl_submission_${TIMESTAMP}.log"
 {
     echo "Timestamp: $TIMESTAMP"
     echo "Submitted: $(date)"
-    echo "Networks: $NETWORKS"
+    echo "Node sizes: $NODE_SIZES"
+    echo "Densities: $DENSITIES"
     echo "Undersampling: $UNDERSAMPLING"
     echo "Batches: $BATCHES"
     echo "Total tasks: $TOTAL_TASKS"
@@ -135,6 +142,6 @@ RECORD="./logs/stg_abl_submission_${TIMESTAMP}.log"
     echo "Job ID: $JOB_ID"
     echo ""
     echo "Aggregate command:"
-    echo "  python stage_ablation.py aggregate --timestamp $TIMESTAMP -n ${NETWORKS} -u ${UNDERSAMPLING} -b ${BATCHES}"
+    echo "  python stage_ablation.py aggregate --timestamp $TIMESTAMP -n ${NODE_SIZES} -d ${DENSITIES} -u ${UNDERSAMPLING} -b ${BATCHES}"
 } > "$RECORD"
 echo "Submission record: $RECORD"

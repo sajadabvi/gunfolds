@@ -8,6 +8,8 @@ by running the same input through three configurations:
   Stage 2: p=[0,1,0,1,2]  -- Density (priority 2) + bidirected matching (priority 1)
   Stage 3: p=[1,2,1,2,3]  -- Full pipeline: density + bidirected + directed
 
+Uses ringmore graphs (ring + random extra edges) of configurable size and density.
+
 For each stage, records: solution set size, orientation F1, adjacency F1,
 density deviation, and omission/commission errors.
 
@@ -39,7 +41,6 @@ from gunfolds.solvers.clingo_rasl import drasl
 from gunfolds.utils.calc_procs import get_process_count
 from gunfolds.estimation import linear_model as lm
 from gunfolds import conversions as cv
-from gunfolds.scripts.datasets.simple_networks import simp_nets
 
 import scipy.sparse as sp
 from scipy.sparse.linalg import eigs
@@ -57,16 +58,17 @@ STAGES = {
 }
 
 
-def build_task_list(networks, undersampling_rates, batches):
-    """Build an ordered list of (network, u_rate, batch) tuples.
+def build_task_list(node_sizes, densities, undersampling_rates, batches):
+    """Build an ordered list of (n_nodes, density, u_rate, batch) tuples.
 
     The SLURM array task ID indexes into this list.
     """
     tasks = []
-    for net_num in networks:
-        for u_rate in undersampling_rates:
-            for batch in range(1, batches + 1):
-                tasks.append((net_num, u_rate, batch))
+    for n in node_sizes:
+        for d in densities:
+            for u in undersampling_rates:
+                for batch in range(1, batches + 1):
+                    tasks.append((n, d, u, batch))
     return tasks
 
 
@@ -77,8 +79,10 @@ def parse_args():
     sub = parser.add_subparsers(dest='mode', help='Execution mode')
 
     shared = argparse.ArgumentParser(add_help=False)
-    shared.add_argument("-n", "--NETWORKS", nargs='+', default=[1, 2, 3, 5],
-                        type=int, help="Sanchez-Romero network numbers")
+    shared.add_argument("-n", "--NODE_SIZES", nargs='+', default=[5, 6],
+                        type=int, help="graph sizes (number of nodes)")
+    shared.add_argument("-d", "--DENSITIES", nargs='+', default=[0.2, 0.25],
+                        type=float, help="target directed-edge densities")
     shared.add_argument("-u", "--UNDERSAMPLING", nargs='+', default=[2, 3],
                         type=int, help="undersampling rates")
     shared.add_argument("-b", "--BATCHES", default=10, type=int,
@@ -114,6 +118,25 @@ def parse_args():
     plot_parser.add_argument("path", help="path to saved results .zkl")
 
     return parser.parse_args()
+
+
+# =========================================================================
+# Graph generation
+# =========================================================================
+
+def generate_ringmore_graph(n_nodes, target_density):
+    """Generate a ring graph with extra random directed edges.
+
+    The ring itself contributes n directed edges (density = n / n^2 = 1/n).
+    We add enough random edges to approximate ``target_density``.
+
+    Returns a gunfolds graph dictionary.
+    """
+    ring_edges = n_nodes
+    target_edges = int(round(target_density * n_nodes * n_nodes))
+    extra = max(0, target_edges - ring_edges)
+    g = gk.ringmore(n_nodes, extra)
+    return g
 
 
 # =========================================================================
@@ -180,7 +203,7 @@ def compute_f1(omission, commission, n_gt_edges, n_possible_edges):
 
 
 def evaluate_solution_set(solutions, GT, n_nodes):
-    """Evaluate the top 10% lowest-cost solutions and return averaged metrics."""
+    """Evaluate the top 5 lowest-cost solutions and return averaged metrics."""
     n_gt_dir = len(set(gk.edgelist(GT)))
     n_gt_bidir = len(set(tuple(sorted(e)) for e in gk.bedgelist(GT)))
     n_possible_dir = n_nodes * n_nodes
@@ -237,7 +260,7 @@ def run_single_config(GT, g_estimated, DD, BD, priorities, n_nodes,
               urate=min(4, 3 * n_nodes + 1),
               dm=[DD], bdm=[BD],
               GT_density=int(1000 * gk.density(GT)),
-              edge_weights=priorities, pnum=pnum, optim='optN', selfloop=False)
+              edge_weights=priorities, pnum=pnum, optim='optN', selfloop=True)
     elapsed = time.time() - start
 
     if len(r) == 0:
@@ -253,14 +276,17 @@ def run_single_config(GT, g_estimated, DD, BD, priorities, n_nodes,
 
 
 # =========================================================================
-# Single experiment (one task = one network × u_rate × batch)
+# Single experiment (one task = one n_nodes × density × u_rate × batch)
 # =========================================================================
 
-def run_ablation(network_num, u_rate, batch_idx, ssize, noise,
+def run_ablation(n_nodes, target_density, u_rate, batch_idx, ssize, noise,
                  timeout_hours, pnum):
     """Run all three stages for one configuration."""
-    GT = simp_nets(network_num, selfloop=False)
-    n_nodes = len(GT)
+    GT = generate_ringmore_graph(n_nodes, target_density)
+    actual_density = gk.density(GT)
+    print(f"  Generated ringmore graph: n={n_nodes}, target_d={target_density}, "
+          f"actual_d={actual_density:.3f}, edges={len(gk.edgelist(GT))}")
+
     A = cv.graph2adj(GT)
     MAXCOST = 10000
     timeout_sec = timeout_hours * 60 * 60
@@ -444,18 +470,19 @@ def plot_ablation(aggregated, output_dir):
 # =========================================================================
 
 def mode_run(args):
-    tasks = build_task_list(args.NETWORKS, args.UNDERSAMPLING, args.BATCHES)
+    tasks = build_task_list(args.NODE_SIZES, args.DENSITIES,
+                            args.UNDERSAMPLING, args.BATCHES)
     total_tasks = len(tasks)
 
     if args.task_id < 0 or args.task_id >= total_tasks:
         print(f"ERROR: task_id {args.task_id} out of range [0, {total_tasks - 1}]")
         sys.exit(1)
 
-    net_num, u_rate, batch = tasks[args.task_id]
+    n_nodes, density, u_rate, batch = tasks[args.task_id]
     print(f"[Task {args.task_id}/{total_tasks - 1}] "
-          f"Network={net_num}, u={u_rate}, batch={batch}")
+          f"n={n_nodes}, d={density}, u={u_rate}, batch={batch}")
 
-    result = run_ablation(net_num, u_rate, batch,
+    result = run_ablation(n_nodes, density, u_rate, batch,
                           args.ssize, args.noise,
                           args.TIMEOUT, args.PNUM)
 
@@ -466,7 +493,8 @@ def mode_run(args):
     out_path = os.path.join(out_dir, f"task_{args.task_id:04d}.zkl")
     save_payload = {
         'task_id': args.task_id,
-        'network': net_num,
+        'n_nodes': n_nodes,
+        'density': density,
         'u_rate': u_rate,
         'batch': batch,
         'result': result,
@@ -495,7 +523,8 @@ def mode_aggregate(args):
         sys.exit(1)
 
     task_files = sorted(glob.glob(os.path.join(task_dir, "task_*.zkl")))
-    tasks = build_task_list(args.NETWORKS, args.UNDERSAMPLING, args.BATCHES)
+    tasks = build_task_list(args.NODE_SIZES, args.DENSITIES,
+                            args.UNDERSAMPLING, args.BATCHES)
     total_expected = len(tasks)
 
     print(f"Found {len(task_files)} / {total_expected} task result files in {task_dir}")
@@ -536,12 +565,14 @@ def mode_local(args):
     os.makedirs(args.output_dir, exist_ok=True)
     all_results = []
 
-    tasks = build_task_list(args.NETWORKS, args.UNDERSAMPLING, args.BATCHES)
+    tasks = build_task_list(args.NODE_SIZES, args.DENSITIES,
+                            args.UNDERSAMPLING, args.BATCHES)
     total = len(tasks)
 
-    for idx, (net_num, u_rate, batch) in enumerate(tasks):
-        print(f"\n[{idx + 1}/{total}] Network={net_num}, u={u_rate}, batch={batch}")
-        result = run_ablation(net_num, u_rate, batch,
+    for idx, (n_nodes, density, u_rate, batch) in enumerate(tasks):
+        print(f"\n[{idx + 1}/{total}] n={n_nodes}, d={density}, "
+              f"u={u_rate}, batch={batch}")
+        result = run_ablation(n_nodes, density, u_rate, batch,
                               args.ssize, args.noise,
                               args.TIMEOUT, args.PNUM)
         all_results.append(result)
