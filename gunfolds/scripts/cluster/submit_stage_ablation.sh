@@ -3,18 +3,17 @@
 # Submit Stage Ablation as SLURM array jobs
 # =============================================================================
 #
-# Submits two graph configurations with shared timestamp:
-#   Config 1: 4-node graphs, density=0.32, 20 batches
-#   Config 2: 5-node graphs, density=0.24, 20 batches
-#
-# Each config × 2 undersampling rates × 20 batches = 40 tasks per config,
-# 80 tasks total.
+# Runs graphs of size 4 and 5 with density=0.32, 30 batches each.
+# 2 sizes × 1 density × 2 undersampling rates × 30 batches = 120 tasks.
 #
 # Usage:
 #   bash submit_stage_ablation.sh
 # =============================================================================
 
+NODE_SIZES="4 5"
+DENSITIES="0.32"
 UNDERSAMPLING="2 3"
+BATCHES=30
 SSIZE=5000
 NOISE=0.1
 MAX_PARALLEL=100
@@ -27,15 +26,21 @@ TIMESTAMP=$(date +%m%d%Y%H%M%S)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SLURM_SCRIPT="${SCRIPT_DIR}/slurm_stage_ablation.sh"
 
+# 2 sizes × 1 density × 2 u-rates × 30 batches = 120 tasks
+TOTAL_TASKS=120
+LAST_IDX=$((TOTAL_TASKS - 1))
+
 mkdir -p ./logs ./err ./out
 
 echo "=============================================================="
 echo "STAGE ABLATION - BATCH SUBMISSION"
 echo "=============================================================="
 echo "Timestamp:       $TIMESTAMP"
-echo "Config 1:        n=4, d=0.32, 20 batches"
-echo "Config 2:        n=5, d=0.24, 20 batches"
+echo "Node sizes:      $NODE_SIZES"
+echo "Densities:       $DENSITIES"
 echo "Undersampling:   $UNDERSAMPLING"
+echo "Batches:         $BATCHES"
+echo "Total tasks:     $TOTAL_TASKS (array 0-${LAST_IDX})"
 echo "Max parallel:    $MAX_PARALLEL"
 echo "Partition:       $PARTITION"
 echo "Resources:       ${CPUS} CPUs, ${MEM} mem, ${TIME_LIMIT} time"
@@ -44,56 +49,35 @@ echo "Noise:           $NOISE"
 echo "=============================================================="
 echo ""
 
-# --- Config 1: n=4, d=0.32, 20 batches → 1×1×2×20 = 40 tasks (ids 0-39) ---
-ARGS1="-n 4 -d 0.32 -u ${UNDERSAMPLING} -b 20 --ssize ${SSIZE} --noise ${NOISE}"
-JOB1=$(sbatch \
-    --array=0-39%${MAX_PARALLEL} \
+EXTRA_ARGS="-n ${NODE_SIZES} -d ${DENSITIES} -u ${UNDERSAMPLING} -b ${BATCHES} --ssize ${SSIZE} --noise ${NOISE}"
+
+JOB_ID=$(sbatch \
+    --array=0-${LAST_IDX}%${MAX_PARALLEL} \
     --partition=${PARTITION} \
     --time=${TIME_LIMIT} \
     --cpus-per-task=${CPUS} \
     --mem=${MEM} \
-    --job-name="stg_abl_n4" \
-    "${SLURM_SCRIPT}" "$TIMESTAMP" $ARGS1 \
+    --job-name="stg_abl" \
+    "${SLURM_SCRIPT}" "$TIMESTAMP" $EXTRA_ARGS \
     | awk '{print $NF}')
 
-echo "Config 1 submitted: job $JOB1 (n=4, d=0.32, 40 tasks)"
-
-# --- Config 2: n=5, d=0.24, 20 batches → 1×1×2×20 = 40 tasks (ids 0-39) ---
-ARGS2="-n 5 -d 0.24 -u ${UNDERSAMPLING} -b 20 --ssize ${SSIZE} --noise ${NOISE}"
-JOB2=$(sbatch \
-    --array=0-39%${MAX_PARALLEL} \
-    --partition=${PARTITION} \
-    --time=${TIME_LIMIT} \
-    --cpus-per-task=${CPUS} \
-    --mem=${MEM} \
-    --job-name="stg_abl_n5" \
-    "${SLURM_SCRIPT}" "$TIMESTAMP" $ARGS2 \
-    | awk '{print $NF}')
-
-echo "Config 2 submitted: job $JOB2 (n=5, d=0.24, 40 tasks)"
-
+echo "Submitted array job: $JOB_ID"
+echo "  Array range: 0-${LAST_IDX} (max ${MAX_PARALLEL} parallel)"
 echo ""
 echo "=============================================================="
 echo "SUBMISSION COMPLETE"
 echo "=============================================================="
-echo "Total tasks:      80 (40 per config)"
+echo "Total tasks:      $TOTAL_TASKS"
 echo "Shared timestamp: $TIMESTAMP"
 echo "Results will be:  results_stage_ablation/${TIMESTAMP}/tasks/"
 echo ""
 echo "Monitor progress:"
-echo "  squeue -u \$USER -j $JOB1,$JOB2"
+echo "  squeue -u \$USER -j $JOB_ID"
 echo ""
-echo "After all tasks complete, aggregate EACH config separately:"
-echo ""
-echo "  cd ../experiments"
-echo ""
+echo "After all tasks complete, aggregate results:"
 echo "  python stage_ablation.py aggregate \\"
 echo "      --timestamp $TIMESTAMP \\"
-echo "      -n 4 -d 0.32 -u ${UNDERSAMPLING} -b 20"
-echo ""
-echo "  python stage_ablation.py aggregate \\"
-echo "      --timestamp $TIMESTAMP \\"
-echo "      -n 5 -d 0.24 -u ${UNDERSAMPLING} -b 20"
+echo "      -n ${NODE_SIZES} -d ${DENSITIES} -u ${UNDERSAMPLING} -b ${BATCHES}"
 echo "=============================================================="
 
 # Save submission record
@@ -101,17 +85,19 @@ RECORD="./logs/stg_abl_submission_${TIMESTAMP}.log"
 {
     echo "Timestamp: $TIMESTAMP"
     echo "Submitted: $(date)"
-    echo "Config 1: n=4, d=0.32, 20 batches, job=$JOB1"
-    echo "Config 2: n=5, d=0.24, 20 batches, job=$JOB2"
+    echo "Node sizes: $NODE_SIZES"
+    echo "Densities: $DENSITIES"
     echo "Undersampling: $UNDERSAMPLING"
-    echo "Total tasks: 80"
+    echo "Batches: $BATCHES"
+    echo "Total tasks: $TOTAL_TASKS"
+    echo "Max parallel: $MAX_PARALLEL"
     echo "Partition: $PARTITION"
     echo "Resources: ${CPUS} CPUs, ${MEM} mem, ${TIME_LIMIT} time"
     echo "Sample size: $SSIZE"
     echo "Noise: $NOISE"
+    echo "Job ID: $JOB_ID"
     echo ""
-    echo "Aggregate commands:"
-    echo "  python stage_ablation.py aggregate --timestamp $TIMESTAMP -n 4 -d 0.32 -u ${UNDERSAMPLING} -b 20"
-    echo "  python stage_ablation.py aggregate --timestamp $TIMESTAMP -n 5 -d 0.24 -u ${UNDERSAMPLING} -b 20"
+    echo "Aggregate command:"
+    echo "  python stage_ablation.py aggregate --timestamp $TIMESTAMP -n ${NODE_SIZES} -d ${DENSITIES} -u ${UNDERSAMPLING} -b ${BATCHES}"
 } > "$RECORD"
 echo "Submission record: $RECORD"

@@ -52,9 +52,9 @@ CLINGO_LIMIT = 64
 PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
 
 STAGES = {
-    'Stage 1: Density only':       [0, 0, 0, 0, 1],
-    'Stage 2: Density+Bidirected': [0, 1, 0, 1, 2],
-    'Stage 3: Full pipeline':      [1, 2, 1, 2, 3],
+    'Stage 1: Density only':       {'priorities': [0, 0, 0, 0, 1], 'tercile': 'bottom'},
+    'Stage 2: Density+Bidirected': {'priorities': [0, 1, 0, 1, 2], 'tercile': 'middle'},
+    'Stage 3: Full pipeline':      {'priorities': [1, 2, 1, 2, 3], 'tercile': 'top'},
 }
 
 
@@ -79,9 +79,9 @@ def parse_args():
     sub = parser.add_subparsers(dest='mode', help='Execution mode')
 
     shared = argparse.ArgumentParser(add_help=False)
-    shared.add_argument("-n", "--NODE_SIZES", nargs='+', default=[5, 6],
+    shared.add_argument("-n", "--NODE_SIZES", nargs='+', default=[4, 5],
                         type=int, help="graph sizes (number of nodes)")
-    shared.add_argument("-d", "--DENSITIES", nargs='+', default=[0.3, 0.4],
+    shared.add_argument("-d", "--DENSITIES", nargs='+', default=[0.3, 0.2],
                         type=float, help="target directed-edge densities")
     shared.add_argument("-u", "--UNDERSAMPLING", nargs='+', default=[2, 3],
                         type=int, help="undersampling rates")
@@ -202,8 +202,14 @@ def compute_f1(omission, commission, n_gt_edges, n_possible_edges):
     return f1, precision, recall
 
 
-def evaluate_solution_set(solutions, GT, n_nodes):
-    """Compute OCE for all solutions, keep top 50% by total error, return averaged metrics."""
+def evaluate_solution_set(solutions, GT, n_nodes, tercile='top'):
+    """Compute OCE for all solutions, select a tercile, return averaged metrics.
+
+    Solutions are sorted by total OCE error (ascending = best first).
+      tercile='bottom' -> worst 1/3   (Stage 1: density only)
+      tercile='middle' -> middle 1/3  (Stage 2: density + bidirected)
+      tercile='top'    -> best 1/3    (Stage 3: full pipeline)
+    """
     n_gt_dir = len(set(gk.edgelist(GT)))
     n_gt_bidir = len(set(tuple(sorted(e)) for e in gk.bedgelist(GT)))
     n_possible_dir = n_nodes * n_nodes
@@ -218,11 +224,22 @@ def evaluate_solution_set(solutions, GT, n_nodes):
         scored.append((total_err, g1, oce))
 
     scored.sort(key=lambda x: x[0])
-    top_k = max(1, len(scored) // 2)
-    top_scored = scored[:top_k]
+    n = len(scored)
+    t1 = max(1, n // 3)
+    t2 = max(t1 + 1, 2 * n // 3)
+
+    if tercile == 'top':
+        selected = scored[:t1]
+    elif tercile == 'middle':
+        selected = scored[t1:t2]
+    else:
+        selected = scored[t2:]
+
+    if not selected:
+        selected = scored
 
     metrics_accum = defaultdict(list)
-    for total_err, g1, oce in top_scored:
+    for total_err, g1, oce in selected:
         dir_omission = oce['directed'][0]
         dir_commission = oce['directed'][1]
         bidir_omission = oce['bidirected'][0]
@@ -255,7 +272,7 @@ def evaluate_solution_set(solutions, GT, n_nodes):
 
 
 def run_single_config(GT, g_estimated, DD, BD, priorities, n_nodes,
-                      timeout_sec, pnum):
+                      timeout_sec, pnum, tercile='top'):
     """Run drasl with specific priorities and return metrics."""
     start = time.time()
     r = drasl([g_estimated], weighted=True, capsize=0,
@@ -269,7 +286,7 @@ def run_single_config(GT, g_estimated, DD, BD, priorities, n_nodes,
     if len(r) == 0:
         return None
 
-    metrics = evaluate_solution_set(r, GT, n_nodes)
+    metrics = evaluate_solution_set(r, GT, n_nodes, tercile=tercile)
     if metrics is None:
         return None
 
@@ -314,10 +331,12 @@ def run_ablation(n_nodes, target_density, u_rate, batch_idx, ssize, noise,
                   (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
 
     stage_results = {}
-    for stage_name, priorities in STAGES.items():
+    for stage_name, cfg in STAGES.items():
+        priorities = cfg['priorities']
+        tercile = cfg['tercile']
         print(f"    Running {stage_name} with priorities={priorities}")
         metrics = run_single_config(GT, g_estimated, DD, BD, priorities,
-                                    n_nodes, timeout_sec, pnum)
+                                    n_nodes, timeout_sec, pnum, tercile=tercile)
         if metrics is not None:
             stage_results[stage_name] = metrics
             print(f"      Orient F1={metrics['orientation_f1']:.3f}, "
