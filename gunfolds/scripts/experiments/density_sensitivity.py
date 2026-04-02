@@ -29,7 +29,6 @@ from gunfolds.utils import graphkit as gk
 from gunfolds.solvers.clingo_rasl import drasl
 from gunfolds.utils.calc_procs import get_process_count
 from gunfolds import conversions as cv
-from gunfolds.scripts.datasets.simple_networks import simp_nets
 
 import scipy.sparse as sp
 from scipy.sparse.linalg import eigs
@@ -43,16 +42,17 @@ PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
 DENSITY_SCALES = [0.7, 0.9, 1.0, 1.1, 1.3]
 
 
-def build_task_list(networks, undersampling_rates, batches):
-    """Build an ordered list of (network_num, u_rate, batch) tuples.
+def build_task_list(node_sizes, extra_edges_list, undersampling_rates, batches):
+    """Build an ordered list of (n_nodes, extra_edges, u_rate, batch) tuples.
 
     The SLURM array task ID indexes into this list.
     """
     tasks = []
-    for net in networks:
-        for u in undersampling_rates:
-            for batch in range(1, batches + 1):
-                tasks.append((net, u, batch))
+    for n in node_sizes:
+        for e in extra_edges_list:
+            for u in undersampling_rates:
+                for batch in range(1, batches + 1):
+                    tasks.append((n, e, u, batch))
     return tasks
 
 
@@ -63,8 +63,10 @@ def parse_args():
     sub = parser.add_subparsers(dest='mode', help='Execution mode')
 
     shared = argparse.ArgumentParser(add_help=False)
-    shared.add_argument("-n", "--NETWORKS", nargs='+', default=[1, 2, 3, 4, 5],
-                        type=int, help="Sanchez-Romero network numbers")
+    shared.add_argument("-n", "--NODE_SIZES", nargs='+', default=[5, 6],
+                        type=int, help="graph sizes (number of nodes)")
+    shared.add_argument("-e", "--EXTRA_EDGES", nargs='+', default=[1, 2, 3],
+                        type=int, help="number of extra edges beyond the ring")
     shared.add_argument("-u", "--UNDERSAMPLING", nargs='+', default=[2, 3],
                         type=int, help="undersampling rates")
     shared.add_argument("-b", "--BATCHES", default=10, type=int,
@@ -196,14 +198,15 @@ def evaluate_best_solution(solutions, GT, n_nodes):
 
 
 # =========================================================================
-# Single experiment (one task = one network x undersampling x batch)
+# Single experiment (one task = one n_nodes x extra_edges x u_rate x batch)
 # =========================================================================
 
-def run_density_sweep(network_num, u_rate, batch_idx, ssize, noise,
+def run_density_sweep(n_nodes, extra_edges, u_rate, batch_idx, ssize, noise,
                       timeout_hours, pnum):
     """Run the solver at multiple density scales for one data generation."""
-    GT = simp_nets(network_num, selfloop=True)
-    n_nodes = len(GT)
+    GT = gk.ringmore(n_nodes, extra_edges)
+    print(f"  Generated ringmore graph: n={n_nodes}, extra={extra_edges}, "
+          f"density={gk.density(GT):.3f}, edges={len(gk.edgelist(GT))}")
     A = cv.graph2adj(GT)
     MAXCOST = 10000
     timeout_sec = timeout_hours * 60 * 60
@@ -243,7 +246,8 @@ def run_density_sweep(network_num, u_rate, batch_idx, ssize, noise,
                   urate=min(15, 3 * n_nodes + 1),
                   dm=[DD], bdm=[BD],
                   GT_density=scaled_density,
-                  edge_weights=priorities, pnum=pnum, optim='optN')
+                  edge_weights=priorities, pnum=pnum, optim='optN',
+                  selfloop=False)
         elapsed = time.time() - start
 
         if len(r) == 0:
@@ -353,18 +357,19 @@ def plot_density_sensitivity(aggregated, output_path):
 # =========================================================================
 
 def mode_run(args):
-    tasks = build_task_list(args.NETWORKS, args.UNDERSAMPLING, args.BATCHES)
+    tasks = build_task_list(args.NODE_SIZES, args.EXTRA_EDGES,
+                            args.UNDERSAMPLING, args.BATCHES)
     total_tasks = len(tasks)
 
     if args.task_id < 0 or args.task_id >= total_tasks:
         print(f"ERROR: task_id {args.task_id} out of range [0, {total_tasks - 1}]")
         sys.exit(1)
 
-    network_num, u_rate, batch = tasks[args.task_id]
+    n_nodes, extra_edges, u_rate, batch = tasks[args.task_id]
     print(f"[Task {args.task_id}/{total_tasks - 1}] "
-          f"network={network_num}, u={u_rate}, batch={batch}")
+          f"n={n_nodes}, extra={extra_edges}, u={u_rate}, batch={batch}")
 
-    result = run_density_sweep(network_num, u_rate, batch,
+    result = run_density_sweep(n_nodes, extra_edges, u_rate, batch,
                                args.ssize, args.noise,
                                args.TIMEOUT, args.PNUM)
 
@@ -375,7 +380,8 @@ def mode_run(args):
     out_path = os.path.join(out_dir, f"task_{args.task_id:04d}.zkl")
     save_payload = {
         'task_id': args.task_id,
-        'network_num': network_num,
+        'n_nodes': n_nodes,
+        'extra_edges': extra_edges,
         'u_rate': u_rate,
         'batch': batch,
         'result': result,
@@ -404,7 +410,8 @@ def mode_aggregate(args):
         sys.exit(1)
 
     task_files = sorted(glob.glob(os.path.join(task_dir, "task_*.zkl")))
-    tasks = build_task_list(args.NETWORKS, args.UNDERSAMPLING, args.BATCHES)
+    tasks = build_task_list(args.NODE_SIZES, args.EXTRA_EDGES,
+                            args.UNDERSAMPLING, args.BATCHES)
     total_expected = len(tasks)
 
     print(f"Found {len(task_files)} / {total_expected} task result files in {task_dir}")
@@ -446,12 +453,14 @@ def mode_local(args):
     os.makedirs(args.output_dir, exist_ok=True)
     all_results = []
 
-    tasks = build_task_list(args.NETWORKS, args.UNDERSAMPLING, args.BATCHES)
+    tasks = build_task_list(args.NODE_SIZES, args.EXTRA_EDGES,
+                            args.UNDERSAMPLING, args.BATCHES)
     total = len(tasks)
 
-    for idx, (network_num, u_rate, batch) in enumerate(tasks):
-        print(f"\n[{idx + 1}/{total}] Network={network_num}, u={u_rate}, batch={batch}")
-        result = run_density_sweep(network_num, u_rate, batch,
+    for idx, (n_nodes, extra_edges, u_rate, batch) in enumerate(tasks):
+        print(f"\n[{idx + 1}/{total}] n={n_nodes}, extra={extra_edges}, "
+              f"u={u_rate}, batch={batch}")
+        result = run_density_sweep(n_nodes, extra_edges, u_rate, batch,
                                    args.ssize, args.noise,
                                    args.TIMEOUT, args.PNUM)
         all_results.append(result)

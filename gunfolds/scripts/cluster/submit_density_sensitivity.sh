@@ -3,14 +3,16 @@
 # Submit Density Sensitivity as SLURM array jobs
 # =============================================================================
 #
-# Runs Sanchez-Romero networks 1-5 with undersampling rates 2,3 and 10 batches.
-# 5 networks × 2 undersampling rates × 10 batches = 100 tasks.
+# Runs ringmore graphs of 5 and 6 nodes with 1,2,3 extra edges,
+# undersampling rates 2,3, and 10 batches each.
+# 2 sizes × 3 extra_edges × 2 undersampling rates × 10 batches = 120 tasks.
 #
 # Usage:
 #   bash submit_density_sensitivity.sh
 # =============================================================================
 
-NETWORKS="1 2 3 4 5"
+NODE_SIZES="5 6"
+EXTRA_EDGES="1 2 3"
 UNDERSAMPLING="2 3"
 BATCHES=10
 SSIZE=5000
@@ -25,8 +27,8 @@ TIMESTAMP=$(date +%m%d%Y%H%M%S)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SLURM_SCRIPT="${SCRIPT_DIR}/slurm_density_sensitivity.sh"
 
-# 5 networks × 2 u-rates × 10 batches = 100 tasks
-TOTAL_TASKS=100
+# 2 sizes × 3 extra_edges × 2 u-rates × 10 batches = 120 tasks
+TOTAL_TASKS=120
 LAST_IDX=$((TOTAL_TASKS - 1))
 
 mkdir -p ./logs ./err ./out
@@ -35,7 +37,8 @@ echo "=============================================================="
 echo "DENSITY SENSITIVITY - BATCH SUBMISSION"
 echo "=============================================================="
 echo "Timestamp:       $TIMESTAMP"
-echo "Networks:        $NETWORKS"
+echo "Node sizes:      $NODE_SIZES"
+echo "Extra edges:     $EXTRA_EDGES"
 echo "Undersampling:   $UNDERSAMPLING"
 echo "Batches:         $BATCHES"
 echo "Total tasks:     $TOTAL_TASKS (array 0-${LAST_IDX})"
@@ -47,7 +50,7 @@ echo "Noise:           $NOISE"
 echo "=============================================================="
 echo ""
 
-EXTRA_ARGS="-n ${NETWORKS} -u ${UNDERSAMPLING} -b ${BATCHES} --ssize ${SSIZE} --noise ${NOISE}"
+EXTRA_ARGS="-n ${NODE_SIZES} -e ${EXTRA_EDGES} -u ${UNDERSAMPLING} -b ${BATCHES} --ssize ${SSIZE} --noise ${NOISE}"
 
 JOB_ID=$(sbatch \
     --array=0-${LAST_IDX}%${MAX_PARALLEL} \
@@ -75,7 +78,7 @@ echo ""
 echo "After all tasks complete, aggregate results:"
 echo "  python density_sensitivity.py aggregate \\"
 echo "      --timestamp $TIMESTAMP \\"
-echo "      -n ${NETWORKS} -u ${UNDERSAMPLING} -b ${BATCHES}"
+echo "      -n ${NODE_SIZES} -e ${EXTRA_EDGES} -u ${UNDERSAMPLING} -b ${BATCHES}"
 echo "=============================================================="
 
 # Save submission record
@@ -83,7 +86,8 @@ RECORD="./logs/dns_sns_submission_${TIMESTAMP}.log"
 {
     echo "Timestamp: $TIMESTAMP"
     echo "Submitted: $(date)"
-    echo "Networks: $NETWORKS"
+    echo "Node sizes: $NODE_SIZES"
+    echo "Extra edges: $EXTRA_EDGES"
     echo "Undersampling: $UNDERSAMPLING"
     echo "Batches: $BATCHES"
     echo "Total tasks: $TOTAL_TASKS"
@@ -95,6 +99,6 @@ RECORD="./logs/dns_sns_submission_${TIMESTAMP}.log"
     echo "Job ID: $JOB_ID"
     echo ""
     echo "Aggregate command:"
-    echo "  python density_sensitivity.py aggregate --timestamp $TIMESTAMP -n ${NETWORKS} -u ${UNDERSAMPLING} -b ${BATCHES}"
+    echo "  python density_sensitivity.py aggregate --timestamp $TIMESTAMP -n ${NODE_SIZES} -e ${EXTRA_EDGES} -u ${UNDERSAMPLING} -b ${BATCHES}"
 } > "$RECORD"
 echo "Submission record: $RECORD"

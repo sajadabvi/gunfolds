@@ -17,20 +17,20 @@
 # =============================================================================
 # Density Sensitivity - SLURM Array Job Script
 # =============================================================================
-# Runs ONE task (network × undersampling × batch) per array element.
-# Each task generates data from a Sanchez-Romero network and sweeps over all
-# density scales (-30%, -10%, 0%, +10%, +30%), saving results per task.
+# Runs ONE task (n_nodes × extra_edges × undersampling × batch) per array element.
+# Each task generates a ringmore graph and sweeps over all density scales
+# (-30%, -10%, 0%, +10%, +30%), saving results per task.
 #
 # Usage:
-#   sbatch --array=0-99 slurm_density_sensitivity.sh <TIMESTAMP> [EXTRA_ARGS...]
+#   sbatch --array=0-119 slurm_density_sensitivity.sh <TIMESTAMP> [EXTRA_ARGS...]
 #
-# The total number of tasks = len(NETWORKS) × len(UNDERSAMPLING) × BATCHES.
-# With defaults (networks=[1,2,3,4,5], u=[2,3], batches=10): 5×2×10 = 100 tasks.
+# The total number of tasks = len(NODE_SIZES) × len(EXTRA_EDGES) × len(UNDERSAMPLING) × BATCHES.
+# With defaults (nodes=[5,6], extra=[1,2,3], u=[2,3], batches=10): 2×3×2×10 = 120 tasks.
 #
 # Examples:
-#   sbatch --array=0-99%20  slurm_density_sensitivity.sh 03312026120000
-#   sbatch --array=0-99%20  slurm_density_sensitivity.sh 03312026120000 --ssize 10000 --noise 0.05
-#   sbatch --array=0-59%20  slurm_density_sensitivity.sh 03312026120000 -n 1 2 3 -u 2 3
+#   sbatch --array=0-119%20 slurm_density_sensitivity.sh 03312026120000
+#   sbatch --array=0-119%20 slurm_density_sensitivity.sh 03312026120000 --ssize 10000 --noise 0.05
+#   sbatch --array=0-59%20  slurm_density_sensitivity.sh 03312026120000 -n 5 6 -e 1 2 -u 2 3
 #
 # After all tasks complete, aggregate results:
 #   python density_sensitivity.py aggregate --timestamp 03312026120000
