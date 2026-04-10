@@ -1,6 +1,6 @@
 """This module contains clingo interaction functions"""
 from __future__ import print_function
-
+from string import Template
 from gunfolds.utils.clingo import clingo
 from gunfolds.utils.calc_procs import get_process_count
 from gunfolds.conversions import g2clingo, rate, rasl_jclingo2g,\
@@ -114,52 +114,32 @@ drasl_program += """
 
 def weighted_drasl_program(directed, bidirected, no_directed, no_bidirected):
     """
-    Adjusts the optimization code based on the directed and bidirected priority.
-    When a priority is 0, the corresponding weak constraint is omitted entirely
-    (the solver will not optimize that dimension at all).
+    Adjusts the optimization code based on the directed and bidirected priority
 
-    :param directed: priority for penalizing false-positive directed edges
+    :param directed: priority of directed edges in optimization
     :type directed: integer
 
-    :param bidirected: priority for penalizing false-positive bidirected edges
+    :param bidirected: priority of bidirected edges in optimization
+        graph
     :type bidirected: integer
-
-    :param no_directed: priority for penalizing false-negative directed edges
-    :type no_directed: integer
-
-    :param no_bidirected: priority for penalizing false-negative bidirected edges
-    :type no_bidirected: integer
 
     :returns: optimization part of the ``clingo`` code
     :rtype: string
     """
-    program = """
+    t = Template("""
     {edge1(X,Y)} :- node(X), node(Y).
     directed(X, Y, 1) :- edge1(X, Y).
     directed(X, Y, L) :- directed(X, Z, L-1), edge1(Z, Y), L <= U, u(U, _).
     bidirected(X, Y, U) :- directed(Z, X, L), directed(Z, Y, L), node(X;Y;Z), X < Y, L < U, u(U, _).
-    """
+    
+    :~ directed(X, Y, L), no_hdirected(X, Y, W, K), node(X;Y), u(L, K). [W@$directed,X,Y]
+    :~ bidirected(X, Y, L), no_hbidirected(X, Y, W, K), node(X;Y), u(L, K), X < Y. [W@$bidirected,X,Y]
+    :~ not directed(X, Y, L), hdirected(X, Y, W, K), node(X;Y), u(L, K). [W@$no_directed,X,Y]
+    :~ not bidirected(X, Y, L), hbidirected(X, Y, W, K), node(X;Y), u(L, K), X < Y. [W@$no_bidirected,X,Y]
+    
+    """)
 
-    if directed != 0:
-        program += f"""
-    :~ directed(X, Y, L), no_hdirected(X, Y, W, K), node(X;Y), u(L, K). [W@{directed},X,Y]"""
-
-    if bidirected != 0:
-        program += f"""
-    :~ bidirected(X, Y, L), no_hbidirected(X, Y, W, K), node(X;Y), u(L, K), X < Y. [W@{bidirected},X,Y]"""
-
-    if no_directed != 0:
-        program += f"""
-    :~ not directed(X, Y, L), hdirected(X, Y, W, K), node(X;Y), u(L, K). [W@{no_directed},X,Y]"""
-
-    if no_bidirected != 0:
-        program += f"""
-    :~ not bidirected(X, Y, L), hbidirected(X, Y, W, K), node(X;Y), u(L, K), X < Y. [W@{no_bidirected},X,Y]"""
-
-    program += """
-    """
-
-    return program
+    return t.substitute(directed=directed, bidirected=bidirected,no_directed=no_directed,no_bidirected=no_bidirected)
 
 
 def rate(u, uname='u'):
@@ -322,7 +302,7 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
     n = len(g_list)
     command = clingo_preamble(g_list[0])
     density = edge_weights[4]
-    if GT_density is not None and density != 0:
+    if GT_density is not None:
         command += f"#const d = {GT_density}. "
         command += 'countedge1(C):- C = #count { edge1(X, Y): edge1(X, Y), node(X), node(Y)}. '
         command += 'countfull(C):- C = n*n. '
@@ -338,11 +318,10 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
     command += ' '.join([drate(max_urate, i+1, weighted=weighted) for i in range(n)]) + ' '
     command += weighted_drasl_program(edge_weights[0], edge_weights[1],edge_weights[2], edge_weights[3]) if weighted else drasl_program
     # command += f":- M = N, {{u(M, 1..{n}); u(N, 1..{n})}} == 2, u(M, _), u(N, _). "
-    if selfloop is not None:
-        if selfloop:
-            command += ":- not edge1(X, X), node(X)."
-        else:
-            command += ":-  edge1(X, X), node(X)."
+    if selfloop:
+        command += ":- not edge1(X, X), node(X)."
+    else:
+        command += ":-  edge1(X, X), node(X)."
     command += ":- u(L,A), u(T,B), not T=L, A<B. "
     command += ":- not edge1(_, _)."
     command += "#show edge1/2. "
@@ -430,9 +409,6 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
         and optimize for making them similar and get a single graph output
     :type multi_individual: boolean
 
-    :param selfloop: if ``True``, Clingo requires a directed self-loop at every node; if ``False``,
-        forbids self-loops; if ``None``, imposes no self-loop constraints
-    :type selfloop: bool or None
 
     :returns: results of parsed equivalent class
     :rtype: dictionary
