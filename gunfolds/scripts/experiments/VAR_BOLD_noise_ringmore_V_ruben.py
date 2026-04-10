@@ -11,7 +11,7 @@ from scipy.io import loadmat
 from scipy.io import savemat
 import matplotlib.patches as mpatches
 from gunfolds.scripts.datasets.simple_networks import simp_nets
-from gunfolds.scripts import my_functions as mf
+from gunfolds.scripts.utils import my_functions as mf
 from gunfolds.solvers.clingo_rasl import drasl
 from gunfolds.utils import graphkit as gk
 from gunfolds.utils.calc_procs import get_process_count
@@ -31,7 +31,7 @@ import networkx as nx
 import scipy.sparse as sp
 from scipy.sparse.linalg import eigs
 import csv
-from gunfolds.scripts import bold_function as hrf
+from gunfolds.scripts.simulation import bold_function as hrf
 sys.path.append('~/tread/py-tetrad')
 from py_tetrad.tools import TetradSearch as ts
 
@@ -54,7 +54,7 @@ def parse_arguments(PNUM):
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
     parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)
-    parser.add_argument("-o", "--METHOD", default="GIMME", help="method to run", type=str)
+    parser.add_argument("-o", "--METHOD", default="RASL", help="method to run", type=str)
     return parser.parse_args()
 
 def convert_str_to_bool(args):

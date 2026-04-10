@@ -7,11 +7,13 @@
 #   bash submit_fmri_experiment_partial.sh [N_SUBJECTS] [GT_DENSITY_MODE] [VALUE]
 #
 #   GT_DENSITY_MODE (optional): none (default) | fixed | fraction
-#   VALUE (optional): for fixed = 0-1000 (default 75); for fraction = 0-1 (default 0.5)
+#   VALUE (optional): for fixed = 0-1000 (omit for N-specific default: 10→350, 20→215, 53→125);
+#                     for fraction = 0-1 (default 0.5)
 #
 # Example:
 #   bash submit_fmri_experiment_partial.sh 310
-#   bash submit_fmri_experiment_partial.sh 310 fixed 75
+#   bash submit_fmri_experiment_partial.sh 310 fixed
+#   bash submit_fmri_experiment_partial.sh 310 fixed 350
 #   bash submit_fmri_experiment_partial.sh 310 fraction 0.5
 #
 # Runs RASL with N=10, SCC=domain on ALL subjects, using only qTRDGPU.
@@ -63,7 +65,7 @@ echo ""
 SLURM_ARGS=("$SLURM_SCRIPT" "$TIMESTAMP" "$N_COMP" "$SCC" "$METHOD")
 if [ -n "$GT_DENSITY_MODE" ]; then
     SLURM_ARGS+=("$GT_DENSITY_MODE")
-    [ "$GT_DENSITY_MODE" = "fixed" ] && SLURM_ARGS+=("${GT_DENSITY_VALUE:-75}")
+    [ "$GT_DENSITY_MODE" = "fixed" ] && [ -n "$GT_DENSITY_VALUE" ] && SLURM_ARGS+=("$GT_DENSITY_VALUE")
     [ "$GT_DENSITY_MODE" = "fraction" ] && SLURM_ARGS+=("${GT_DENSITY_VALUE:-0.5}")
 fi
 
@@ -124,7 +126,7 @@ CONFIG_MD="${RESULTS_DIR}/experiment_config.md"
     echo "| Configuration | ${CONFIG_TAG} (N=${N_COMP}, SCC=${SCC}, METHOD=${METHOD}) |"
     if [ -n "$GT_DENSITY_MODE" ]; then
         echo "| GT Density Mode | ${GT_DENSITY_MODE} |"
-        [ "$GT_DENSITY_MODE" = "fixed" ] && echo "| GT Density Value | ${GT_DENSITY_VALUE:-75} |"
+        [ "$GT_DENSITY_MODE" = "fixed" ] && echo "| GT Density Value | ${GT_DENSITY_VALUE:-(N-specific default)} |"
         [ "$GT_DENSITY_MODE" = "fraction" ] && echo "| GT Density Fraction | ${GT_DENSITY_VALUE:-0.5} |"
     else
         echo "| GT Density Mode | none (default) |"

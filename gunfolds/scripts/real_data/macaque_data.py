@@ -240,7 +240,7 @@ def mRASL(args, network_GT):
                         bdm=BD_list,
                         scc=False,
                         GT_density=int(1000 * gk.density(network_GT)),
-                        edge_weights=args.PRIORITY, pnum=PNUM, optim='optN', selfloop=False)
+                        edge_weights=args.PRIORITY, pnum=PNUM, optim='optN', selfloop=True)
 
     print('number of optimal solutions is', len(r_estimated))
     max_f1_score = 0
