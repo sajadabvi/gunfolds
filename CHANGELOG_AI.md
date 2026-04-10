@@ -3,6 +3,16 @@
 Short summaries of code and documentation changes made via Cursor AI sessions.
 
 
+## 2026-04-10
+
+### N-specific default `GT_density` for RASL fixed mode
+
+- **`fmri_experiment_large.py`:** `--gt_density` now defaults to omitted (`None`). Under `--gt_density_mode fixed`, the effective density is **350** (N=10), **215** (N=20), or **125** (N=53) when `--gt_density` is not passed — midpoints of the ranges in `gunfolds/scripts/papers/ground_truth_connectivity_estimates.md` §7. Explicit `--gt_density` still clamps to 0–1000. Saved `result.zkl` / `run_params.zkl` include effective `gt_density` and optional `gt_density_explicit` (CLI value, or `None` if the default was used).
+- **`slurm_fmri_large.sh`**, **`submit_fmri_experiment.sh`**, **`submit_fmri_experiment_partial.sh`:** For `fixed` mode, the optional numeric argument is only forwarded when set, so jobs can rely on the Python N-based defaults.
+- **`Past_chat/fmri_experiment_large_handoff.md`:** Documented the mapping and cluster behavior.
+
+---
+
 ## 2026-04-03
 
 ### HC vs SZ supervised classification (Tiers 1–3 + time-series + aggregator)

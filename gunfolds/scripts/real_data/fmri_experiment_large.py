@@ -21,6 +21,7 @@ import os
 import sys
 import csv
 import argparse
+from typing import Optional
 import numpy as np
 import pandas as pd
 import networkx as nx
@@ -49,6 +50,30 @@ sys.path.append(os.path.expanduser("~/tread/py-tetrad"))
 
 CLINGO_LIMIT = 64
 PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
+
+# Default GT_density (×1000) for --gt_density_mode fixed when --gt_density is omitted.
+# Midpoints of recommended ranges in ground_truth_connectivity_estimates.md §7.
+DEFAULT_GT_DENSITY_BY_N = {
+    10: 350,   # 300–400 (moderate tier, hub-centric N=10)
+    20: 215,   # 180–250
+    53: 125,   # 100–150
+}
+
+
+def resolve_fixed_gt_density(n_components: int, explicit: Optional[int]) -> int:
+    """
+    Return clamped GT_density for RASL when mode is fixed.
+
+    If ``explicit`` is None, use the literature default for ``n_components``.
+    """
+    if explicit is not None:
+        return max(0, min(1000, explicit))
+    if n_components not in DEFAULT_GT_DENSITY_BY_N:
+        raise ValueError(
+            f"No default GT_density for n_components={n_components}; "
+            "pass --gt_density explicitly."
+        )
+    return DEFAULT_GT_DENSITY_BY_N[n_components]
 
 
 # ---------------------------------------------------------------------------
@@ -93,9 +118,9 @@ def parse_arguments():
     # GT_density for RASL: none (default), fixed (0-1000), or fraction of g_estimated density
     p.add_argument("--gt_density_mode", default="none",
                    choices=["none", "fixed", "fraction"],
-                   help="GT_density: 'none' (default), 'fixed' (use --gt_density value), or 'fraction' (use fraction of g_estimated)")
-    p.add_argument("--gt_density", default=75, type=int,
-                   help="Fixed GT_density value (0-1000, density*1000). Used when --gt_density_mode=fixed.")
+                   help="GT_density: 'none' (default), 'fixed' (use --gt_density or N-specific default), or 'fraction' (use fraction of g_estimated)")
+    p.add_argument("--gt_density", default=None, type=int,
+                   help="Fixed GT_density (0-1000, density×1000). When omitted under fixed mode, uses literature default by N (see DEFAULT_GT_DENSITY_BY_N).")
     p.add_argument("--gt_density_fraction", default=1, type=float,
                    help="Fraction of g_estimated density for GT_density. Used when --gt_density_mode=fraction.")
 
@@ -234,7 +259,7 @@ def run_rasl_subject(ts_2d, args, comp_indices, scc_members_override=None,
     if args.gt_density_mode == "none":
         gt_density = None
     elif args.gt_density_mode == "fixed":
-        gt_density = max(0, min(1000, args.gt_density))
+        gt_density = resolve_fixed_gt_density(len(comp_indices), args.gt_density)
     else:  # fraction
         est_density = gk.density(g_estimated)
         frac = max(0.0, min(1.0, args.gt_density_fraction))
@@ -432,7 +457,13 @@ def run_single_subject(args, data, labels, comp_indices, comp_names):
         "comp_indices": comp_indices,
         "comp_names": comp_names,
         "gt_density_mode": args.gt_density_mode,
-        "gt_density": args.gt_density if args.gt_density_mode == "fixed" else None,
+        "gt_density": (
+            resolve_fixed_gt_density(len(comp_indices), args.gt_density)
+            if args.gt_density_mode == "fixed" else None
+        ),
+        "gt_density_explicit": (
+            args.gt_density if args.gt_density_mode == "fixed" else None
+        ),
         "gt_density_fraction": (args.gt_density_fraction
                                 if args.gt_density_mode == "fraction" else None),
         "selection_mode": args.selection_mode,
@@ -617,7 +648,13 @@ def run_all_subjects(args, data, labels, comp_indices, comp_names):
         "delta_multiplier": args.delta_multiplier,
         "timestamp": timestamp,
         "gt_density_mode": args.gt_density_mode,
-        "gt_density": args.gt_density if args.gt_density_mode == "fixed" else None,
+        "gt_density": (
+            resolve_fixed_gt_density(args.n_components, args.gt_density)
+            if args.gt_density_mode == "fixed" else None
+        ),
+        "gt_density_explicit": (
+            args.gt_density if args.gt_density_mode == "fixed" else None
+        ),
         "gt_density_fraction": (args.gt_density_fraction
                                 if args.gt_density_mode == "fraction" else None),
     }
@@ -663,6 +700,18 @@ if __name__ == "__main__":
               f" (top_k={args.top_k}, delta={args.delta_multiplier})")
         print(f"  Max undersamp:   {args.MAXU}")
         print(f"  Priority:        {args.PRIORITY}")
+        if args.gt_density_mode == "fixed":
+            eff = resolve_fixed_gt_density(args.n_components, args.gt_density)
+            src = (
+                "explicit --gt_density"
+                if args.gt_density is not None
+                else f"default for N={args.n_components} (see ground_truth_connectivity_estimates.md)"
+            )
+            print(f"  GT density:      fixed {eff}/1000 ({src})")
+        elif args.gt_density_mode == "fraction":
+            print(f"  GT density:      fraction × estimated (factor={args.gt_density_fraction})")
+        else:
+            print(f"  GT density:      none (no constraint)")
     print("=" * 80)
 
     npzfile = np.load(args.data_path)

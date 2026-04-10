@@ -171,7 +171,8 @@ def run_experiment_sanchez(network_num, u_rate, batch_idx):
               urate=min(15, 3 * n_nodes + 1),
               dm=[DD], bdm=[BD],
               GT_density=int(1000 * gk.density(GT)),
-              edge_weights=OPTIMAL_PRIORITIES, pnum=args.PNUM, optim='optN')
+              edge_weights=OPTIMAL_PRIORITIES, pnum=args.PNUM, optim='optN',
+              selfloop=True)
 
     if len(r) == 0:
         return None
