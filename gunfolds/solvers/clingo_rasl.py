@@ -318,10 +318,11 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
     command += ' '.join([drate(max_urate, i+1, weighted=weighted) for i in range(n)]) + ' '
     command += weighted_drasl_program(edge_weights[0], edge_weights[1],edge_weights[2], edge_weights[3]) if weighted else drasl_program
     # command += f":- M = N, {{u(M, 1..{n}); u(N, 1..{n})}} == 2, u(M, _), u(N, _). "
-    if selfloop:
-        command += ":- not edge1(X, X), node(X)."
-    else:
-        command += ":-  edge1(X, X), node(X)."
+    if selfloop is not None:
+        if selfloop:
+            command += ":- not edge1(X, X), node(X)."
+        else:
+            command += ":-  edge1(X, X), node(X)."
     command += ":- u(L,A), u(T,B), not T=L, A<B. "
     command += ":- not edge1(_, _)."
     command += "#show edge1/2. "
