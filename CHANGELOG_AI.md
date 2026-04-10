@@ -3,6 +3,25 @@
 Short summaries of code and documentation changes made via Cursor AI sessions.
 
 
+## 2026-04-03
+
+### HC vs SZ supervised classification (Tiers 1–3 + time-series + aggregator)
+
+Added scripts under `gunfolds/scripts/analysis/` to compare healthy-control vs schizophrenia classification using causal graphs from `fmri_experiment_large.py` (`result.zkl`) and, optionally, raw ICA time series.
+
+- **`classify_hc_sz.py` (Tier 1)**: Classical ML on vectorised features — mean adjacency (off-diagonal), per-edge std across RASL solutions, topology (density, in/out degree stats), RASL extras (cost mean/std, mean undersampling rate, edge-frequency entropy). Classifiers: SVM (linear/RBF), Random Forest, Logistic Regression (L1/L2) with nested stratified CV; optional permutation p-values.
+- **`brain_transformer_classify.py` (Tier 2)**: PyTorch “BrainNet”-style graph classifier — each region is a token with row/column/std connectivity features plus learnable domain embedding; transformer encoder; orthonormal-clustering readout; early stopping on validation accuracy.
+- **`solution_set_transformer.py` (Tier 3)**: Solution-set model for RASL — shared graph encoder per solution (adjacency + cost + undersampling), induced set attention block (ISAB) + pooling by multihead attention (PMA) over up to `--max_solutions` graphs per subject; meaningful for multi-solution RASL, degenerates to single-graph for PCMCI/GCM.
+- **`timeseries_foundation_classify.py`**: Factored spatiotemporal transformer on FBIRN ICA time courses from `fbirn_sz_data.npz` (spatial attention across regions, temporal attention after pooling); bypasses causal discovery for a baseline comparison.
+- **`run_all_classifiers.py`**: Optional `--run-all` to invoke the four scripts via subprocess; `--aggregate-only` loads `tier1_results.csv`, `tier2_results.csv`, `tier3_results.csv`, `timeseries_foundation_results.csv` from `fbirn_results/<TIMESTAMP>/ml_classification/`, writes `all_tiers_combined.csv`, `best_per_config_tier.csv`, `method_comparison.csv`, and bar plots (`all_tiers_comparison.png`, `method_comparison.png`).
+
+**Usage (from `gunfolds/scripts/real_data/`):** `python ../analysis/run_all_classifiers.py --timestamp <TS> --run-all` or run each tier script with `--timestamp <TS>`.
+
+**Dependencies:** scikit-learn (Tier 1); PyTorch for Tiers 2–4.
+
+**Stability / review:** Tier 1 uses nested CV and optional permutation tests; deep tiers use stratified K-fold with held-out folds. For “how stable are your results,” report fold-wise mean±std, compare to permutation or shuffle labels, and repeat across independent timestamps or train/val splits; multisite confounds (motion, site) should be stated explicitly if generalising beyond FBIRN.
+
+---
 
 ## 2026-03-23
 
@@ -54,7 +73,3 @@ FDR-corrected companion to the Bonferroni report. RASL jumps from 15 to 28 signi
 FDR-corrected comparison of RASL's 28 significant directed edges against the 20-year fMRI literature review. Identified 10 points of agreement (thalamic sensory/motor hyperconnectivity, thalamic gating failure with 4 converging sources, STG/auditory dysfunction, intra-DMN hypoconnectivity, salience switching dysfunction, cerebellar disconnection with 3 directed edges, striatal-thalamic loops, frontoparietal CC abnormalities, reduced network segregation, sensorimotor–auditory coupling) and 10 points of disagreement/tension (thalamocortical arrow direction, missing thalamo-prefrontal signature, early-course hyperconnectivity, salience hypo- vs. hyperconnectivity, visual cortex as novel broadcaster, auditory within- vs. between-network framing, absent hippocampal component, dynamic state dependence, cerebellar–DMN coupling direction, GSR/motion confounds). The FDR version serves authors better than the Bonferroni comparison for peer review: more agreement touchpoints, richer circuit-level stories, stronger novel contributions, and no additional genuine contradictions.
 
 > "Even under the most conservative correction (Bonferroni), RASL identifies 15 significant group-differing edges vs. PCMCI's 1. Under the standard FDR correction (BH, q = 0.05), this widens to 28 vs. 1, and all 15 Bonferroni edges are retained. The 13 additional FDR edges are internally coherent — they complete circuits, fill reciprocal loops, and introduce two new circuit motifs — consistent with true discoveries rather than noise."
-
-
-we will be asked about how stable are your results. Please think about how to address that
-
