@@ -171,28 +171,6 @@ def drawsamplesLG(A, nstd=0.1, samples=100):
         data[:, i] = A @ data[:, i - 1] + nstd * np.random.randn(A.shape[0])
     return data
 
-def Glag2CG(results):
-    """Converts lag graph format to gunfolds graph format,
-   and A and B matrices representing directed and bidirected edges weights.
-
-   Args:
-       results (dict): A dictionary containing:
-           - 'graph': A 3D NumPy array of shape [N, N, 2] representing the graph structure.
-           - 'val_matrix': A NumPy array of shape [N, N, 2] storing edge weights.
-
-   Returns:
-       tuple: (graph_dict, A_matrix, B_matrix)
-   """
-
-    graph_array = results['graph']
-    bidirected_edges = np.where(graph_array == 'o-o', 1, 0).astype(int)
-    directed_edges = np.where(graph_array == '-->', 1, 0).astype(int)
-
-    graph_dict = cv.adjs2graph(directed_edges[:, :, 1], bidirected_edges[:, :, 0])
-    A_matrix = results['val_matrix'][:, :, 1]
-    B_matrix = results['val_matrix'][:, :, 0]
-
-    return graph_dict, A_matrix, B_matrix
 
 def normalize_non_zero_elems_matrix(matrix):
     """
@@ -276,7 +254,7 @@ if False:
     # pcmci.print_significant_links(p_matrix=results['p_matrix'],
     #                                    val_matrix=results['val_matrix'],
     #                                    alpha_level=0.05)
-    g_estimated, A, B = Glag2CG(results)
+    g_estimated, A, B = cv.Glag2CG(results)
 
 
 DD = (np.abs((np.abs(A/np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1))*MAXCOST)).astype(int)

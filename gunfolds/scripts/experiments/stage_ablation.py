@@ -177,16 +177,6 @@ def genData(A, rate=2, burnin=100, ssize=5000, noise=0.1):
     return data[:, ::rate]
 
 
-def Glag2CG(results):
-    graph_array = results['graph']
-    bidirected_edges = np.where(graph_array == 'o-o', 1, 0).astype(int)
-    directed_edges = np.where(graph_array == '-->', 1, 0).astype(int)
-    graph_dict = cv.adjs2graph(directed_edges[:, :, 1], bidirected_edges[:, :, 0])
-    A_matrix = results['val_matrix'][:, :, 1]
-    B_matrix = results['val_matrix'][:, :, 0]
-    return graph_dict, A_matrix, B_matrix
-
-
 # =========================================================================
 # Metrics
 # =========================================================================
@@ -298,7 +288,7 @@ def run_ablation(n_nodes, target_density, u_rate, batch_idx, ssize, noise,
     cond_ind_test = ParCorr()
     pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
     results_pcmci = pcmci.run_pcmci(tau_max=2, pc_alpha=None)
-    g_estimated, A_mat, B_mat = Glag2CG(results_pcmci)
+    g_estimated, A_mat, B_mat = cv.Glag2CG(results_pcmci)
 
     DD = (np.abs((np.abs(A_mat / np.abs(A_mat).max()) +
                   (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)

@@ -39,7 +39,7 @@ def parse_arguments(PNUM):
     parser = argparse.ArgumentParser(description='Run settings.')
     parser.add_argument("-c", "--CAPSIZE", default=0,
                         help="stop traversing after growing equivalence class to this size.", type=int)
-    parser.add_argument("-b", "--BATCH", default=59, help="slurm batch.", type=int)
+    parser.add_argument("-b", "--BATCH", default=1, help="slurm batch.", type=int)
     parser.add_argument("-p", "--PNUM", default=PNUM, help="number of CPUs in machine.", type=int)
     parser.add_argument("-r", "--SNR", default=1, help="Signal to noise ratio", type=int)
     parser.add_argument("-n", "--NET", default=1, help="number of simple network", type=int)
@@ -50,7 +50,7 @@ def parse_arguments(PNUM):
                         help="true for using g_estimate SCC members, false for using "
                              "GT SCC members", type=str)
     parser.add_argument("-u", "--UNDERSAMPLING", default=2, help="sampling rate in generated data", type=int)
-    parser.add_argument("-x", "--MAXU", default=8, help="maximum number of undersampling to look for solution.",
+    parser.add_argument("-x", "--MAXU", default=4, help="maximum number of undersampling to look for solution.",
                         type=int)
     parser.add_argument("-a", "--ALPHA", default=50, help="alpha_level for PC multiplied by 1000", type=int)
     parser.add_argument("-y", "--PRIORITY", default="11112", help="string of priorities", type=str)

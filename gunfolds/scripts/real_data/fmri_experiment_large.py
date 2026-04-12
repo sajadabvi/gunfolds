@@ -116,13 +116,27 @@ def parse_arguments():
                    help="Delta multiplier for threshold selection")
 
     # GT_density for RASL: none (default), fixed (0-1000), or fraction of g_estimated density
-    p.add_argument("--gt_density_mode", default="none",
+    p.add_argument("--gt_density_mode", default="fixed",
                    choices=["none", "fixed", "fraction"],
                    help="GT_density: 'none' (default), 'fixed' (use --gt_density or N-specific default), or 'fraction' (use fraction of g_estimated)")
     p.add_argument("--gt_density", default=None, type=int,
                    help="Fixed GT_density (0-1000, density×1000). When omitted under fixed mode, uses literature default by N (see DEFAULT_GT_DENSITY_BY_N).")
     p.add_argument("--gt_density_fraction", default=1, type=float,
                    help="Fraction of g_estimated density for GT_density. Used when --gt_density_mode=fraction.")
+
+    # PCMCI parameters
+    p.add_argument("--pcmci_method", default="pcmci",
+                   choices=["pcmci", "pcmciplus"],
+                   help="PCMCI variant: pcmciplus (more stable, recommended) or pcmci")
+    p.add_argument("--pcmci_tau_max", default=1, type=int,
+                   help="Max lag for PCMCI (default 2; higher = more stable but slower)")
+    p.add_argument("--pcmci_alpha", default=0.01, type=float,
+                   help="Significance level for PCMCI (only affects run_pcmci)")
+    p.add_argument("--pcmci_pc_alpha", default=0.01, type=float,
+                   help="PC skeleton alpha (0.01 for pcmciplus, None=auto for pcmci)")
+    p.add_argument("--pcmci_fdr", default="none",
+                   choices=["none", "fdr_bh"],
+                   help="FDR correction method (only affects run_pcmci)")
 
     # GCM parameters
     p.add_argument("--gcm_alpha", default=0.01, type=float,
@@ -143,24 +157,45 @@ def parse_arguments():
 # PCMCI helpers
 # ---------------------------------------------------------------------------
 
-def run_pcmci_to_cg(ts_2d):
+def run_pcmci_to_cg(ts_2d, pcmci_method="pcmciplus", tau_max=2,
+                     alpha_level=0.01, pc_alpha=0.01, fdr_method="none"):
     """
     Run PCMCI on time series and return gunfolds causal graph + lag matrices.
 
     Parameters
     ----------
     ts_2d : ndarray [T, n_nodes]
+    pcmci_method : str
+        'pcmciplus' (default, more stable) or 'pcmci'.
+    tau_max : int
+        Maximum lag to test (default 2).
+    alpha_level : float
+        Significance threshold for run_pcmci (ignored by pcmciplus).
+    pc_alpha : float
+        PC skeleton significance (0.01 for pcmciplus, None=auto for pcmci).
+    fdr_method : str
+        'none' or 'fdr_bh' (only affects run_pcmci).
 
     Returns
     -------
     g_estimated : dict  (gunfolds CG)
-    A : ndarray         (forward lag coefficients)
-    B : ndarray         (backward lag coefficients)
+    A : ndarray         (lag-1 weights from val_matrix)
+    B : ndarray         (contemporaneous weights from val_matrix)
     """
-    dataframe = pp.DataFrame(ts_2d.T)
-    cond_ind_test = ParCorr()
-    pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
-    results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.1)
+    dataframe = pp.DataFrame(ts_2d)
+    pcmci = PCMCI(dataframe=dataframe, cond_ind_test=ParCorr(), verbosity=0)
+
+    if pcmci_method == "pcmciplus":
+        results = pcmci.run_pcmciplus(
+            tau_max=tau_max, pc_alpha=pc_alpha,
+            fdr_method=fdr_method,
+        )
+    else:
+        results = pcmci.run_pcmci(
+            tau_max=tau_max, pc_alpha=None,
+            alpha_level=alpha_level, fdr_method=fdr_method,
+        )
+
     g_estimated, A, B = cv.Glag2CG(results)
     return g_estimated, A, B
 
@@ -228,7 +263,11 @@ def run_rasl_subject(ts_2d, args, comp_indices, scc_members_override=None,
     kept : list[tuple]         (cost, cg, undersampling) sorted by cost
     g_estimated : dict         (PCMCI-estimated graph, for reference)
     """
-    g_estimated, A, B = run_pcmci_to_cg(ts_2d)
+    g_estimated, A, B = run_pcmci_to_cg(
+        ts_2d, pcmci_method=args.pcmci_method, tau_max=args.pcmci_tau_max,
+        alpha_level=args.pcmci_alpha, pc_alpha=args.pcmci_pc_alpha,
+        fdr_method=args.pcmci_fdr,
+    )
     n_nodes = len(g_estimated)
 
     # SCC members
@@ -437,7 +476,7 @@ def run_single_subject(args, data, labels, comp_indices, comp_names):
     Called when --subject_idx is provided (SLURM array task).
     """
     s = args.subject_idx
-    ts_2d = data[s, :, comp_indices]  # [T, N]
+    ts_2d = data[s][:, comp_indices]  # [T, N]
     n_nodes = len(comp_indices)
     label = int(labels[s])
     config_tag = make_config_tag(args)
@@ -496,7 +535,11 @@ def run_single_subject(args, data, labels, comp_indices, comp_names):
         subject_info["num_solutions"] = len(kept)
 
     elif args.method == "PCMCI":
-        g_est, A, B = run_pcmci_to_cg(ts_2d)
+        g_est, A, B = run_pcmci_to_cg(
+            ts_2d, pcmci_method=args.pcmci_method, tau_max=args.pcmci_tau_max,
+            alpha_level=args.pcmci_alpha, pc_alpha=args.pcmci_pc_alpha,
+            fdr_method=args.pcmci_fdr,
+        )
         adj = cg_to_adj_binary(g_est)
         subject_info["solutions"].append({
             "solution_idx": 1,
@@ -555,7 +598,7 @@ def run_all_subjects(args, data, labels, comp_indices, comp_names):
     group_counts = {grp: np.zeros((N, N), dtype=int) for grp in unique_labels}
 
     for s in range(n_subj):
-        ts_2d = data[s, :, comp_indices]
+        ts_2d = data[s][:, comp_indices]  # [T, N]
         label = int(labels[s])
 
         if args.method == "RASL":
@@ -584,7 +627,11 @@ def run_all_subjects(args, data, labels, comp_indices, comp_names):
                 })
 
         elif args.method == "PCMCI":
-            g_est, A, B = run_pcmci_to_cg(ts_2d)
+            g_est, A, B = run_pcmci_to_cg(
+                ts_2d, pcmci_method=args.pcmci_method, tau_max=args.pcmci_tau_max,
+                alpha_level=args.pcmci_alpha, pc_alpha=args.pcmci_pc_alpha,
+                fdr_method=args.pcmci_fdr,
+            )
             adj = cg_to_adj_binary(g_est)
             combined_counts += adj
             group_counts[label] += adj
@@ -712,6 +759,12 @@ if __name__ == "__main__":
             print(f"  GT density:      fraction × estimated (factor={args.gt_density_fraction})")
         else:
             print(f"  GT density:      none (no constraint)")
+    if args.method in ("RASL", "PCMCI"):
+        print(f"  PCMCI variant:   {args.pcmci_method}")
+        print(f"  PCMCI tau_max:   {args.pcmci_tau_max}")
+        if args.pcmci_method == "pcmci":
+            print(f"  PCMCI alpha:     {args.pcmci_alpha}")
+            print(f"  PCMCI FDR:       {args.pcmci_fdr}")
     print("=" * 80)
 
     npzfile = np.load(args.data_path)

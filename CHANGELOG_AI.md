@@ -5,9 +5,15 @@ Short summaries of code and documentation changes made via Cursor AI sessions.
 
 ## 2026-04-10
 
+### PCMCI hyperparameter audit, Glag2CG bug fix, and codebase unification
+
+Fixed reversed edge directions in canonical `cv.Glag2CG` (incorrect `np.transpose`), corrected NumPy advanced-indexing bug that swapped time/variable axes in fMRI data slicing, and ran a 36-config grid search to find optimal PCMCI settings. Switched default from `run_pcmci(tau_max=1, alpha=0.1)` to `run_pcmciplus(tau_max=2)`, improving cross-subject Jaccard from 0.313 to 0.460 (+47%). Removed 12 duplicated local `Glag2CG` copies across the codebase. Full experiments and results: **`gunfolds/scripts/papers/pcmci_hyperparameter_audit.md`**.
+
+---
+
 ### N-specific default `GT_density` for RASL fixed mode
 
-- **`fmri_experiment_large.py`:** `--gt_density` now defaults to omitted (`None`). Under `--gt_density_mode fixed`, the effective density is **350** (N=10), **215** (N=20), or **125** (N=53) when `--gt_density` is not passed — midpoints of the ranges in `gunfolds/scripts/papers/ground_truth_connectivity_estimates.md` §7. Explicit `--gt_density` still clamps to 0–1000. Saved `result.zkl` / `run_params.zkl` include effective `gt_density` and optional `gt_density_explicit` (CLI value, or `None` if the default was used).
+- **`fmri_experiment_large.py`:** `--gt_density` now defaults to (`fixed`). Under `--gt_density_mode fixed`, the effective density is **350** (N=10), **215** (N=20), or **125** (N=53) when `--gt_density` is not passed — midpoints of the ranges in `gunfolds/scripts/papers/ground_truth_connectivity_estimates.md` §7. Explicit `--gt_density` still clamps to 0–1000. Saved `result.zkl` / `run_params.zkl` include effective `gt_density` and optional `gt_density_explicit` (CLI value, or `None` if the default was used).
 - **`slurm_fmri_large.sh`**, **`submit_fmri_experiment.sh`**, **`submit_fmri_experiment_partial.sh`:** For `fixed` mode, the optional numeric argument is only forwarded when set, so jobs can rely on the Python N-based defaults.
 - **`Past_chat/fmri_experiment_large_handoff.md`:** Documented the mapping and cluster behavior.
 
