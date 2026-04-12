@@ -70,9 +70,8 @@ target/
 *.aux
 shipfig_figure.tex
 
-# Local-only paper drafts (untracked; not in repo)
-gunfolds/scripts/papers/rebuttal_draft.md
-gunfolds/scripts/papers/submission_paper.tex
+# Local-only paper notes (never pushed to repo)
+gunfolds/scripts/papers/
 
 # my local files
 *.zkl
