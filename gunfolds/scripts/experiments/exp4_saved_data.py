@@ -60,7 +60,7 @@ from gunfolds import conversions as cv
 # ---------------------------------------------------------------------------
 CLINGO_LIMIT = 64
 PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
-MAXCOST = 10000
+MAXCOST = 50
 DRASL_PRIORITIES = [1, 1, 1, 1, 2]
 
 PCMCI_GRID = {
@@ -305,7 +305,7 @@ def run_experiment(args):
                     timeout=timeout_sec,
                     urate=min(8, 3 * n + 1),
                     dm=[DD], bdm=[BD],
-                    GT_density=int(1000 * actual_density),
+                    GT_density=int(100 * actual_density),
                     edge_weights=DRASL_PRIORITIES,
                     pnum=args.pnum, optim='optN',
                     selfloop=args.selfloop,

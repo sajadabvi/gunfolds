@@ -171,7 +171,7 @@ def RASL(args, network_GT):
     else:
         members = [s for s in nx.strongly_connected_components(gk.graph2nx(network_GT))]
 
-    MAXCOST = 10000
+    MAXCOST = 50
     DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
     BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
 
@@ -181,7 +181,7 @@ def RASL(args, network_GT):
                         bdm=[BD],
                         scc=True,
                         scc_members=members,
-                        GT_density=int(1000 * gk.density(network_GT)),
+                        GT_density=int(100 * gk.density(network_GT)),
                         edge_weights=args.PRIORITY, pnum=PNUM, optim='optN', selfloop=True)
 
     print('number of optimal solutions is', len(r_estimated))
@@ -203,7 +203,7 @@ def RASL(args, network_GT):
 def mRASL(args, network_GT):
     BATCH = args.BATCH*6
     network_GT = zkl.load(os.path.expanduser(f'~/DataSets_Feedbacks/9_VAR_BOLD_simulation/ringmore/u{args.UNDERSAMPLING}/GT/GT{BATCH}.zkl'))
-    MAXCOST = 1000
+    MAXCOST = 50
     N = len(network_GT)
     base_g = {i: {} for i in range(1, N + 1)}
     base_DD = np.zeros((N,N)).astype(int)
@@ -239,7 +239,7 @@ def mRASL(args, network_GT):
                         dm=DD_list,
                         bdm=BD_list,
                         scc=False,
-                        GT_density=int(1000 * gk.density(network_GT)),
+                        GT_density=int(100 * gk.density(network_GT)),
                         edge_weights=args.PRIORITY, pnum=PNUM, optim='optN', selfloop=True)
 
     print('number of optimal solutions is', len(r_estimated))

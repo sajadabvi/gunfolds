@@ -117,7 +117,7 @@ def RASL_subject(ts_2d, args, network_GT, include_selfloop, selection_mode='top_
     else:
         members = [s for s in nx.strongly_connected_components(gk.graph2nx(network_GT))]
 
-    MAXCOST = 10000
+    MAXCOST = 50
     # Normalize and build distance penalties
     DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
     BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
@@ -132,7 +132,7 @@ def RASL_subject(ts_2d, args, network_GT, include_selfloop, selection_mode='top_
         bdm=[BD],
         scc=True,
         scc_members=members,
-        GT_density=int(1000 * gk.density(network_GT)),
+        GT_density=int(100 * gk.density(network_GT)),
         edge_weights=args.PRIORITY,
         pnum=PNUM,
         optim='optN',

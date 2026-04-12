@@ -303,7 +303,7 @@ for nn in [2]:
         SL_undir_normed_errors_comm.append(error_comp2['total'][1])'''
 
         '''task 5''' # full sRASL optimization
-        MAXCOST = 10000
+        MAXCOST = 50
         DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
         BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
 
@@ -320,7 +320,7 @@ for nn in [2]:
                             bdm=[BD],
                             scc=SCC,
                             scc_members=members,
-                            GT_density=int(1000 * gk.density(network_GT_selfloop)),
+                            GT_density=int(100 * gk.density(network_GT_selfloop)),
                             edge_weights=priprities, pnum=args.PNUM, optim='optN')
         endTime = int(round(time.time() * 1000))
         sat_time = endTime - startTime

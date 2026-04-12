@@ -5,6 +5,13 @@ Short summaries of code and documentation changes made via Cursor AI sessions.
 
 ## 2026-04-12
 
+### RASL / clingo: soft single-level optimization + coarser costs (scaling)
+
+- **`gunfolds/solvers/clingo_rasl.py`:** **Option A** — weighted DRASL weak constraints unified at **`@1`** (no lexicographic `@2` density vs `@1` edges). Density penalty uses `hypoth_density` with **×100** (was ×1000) and `[Diff * density_weight @ 1]` with default **`density_weight=100`** passed through `drasl_command` / `drasl`. `PRIORITY` / `edge_weights` positions 0–3 kept for API compatibility but no longer set distinct ASP priority levels for the four edge families.
+- **DD/BD scale:** **`MAXCOST = 50`** (was 10000) everywhere in active (non-legacy) experiment and real-data scripts — 50 discrete weight levels per matrix entry.
+- **`GT_density` scale:** **0–100** (density×100); defaults e.g. N=20 **22** (was 215 at ×1000). **`fmri_experiment_large.py`**, **`slurm_fmri_large.sh`**, **`diagnose_rasl_bottleneck.py`** aligned.
+- **Docs:** Handover **`Past_chat/rasl_clingo_optimization_scaling_handoff.md`** (SLURM tools, diagnostics, theory, checklist). Paper-oriented technical note **`gunfolds/scripts/papers/rasl_clingo_soft_optimization_and_scaling.md`** (methods appendix material, two formulations, granularity, suggested experiments).
+
 ### RASL / clingo bottleneck diagnostic (local progress visibility)
 
 - **`gunfolds/scripts/real_data/diagnose_rasl_bottleneck.py`:** Runs the same PCMCI → penalty matrices → `drasl_command` path as `fmri_experiment_large.py` for one subject, but replaces the silent `gunfolds.utils.clingo.run_clingo` path with an instrumented run: **grounding** progress via clingo `GroundProgramObserver` (periodic atom/rule counts), **solving** progress via per-model `on_model` prints (cost, optimality), then clingo statistics and a timing split (PCMCI vs grounding vs solving) with a suggested bottleneck (grounding vs search). Flags: `--n_components`, `--subject_idx`, `--MAXU`, `--PNUM`, `--timeout`, `--grounding_interval`, plus PCMCI/GT knobs aligned with the large experiment.
@@ -20,7 +27,7 @@ Short summaries of code and documentation changes made via Cursor AI sessions.
 
 - **Results:** 48-config grid (311 FBIRN subjects, 20 ICA components) merged in `gunfolds/scripts/real_data/results_exp4_04122026050527/exp4_n20_results_04122026062704.json`.
 - **Paper note:** `gunfolds/scripts/papers/exp4_n20_pcmci_hyperparam_results.md` — methodology, top configs by composite score (0.6×Jaccard + 0.4×proximity to 22% density), recommendation **`pcmci_tau1_a0.05_fdrnone`** (~23% mean density, composite 0.474), comparison to PCMCIplus, runtimes, and `fmri_experiment_large.py` CLI mapping.
-- **Cluster:** `slurm_fmri_large.sh` updated for qTRDGPU, 2-day wall time, 160G / 15 CPUs, default N=20 RASL with Exp4 PCMCI seed + `fixed` GT 220 (`--array=0-309%50` documented).
+- **Cluster:** `slurm_fmri_large.sh` updated for qTRDGPU, 2-day wall time, 160G / 15 CPUs, default N=20 RASL with Exp4 PCMCI seed + `fixed` GT density **22** (×100 scale; `--array=0-309%50` documented).
 
 ---
 

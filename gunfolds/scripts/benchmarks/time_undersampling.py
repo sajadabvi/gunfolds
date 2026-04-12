@@ -233,7 +233,7 @@ def run_undersampling_experiment(method, network_num, file_num, concat=True,
                                scc=False,
                                dm=[DD],
                                bdm=[BD],
-                               GT_density=int(1000 * gk.density(network_GT)),
+                               GT_density=int(100 * gk.density(network_GT)),
                                edge_weights=edge_weights, pnum=PNUM, optim='optN')
             
             # Find best RASL solution

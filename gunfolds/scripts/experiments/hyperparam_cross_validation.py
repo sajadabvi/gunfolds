@@ -136,7 +136,7 @@ def run_experiment_sanchez(network_num, u_rate, batch_idx):
     GT = simp_nets(network_num, selfloop=True)
     n_nodes = len(GT)
     A = cv.graph2adj(GT)
-    MAXCOST = 10000
+    MAXCOST = 50
 
     try:
         W = create_stable_weighted_matrix(A, threshold=0.2, powers=[2, 3, 4])
@@ -160,7 +160,7 @@ def run_experiment_sanchez(network_num, u_rate, batch_idx):
               timeout=TIMEOUT_SEC,
               urate=min(15, 3 * n_nodes + 1),
               dm=[DD], bdm=[BD],
-              GT_density=int(1000 * gk.density(GT)),
+              GT_density=int(100 * gk.density(GT)),
               edge_weights=OPTIMAL_PRIORITIES, pnum=args.PNUM, optim='optN',
               selfloop=True)
 
@@ -191,7 +191,7 @@ def run_experiment_ringmore(n_nodes, density, u_rate, batch_idx):
 
     GT = g
     A = cv.graph2adj(GT)
-    MAXCOST = 10000
+    MAXCOST = 50
 
     try:
         W = create_stable_weighted_matrix(A, threshold=0.2, powers=[2, 3, 4])
@@ -215,7 +215,7 @@ def run_experiment_ringmore(n_nodes, density, u_rate, batch_idx):
               timeout=TIMEOUT_SEC,
               urate=min(15, 3 * n_nodes + 1),
               dm=[DD], bdm=[BD],
-              GT_density=int(1000 * gk.density(GT)),
+              GT_density=int(100 * gk.density(GT)),
               edge_weights=OPTIMAL_PRIORITIES, pnum=args.PNUM, optim='optN')
 
     if len(r) == 0:

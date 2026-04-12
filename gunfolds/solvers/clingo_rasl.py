@@ -114,32 +114,28 @@ drasl_program += """
 
 def weighted_drasl_program(directed, bidirected, no_directed, no_bidirected):
     """
-    Adjusts the optimization code based on the directed and bidirected priority
+    Generates the optimization portion of the ASP program.
 
-    :param directed: priority of directed edges in optimization
-    :type directed: integer
-
-    :param bidirected: priority of bidirected edges in optimization
-        graph
-    :type bidirected: integer
-
-    :returns: optimization part of the ``clingo`` code
-    :rtype: string
+    All weak constraints use a single priority level (@1) so that density
+    and edge-match costs are combined into one sum.  The ``directed``,
+    ``bidirected``, ``no_directed``, and ``no_bidirected`` parameters are
+    kept for API compatibility but are no longer used as priority levels.
+    Relative importance is controlled entirely through the weight
+    magnitudes in the DD/BD matrices and the density multiplier passed to
+    ``drasl_command`` via ``density_weight``.
     """
-    t = Template("""
+    return """
     {edge1(X,Y)} :- node(X), node(Y).
     directed(X, Y, 1) :- edge1(X, Y).
     directed(X, Y, L) :- directed(X, Z, L-1), edge1(Z, Y), L <= U, u(U, _).
     bidirected(X, Y, U) :- directed(Z, X, L), directed(Z, Y, L), node(X;Y;Z), X < Y, L < U, u(U, _).
-    
-    :~ directed(X, Y, L), no_hdirected(X, Y, W, K), node(X;Y), u(L, K). [W@$directed,X,Y]
-    :~ bidirected(X, Y, L), no_hbidirected(X, Y, W, K), node(X;Y), u(L, K), X < Y. [W@$bidirected,X,Y]
-    :~ not directed(X, Y, L), hdirected(X, Y, W, K), node(X;Y), u(L, K). [W@$no_directed,X,Y]
-    :~ not bidirected(X, Y, L), hbidirected(X, Y, W, K), node(X;Y), u(L, K), X < Y. [W@$no_bidirected,X,Y]
-    
-    """)
 
-    return t.substitute(directed=directed, bidirected=bidirected,no_directed=no_directed,no_bidirected=no_bidirected)
+    :~ directed(X, Y, L), no_hdirected(X, Y, W, K), node(X;Y), u(L, K). [W@1,X,Y]
+    :~ bidirected(X, Y, L), no_hbidirected(X, Y, W, K), node(X;Y), u(L, K), X < Y. [W@1,X,Y]
+    :~ not directed(X, Y, L), hdirected(X, Y, W, K), node(X;Y), u(L, K). [W@1,X,Y]
+    :~ not bidirected(X, Y, L), hbidirected(X, Y, W, K), node(X;Y), u(L, K), X < Y. [W@1,X,Y]
+
+    """
 
 
 def rate(u, uname='u'):
@@ -246,7 +242,7 @@ def glist2str(g_list, weighted=False, dm=None, bdm=None):
     return s
 
 
-def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=None, dm=None, bdm=None, edge_weights=[1, 1, 1, 1, 1],GT_density=None,selfloop= False):
+def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=None, dm=None, bdm=None, edge_weights=[1, 1, 1, 1, 1],GT_density=None,selfloop= False, density_weight=100):
     """
     Given a list of graphs generates ``clingo`` codes
 
@@ -278,13 +274,21 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
         weights for bidirected edges of each input n-node graph
     :type bdm: list of numpy arrays
 
-    :param edge_weights: a tuple of 2 values, the first is importance of matching
-        directed weights when solving optimization problem and the second is for bidirected.
-    :type edge_weights: tuple with 2 elements
+    :param edge_weights: a tuple of 5 values kept for API
+        compatibility.  Previously controlled per-constraint priority
+        levels; now all constraints share ``@1`` and relative
+        importance comes from weight magnitudes and ``density_weight``.
+    :type edge_weights: list of integers
 
-    :param GT_density: desired desnsity of the grounf truth at causal
-        time-scale, multiplied by 1000
+    :param GT_density: desired density of the ground truth at causal
+        time-scale, multiplied by 100 (density × 100)
     :type GT_density: integer
+
+    :param density_weight: multiplicative scaling applied to the
+        density deviation before it enters the single-level cost.
+        Higher values make density more important relative to edge
+        matching (default 100).
+    :type density_weight: integer
 
     :returns: clingo code as a string
     :rtype: string
@@ -301,14 +305,13 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
         max_urate = 1+3*len(g_list[0])
     n = len(g_list)
     command = clingo_preamble(g_list[0])
-    density = edge_weights[4]
     if GT_density is not None:
         command += f"#const d = {GT_density}. "
         command += 'countedge1(C):- C = #count { edge1(X, Y): edge1(X, Y), node(X), node(Y)}. '
         command += 'countfull(C):- C = n*n. '
-        command += 'hypoth_density(D) :- D = 1000*X/Y,  countfull(Y), countedge1(X). '
+        command += 'hypoth_density(D) :- D = 100*X/Y,  countfull(Y), countedge1(X). '
         command += 'abs_diff(Diff) :- hypoth_density(D), Diff = |D - d|. '
-        command += f':~ abs_diff(Diff). [Diff@{density}] '
+        command += f':~ abs_diff(Diff). [Diff*{density_weight}@1] '
     if scc:
         command += encode_list_sccs(g_list, scc_members)
         print("edit this function later to adjust")
@@ -333,7 +336,7 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
 
 def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False, scc_members=None, dm=None,
           bdm=None, pnum=PNUM, GT_density= None, edge_weights=[1, 1, 1, 1, 1], configuration="crafty", optim='optN',
-          multi_individual=False, selfloop=False):
+          multi_individual=False, selfloop=False, density_weight=100):
     """
     Compute all candidate causal time-scale graphs that could have
     generated all undersampled graphs at all possible undersampling
@@ -378,13 +381,14 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
     :param pnum: number of parallel threads to run ``clingo`` on
     :type pnum: integer
 
-    :param GT_density: desired desnsity of the grounf truth at causal
-        time-scale, multiplied by 1000
+    :param GT_density: desired density of the ground truth at causal
+        time-scale, multiplied by 100 (density × 100)
     :type GT_density: integer
 
-    :param edge_weights: a tuple of 2 values, the first is importance
-        of matching directed weights when solving optimization problem and the second is for bidirected.
-    :type edge_weights: tuple with 2 elements
+    :param edge_weights: kept for API compatibility.  Previously
+        controlled per-constraint priority levels; now all constraints
+        share @1.
+    :type edge_weights: list of integers
 
     :param configuration: Select configuration based on problem type
 
@@ -410,6 +414,9 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
         and optimize for making them similar and get a single graph output
     :type multi_individual: boolean
 
+    :param density_weight: multiplicative scaling applied to density
+        deviation in the single-level cost (default 100).
+    :type density_weight: integer
 
     :returns: results of parsed equivalent class
     :rtype: dictionary
@@ -422,7 +429,8 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
         glist = [glist]
 
     return clingo(drasl_command(glist, max_urate=urate, weighted=weighted,
-                                scc=scc, scc_members=scc_members, dm=dm, bdm=bdm, edge_weights=edge_weights,GT_density=GT_density, selfloop=selfloop),
+                                scc=scc, scc_members=scc_members, dm=dm, bdm=bdm, edge_weights=edge_weights,
+                                GT_density=GT_density, selfloop=selfloop, density_weight=density_weight),
                   capsize=capsize, convert=drasl_jclingo2g, configuration=configuration,
                   timeout=timeout, exact=not weighted, pnum=pnum, optim=optim)
 

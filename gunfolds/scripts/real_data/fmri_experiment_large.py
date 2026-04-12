@@ -51,12 +51,12 @@ sys.path.append(os.path.expanduser("~/tread/py-tetrad"))
 CLINGO_LIMIT = 64
 PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
 
-# Default GT_density (×1000) for --gt_density_mode fixed when --gt_density is omitted.
+# Default GT_density (×100) for --gt_density_mode fixed when --gt_density is omitted.
 # Midpoints of recommended ranges in ground_truth_connectivity_estimates.md §7.
 DEFAULT_GT_DENSITY_BY_N = {
-    10: 350,   # 300–400 (moderate tier, hub-centric N=10)
-    20: 215,   # 180–250
-    53: 125,   # 100–150
+    10: 35,    # 30–40 (moderate tier, hub-centric N=10)
+    20: 22,    # 18–25
+    53: 13,    # 10–15
 }
 
 
@@ -67,7 +67,7 @@ def resolve_fixed_gt_density(n_components: int, explicit: Optional[int]) -> int:
     If ``explicit`` is None, use the literature default for ``n_components``.
     """
     if explicit is not None:
-        return max(0, min(1000, explicit))
+        return max(0, min(100, explicit))
     if n_components not in DEFAULT_GT_DENSITY_BY_N:
         raise ValueError(
             f"No default GT_density for n_components={n_components}; "
@@ -115,12 +115,12 @@ def parse_arguments():
     p.add_argument("--delta_multiplier", default=1.9, type=float,
                    help="Delta multiplier for threshold selection")
 
-    # GT_density for RASL: none (default), fixed (0-1000), or fraction of g_estimated density
+    # GT_density for RASL: none (default), fixed (0-100), or fraction of g_estimated density
     p.add_argument("--gt_density_mode", default="fixed",
                    choices=["none", "fixed", "fraction"],
                    help="GT_density: 'none' (default), 'fixed' (use --gt_density or N-specific default), or 'fraction' (use fraction of g_estimated)")
     p.add_argument("--gt_density", default=None, type=int,
-                   help="Fixed GT_density (0-1000, density×1000). When omitted under fixed mode, uses literature default by N (see DEFAULT_GT_DENSITY_BY_N).")
+                   help="Fixed GT_density (0-100, density×100). When omitted under fixed mode, uses literature default by N (see DEFAULT_GT_DENSITY_BY_N).")
     p.add_argument("--gt_density_fraction", default=1, type=float,
                    help="Fraction of g_estimated density for GT_density. Used when --gt_density_mode=fraction.")
 
@@ -282,7 +282,7 @@ def run_rasl_subject(ts_2d, args, comp_indices, scc_members_override=None,
         use_scc = False
 
     # Distance penalty matrices
-    MAXCOST = 10000
+    MAXCOST = 50
     a_max = np.abs(A).max()
     b_max = np.abs(B).max()
     if a_max > 0:
@@ -294,7 +294,7 @@ def run_rasl_subject(ts_2d, args, comp_indices, scc_members_override=None,
     else:
         BD = (np.abs((cv.graph2badj(g_estimated) - 1) * MAXCOST)).astype(int)
 
-    # GT_density: none (default), fixed value (0-1000), or fraction of g_estimated density
+    # GT_density: none (default), fixed value (0-100), or fraction of g_estimated density
     if args.gt_density_mode == "none":
         gt_density = None
     elif args.gt_density_mode == "fixed":
@@ -302,7 +302,7 @@ def run_rasl_subject(ts_2d, args, comp_indices, scc_members_override=None,
     else:  # fraction
         est_density = gk.density(g_estimated)
         frac = max(0.0, min(1.0, args.gt_density_fraction))
-        gt_density = int(1000 * est_density * frac)
+        gt_density = int(100 * est_density * frac)
 
     priority = [int(c) for c in args.PRIORITY]
 
@@ -754,7 +754,7 @@ if __name__ == "__main__":
                 if args.gt_density is not None
                 else f"default for N={args.n_components} (see ground_truth_connectivity_estimates.md)"
             )
-            print(f"  GT density:      fixed {eff}/1000 ({src})")
+            print(f"  GT density:      fixed {eff}/100 ({src})")
         elif args.gt_density_mode == "fraction":
             print(f"  GT density:      fraction × estimated (factor={args.gt_density_fraction})")
         else:

@@ -18,7 +18,7 @@
 # =============================================================================
 # Runs ONE subject per array task (parallel subjects).  Default workflow:
 #   N=20, domain SCC, RASL only, MAXU 5, PRIORITY 11112, PCMCI seeding from Exp4
-#   best config (pcmci tau_max=1 alpha=0.05 fdr none), GT_density fixed 220.
+#   best config (pcmci tau_max=1 alpha=0.05 fdr none), GT_density fixed 22.
 #
 # Resources: qTRDGPU, 15 CPUs, 160G RAM, 2-day wall clock.
 #
@@ -26,12 +26,12 @@
 #   sbatch --array=0-309%50 slurm_fmri_large.sh <TIMESTAMP> [N_COMP] [SCC] [METHOD] [GT_MODE] [GT_VALUE]
 #
 #   --array=0-309%50  -> 310 subjects (indices 0-309), max 50 concurrent tasks.
-#   GT_MODE: omit (N=20 defaults to fixed 220) | none | fixed | fraction
+#   GT_MODE: omit (N=20 defaults to fixed 22) | none | fixed | fraction
 #
 # Examples:
 #   TIMESTAMP=$(date +%m%d%Y%H%M%S)
 #   sbatch --array=0-309%50 slurm_fmri_large.sh "$TIMESTAMP" 20 domain RASL
-#   sbatch --array=0-309%50 slurm_fmri_large.sh "$TIMESTAMP" 20 domain RASL fixed 220
+#   sbatch --array=0-309%50 slurm_fmri_large.sh "$TIMESTAMP" 20 domain RASL fixed 22
 #   sbatch --array=0-309%50 slurm_fmri_large.sh "$TIMESTAMP" 20 domain RASL fraction 0.5
 # =============================================================================
 
@@ -117,13 +117,13 @@ if [ "$METHOD" = "RASL" ]; then
     # Exp4 N=20 hyperparam grid best PCMCI seed: run_pcmci tau=1 alpha=0.05 no FDR
     EXTRA_ARGS="$EXTRA_ARGS --MAXU 5 --PRIORITY 11112 --selection_mode top_k --top_k 10"
     EXTRA_ARGS="$EXTRA_ARGS --pcmci_method pcmci --pcmci_tau_max 1 --pcmci_alpha 0.05 --pcmci_fdr none"
-    # GT_density: $5/$6 override; if omitted and N=20, use fixed 220 (literature / Exp4 target)
+    # GT_density: $5/$6 override; if omitted and N=20, use fixed 22 (density×100, literature default)
     if [ -n "${5:-}" ]; then
         EXTRA_ARGS="$EXTRA_ARGS --gt_density_mode $5"
         [ "$5" = "fixed" ] && [ -n "${6:-}" ] && EXTRA_ARGS="$EXTRA_ARGS --gt_density $6"
         [ "$5" = "fraction" ] && EXTRA_ARGS="$EXTRA_ARGS --gt_density_fraction ${6:-0.5}"
     elif [ "$N_COMP" = "20" ]; then
-        EXTRA_ARGS="$EXTRA_ARGS --gt_density_mode fixed --gt_density 220"
+        EXTRA_ARGS="$EXTRA_ARGS --gt_density_mode fixed --gt_density 22"
     fi
 fi
 

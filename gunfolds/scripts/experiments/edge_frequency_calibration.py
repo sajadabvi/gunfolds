@@ -236,7 +236,7 @@ def run_single_experiment(network_num, u_rate, batch_idx, ssize, noise,
     GT = simp_nets(network_num, selfloop=True)
     n_nodes = len(GT)
     A = cv.graph2adj(GT)
-    MAXCOST = 10000
+    MAXCOST = 50
 
     try:
         W = create_stable_weighted_matrix(A, threshold=0.2, powers=[2, 3, 4])
@@ -263,7 +263,7 @@ def run_single_experiment(network_num, u_rate, batch_idx, ssize, noise,
               timeout=60 * 60 * timeout_hours,
               urate=min(4, 3 * n_nodes + 1),
               dm=[DD], bdm=[BD],
-              GT_density=int(1000 * gk.density(GT)),
+              GT_density=int(100 * gk.density(GT)),
               edge_weights=priorities, pnum=pnum, optim='optN',selfloop=True)
 
     if len(r) == 0:

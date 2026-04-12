@@ -100,7 +100,7 @@ PCMCI_GRID = {
 }
 
 DRASL_PRIORITIES = [1, 2, 1, 2, 3]
-MAXCOST = 10000
+MAXCOST = 50
 
 
 # ---------------------------------------------------------------------------
@@ -424,7 +424,7 @@ def run_single_batch(batch_idx, ssize, noise, u_rate, timeout_hours, pnum):
                 urate=min(4, 3 * n + 1),
                 dm=[DD],
                 bdm=[BD],
-                GT_density=int(1000 * actual_density),
+                GT_density=int(100 * actual_density),
                 edge_weights=DRASL_PRIORITIES,
                 pnum=pnum,
                 optim='optN',

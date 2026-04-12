@@ -363,7 +363,7 @@ def main():
                    default=int(min(CLINGO_LIMIT, get_process_count(1))))
     p.add_argument("--MAXU", type=int, default=5)
     p.add_argument("--PRIORITY", type=str, default="11112")
-    p.add_argument("--gt_density", type=int, default=220)
+    p.add_argument("--gt_density", type=int, default=22)
     p.add_argument("--timeout", type=int, default=0,
                    help="Abort clingo after this many seconds (0=no limit)")
     p.add_argument("--pcmci_method", default="pcmci")
@@ -442,7 +442,7 @@ def main():
 
     # ── Step 3: Build distance matrices ──
     print(f"\n[PHASE] Building distance penalty matrices...", flush=True)
-    MAXCOST = 10000
+    MAXCOST = 50
     a_max = np.abs(A).max()
     b_max = np.abs(B).max()
     if a_max > 0:

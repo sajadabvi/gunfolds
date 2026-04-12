@@ -198,7 +198,7 @@ def run_density_sweep(n_nodes, extra_edges, u_rate, batch_idx, ssize, noise,
     print(f"  Generated ringmore graph: n={n_nodes}, extra={extra_edges}, "
           f"density={gk.density(GT):.3f}, edges={len(gk.edgelist(GT))}")
     A = cv.graph2adj(GT)
-    MAXCOST = 10000
+    MAXCOST = 50
     timeout_sec = timeout_hours * 60 * 60
 
     try:
@@ -220,7 +220,7 @@ def run_density_sweep(n_nodes, extra_edges, u_rate, batch_idx, ssize, noise,
     BD = (np.abs((np.abs(B_mat / np.abs(B_mat).max()) +
                   (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
 
-    true_density = int(1000 * gk.density(GT))
+    true_density = int(100 * gk.density(GT))
     priorities = [1, 2, 1, 2, 3]
 
     sweep_results = {}

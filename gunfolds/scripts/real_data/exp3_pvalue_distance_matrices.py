@@ -53,7 +53,7 @@ def main():
         print(f"g_estimated: {g_est}")
 
         N = len(g_est)
-        MAXCOST = 10000
+        MAXCOST = 50
 
         # --- Current DD: val_matrix-based ---
         a_max = np.abs(A).max()

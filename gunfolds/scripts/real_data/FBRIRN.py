@@ -453,7 +453,7 @@ g_estimated ={1: {1: 1,
   8: 2}}
 
 members = [{1,2,15},{7,8,18},{6,9,20},{17,10,14},{5,4,3,13},{19,12},{16,11}]
-MAXCOST = 10000
+MAXCOST = 50
 # DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
 # BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
 

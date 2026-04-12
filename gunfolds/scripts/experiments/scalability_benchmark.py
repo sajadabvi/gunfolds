@@ -75,7 +75,7 @@ def run_single_benchmark(n_nodes, u_rate, deg, batch_idx):
     else:
         g_broken[node][child] = random.randint(1, 4)
 
-    gt_density = int(1000 * gk.density(g))
+    gt_density = int(100 * gk.density(g))
     max_urate = min(args.MAXU, 3 * len(g_broken) + 1)
 
     start = time.time()

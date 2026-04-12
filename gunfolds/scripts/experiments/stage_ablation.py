@@ -244,7 +244,7 @@ def run_single_config(GT, g_estimated, DD, BD, priorities, n_nodes,
               timeout=timeout_sec,
               urate=min(4, 3 * n_nodes + 1),
               dm=[DD], bdm=[BD],
-              GT_density=int(1000 * gk.density(GT)),
+              GT_density=int(100 * gk.density(GT)),
               edge_weights=priorities, pnum=pnum, optim='optN', selfloop=False)
     elapsed = time.time() - start
 
@@ -273,7 +273,7 @@ def run_ablation(n_nodes, target_density, u_rate, batch_idx, ssize, noise,
           f"actual_d={actual_density:.3f}, edges={len(gk.edgelist(GT))}")
 
     A = cv.graph2adj(GT)
-    MAXCOST = 10000
+    MAXCOST = 50
     timeout_sec = timeout_hours * 60 * 60
 
     try:

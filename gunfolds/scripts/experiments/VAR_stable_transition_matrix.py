@@ -232,7 +232,7 @@ W = create_stable_weighted_matrix(A, threshold=args.MINLINK/10, powers=[2, 3, 4]
 
 '''VAR'''
 dd = genData(W, rate=u_rate, ssize=8000, noise=noise_svar)  # data.values
-MAXCOST = 10000
+MAXCOST = 50
 
 '''SVAR'''
 if Using_SVAR:
@@ -295,7 +295,7 @@ r_estimated = drasl([g_estimated], weighted=True, capsize=0, timeout=TIMEOUT,
                     bdm=[BD],
                     scc=SCC,
                     scc_members=members,
-                    GT_density=int(1000*gk.density(GT)),
+                    GT_density=int(100*gk.density(GT)),
                     edge_weights=priprities, pnum=args.PNUM, optim='optN')
 
 endTime = int(round(time.time() * 1000))
