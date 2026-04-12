@@ -5,6 +5,17 @@ Short summaries of code and documentation changes made via Cursor AI sessions.
 
 ## 2026-04-12
 
+### RASL / clingo bottleneck diagnostic (local progress visibility)
+
+- **`gunfolds/scripts/real_data/diagnose_rasl_bottleneck.py`:** Runs the same PCMCI → penalty matrices → `drasl_command` path as `fmri_experiment_large.py` for one subject, but replaces the silent `gunfolds.utils.clingo.run_clingo` path with an instrumented run: **grounding** progress via clingo `GroundProgramObserver` (periodic atom/rule counts), **solving** progress via per-model `on_model` prints (cost, optimality), then clingo statistics and a timing split (PCMCI vs grounding vs solving) with a suggested bottleneck (grounding vs search). Flags: `--n_components`, `--subject_idx`, `--MAXU`, `--PNUM`, `--timeout`, `--grounding_interval`, plus PCMCI/GT knobs aligned with the large experiment.
+
+### SLURM monitoring for `fmri_large` array jobs
+
+- **`gunfolds/scripts/cluster/slurm_diag_fmri.sh`:** One-shot report (queue, `sacct` by state, `seff` sample, memory via `sstat`, log tails, master/task logs).
+- **`gunfolds/scripts/cluster/slurm_live_fmri.sh`:** Running tasks, `sstat`, tasks-per-node, optional `ssh` + `ps`/`uptime`/`free` on compute nodes.
+- **`gunfolds/scripts/cluster/slurm_progress_fmri.sh`:** Per-task stdout line counts, stall detection (stale `.out`), stderr snippets for failed tasks.
+- **`gunfolds/scripts/cluster/slurm_watch_fmri.sh`:** Refreshing dashboard loop.
+
 ### Exp 4: N=20 PCMCI hyperparameter grid — results documented
 
 - **Results:** 48-config grid (311 FBIRN subjects, 20 ICA components) merged in `gunfolds/scripts/real_data/results_exp4_04122026050527/exp4_n20_results_04122026062704.json`.
