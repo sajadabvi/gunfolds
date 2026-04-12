@@ -3,6 +3,16 @@
 Short summaries of code and documentation changes made via Cursor AI sessions.
 
 
+## 2026-04-12
+
+### Exp 4: N=20 PCMCI hyperparameter grid — results documented
+
+- **Results:** 48-config grid (311 FBIRN subjects, 20 ICA components) merged in `gunfolds/scripts/real_data/results_exp4_04122026050527/exp4_n20_results_04122026062704.json`.
+- **Paper note:** `gunfolds/scripts/papers/exp4_n20_pcmci_hyperparam_results.md` — methodology, top configs by composite score (0.6×Jaccard + 0.4×proximity to 22% density), recommendation **`pcmci_tau1_a0.05_fdrnone`** (~23% mean density, composite 0.474), comparison to PCMCIplus, runtimes, and `fmri_experiment_large.py` CLI mapping.
+- **Cluster:** `slurm_fmri_large.sh` updated for qTRDGPU, 2-day wall time, 160G / 15 CPUs, default N=20 RASL with Exp4 PCMCI seed + `fixed` GT 220 (`--array=0-309%50` documented).
+
+---
+
 ## 2026-04-10
 
 ### PCMCI hyperparameter audit, Glag2CG bug fix, and codebase unification
