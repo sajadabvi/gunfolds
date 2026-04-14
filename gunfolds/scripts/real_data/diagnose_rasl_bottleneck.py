@@ -442,7 +442,7 @@ def main():
 
     # ── Step 3: Build distance matrices ──
     print(f"\n[PHASE] Building distance penalty matrices...", flush=True)
-    MAXCOST = 50
+    MAXCOST = 20
     a_max = np.abs(A).max()
     b_max = np.abs(B).max()
     if a_max > 0:

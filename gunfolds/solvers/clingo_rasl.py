@@ -242,7 +242,7 @@ def glist2str(g_list, weighted=False, dm=None, bdm=None):
     return s
 
 
-def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=None, dm=None, bdm=None, edge_weights=[1, 1, 1, 1, 1],GT_density=None,selfloop= False, density_weight=100):
+def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=None, dm=None, bdm=None, edge_weights=[1, 1, 1, 1, 1],GT_density=None,selfloop= False, density_weight=50):
     """
     Given a list of graphs generates ``clingo`` codes
 
@@ -287,7 +287,7 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
     :param density_weight: multiplicative scaling applied to the
         density deviation before it enters the single-level cost.
         Higher values make density more important relative to edge
-        matching (default 100).
+        matching (default 50).
     :type density_weight: integer
 
     :returns: clingo code as a string
@@ -336,7 +336,7 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
 
 def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False, scc_members=None, dm=None,
           bdm=None, pnum=PNUM, GT_density= None, edge_weights=[1, 1, 1, 1, 1], configuration="crafty", optim='optN',
-          multi_individual=False, selfloop=False, density_weight=100):
+          multi_individual=False, selfloop=False, density_weight=50, extra_clingo_args=None):
     """
     Compute all candidate causal time-scale graphs that could have
     generated all undersampled graphs at all possible undersampling
@@ -415,7 +415,7 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
     :type multi_individual: boolean
 
     :param density_weight: multiplicative scaling applied to density
-        deviation in the single-level cost (default 100).
+        deviation in the single-level cost (default 50).
     :type density_weight: integer
 
     :returns: results of parsed equivalent class
@@ -432,7 +432,8 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
                                 scc=scc, scc_members=scc_members, dm=dm, bdm=bdm, edge_weights=edge_weights,
                                 GT_density=GT_density, selfloop=selfloop, density_weight=density_weight),
                   capsize=capsize, convert=drasl_jclingo2g, configuration=configuration,
-                  timeout=timeout, exact=not weighted, pnum=pnum, optim=optim)
+                  timeout=timeout, exact=not weighted, pnum=pnum, optim=optim,
+                  extra_clingo_args=extra_clingo_args)
 
 
 def rasl(g, capsize, timeout=0, urate=0, pnum=None, configuration="tweety"):

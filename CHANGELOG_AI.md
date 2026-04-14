@@ -3,6 +3,25 @@
 Short summaries of code and documentation changes made via Cursor AI sessions.
 
 
+## 2026-04-13
+
+### Clingo / clasp: solver-flag benchmark and paper note
+
+- **Paper note:** [`gunfolds/scripts/papers/clingo_clasp_optimization_flags_benchmark.md`](gunfolds/scripts/papers/clingo_clasp_optimization_flags_benchmark.md) — documents empirical evaluation of clasp flags on FBIRN N=10 weighted RASL: **`--opt-strategy=usc,stratify` is not recommended** (timeouts, unstable or worse costs vs baseline); **`--opt-heuristic=1`** and **`--project=show`** preserve optimal cost/solution sets when runs complete but **speedups are subject-dependent** (sometimes baseline fastest). Production default: **no extra clasp flags** beyond `configuration=crafty` and existing `run_clingo` / `drasl` path. Also records that the hypothesized `--configuration=` split-argv bug was **refuted** on clingo 5.7.1, and warns about **`--gt_density 220`** clamping to **100** (wrong target) on old SLURM invocations.
+- **Companion update:** [`gunfolds/scripts/papers/rasl_clingo_soft_optimization_and_scaling.md`](gunfolds/scripts/papers/rasl_clingo_soft_optimization_and_scaling.md) — cross-reference to the benchmark note; text aligned with current **`MAXCOST`** (20 in fMRI large) and **`density_weight`** default (50).
+
+### Benchmark and diagnostic scripts
+
+- **`gunfolds/scripts/tests/benchmark_clingo_flags.py`:** Runs all **2³** combinations of USC / opt-heuristic / project on the same PCMCI→`drasl_command` instance; prints per-scenario timing, clingo stats (with safe access for statistics objects), parsed solution comparison, **`--skip` / `--only`** scenario filters, and **`--timeout`** with **`ctrl.interrupt()`** for stuck solves.
+- **`gunfolds/scripts/tests/test_clingo_config_bug.py`:** Confirms split `["--configuration=", "crafty"]` vs `["--configuration=crafty"]` yield the same active configuration.
+
+### RASL fMRI pipeline parameters (continued)
+
+- **`fmri_experiment_large.py` / `diagnose_rasl_bottleneck.py`:** **`MAXCOST = 20`** for DD/BD scaling (was 50).
+- **`gunfolds/solvers/clingo_rasl.py`:** Default **`density_weight=50`** (was 100); optional **`extra_clingo_args`** threaded through to **`gunfolds.utils.clingo.run_clingo`** / **`clingo()`** for exploratory clasp flags without changing defaults.
+
+---
+
 ## 2026-04-12
 
 ### RASL / clingo: soft single-level optimization + coarser costs (scaling)

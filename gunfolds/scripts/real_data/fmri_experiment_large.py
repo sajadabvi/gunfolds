@@ -282,7 +282,7 @@ def run_rasl_subject(ts_2d, args, comp_indices, scc_members_override=None,
         use_scc = False
 
     # Distance penalty matrices
-    MAXCOST = 50
+    MAXCOST = 20
     a_max = np.abs(A).max()
     b_max = np.abs(B).max()
     if a_max > 0:
@@ -321,6 +321,7 @@ def run_rasl_subject(ts_2d, args, comp_indices, scc_members_override=None,
         pnum=args.PNUM,
         optim="optN",
         selfloop=False,
+        extra_clingo_args=["--opt-heuristic=1"],
     )
 
     kept = select_top_solutions(
