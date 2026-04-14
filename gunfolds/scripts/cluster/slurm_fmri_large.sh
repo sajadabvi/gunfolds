@@ -5,7 +5,7 @@
 #SBATCH -c 15
 #SBATCH --mem=160g
 #SBATCH -p qTRDGPU
-#SBATCH -t 2-00:00:00
+#SBATCH -t 4-00:00:00
 #SBATCH -J fmri_large
 #SBATCH -e ./err/fmri_error%A-%a.err
 #SBATCH -o ./out/fmri_out%A-%a.out
