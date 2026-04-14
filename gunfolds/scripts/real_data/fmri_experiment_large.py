@@ -103,7 +103,7 @@ def parse_arguments():
     # RASL parameters
     p.add_argument("-p", "--PNUM", default=PNUM, type=int,
                    help="Number of CPUs for clingo")
-    p.add_argument("-x", "--MAXU", default=5, type=int,
+    p.add_argument("-x", "--MAXU", default=4, type=int,
                    help="Max undersampling rate to search")
     p.add_argument("-y", "--PRIORITY", default="11112", type=str,
                    help="Edge weight priorities (string of digits)")
