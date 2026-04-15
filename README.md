@@ -15,7 +15,7 @@ Key contributions I built:
   Answer Set Programming (ASP) constraint satisfaction problem, achieving a
   **1,000× speedup** over prior methods (17 hrs → 6 sec on 6-node graphs).
   Scales to 100+ node graphs via SCC decomposition. Presented as an
-  [Oral at ICLR 2023](https://openreview.net/forum?id=YOUR_PAPER_ID) (top 25%).
+  [Oral at ICLR 2023](https://openreview.net/forum?id=B_pCIsX8KL_) (top 25%).
 
 - **RnR** — A meta-solver that refines the output of *any* causal discovery
   algorithm by modeling undersampling effects via ASP. Improves F1 by 45%
