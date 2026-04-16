@@ -63,7 +63,7 @@ def RASL_with_delta(data_path, network_GT, delta, priorities, PNUM, include_self
         results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.05)
         g_estimated, A, B = cv.Glag2CG(results)
         
-        MAXCOST = 10000
+        MAXCOST = 50
         DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
         BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
 
@@ -72,7 +72,7 @@ def RASL_with_delta(data_path, network_GT, delta, priorities, PNUM, include_self
                             dm=[DD],
                             bdm=[BD],
                             scc=False,
-                            GT_density=int(1000 * gk.density(network_GT)),
+                            GT_density=int(100 * gk.density(network_GT)),
                             edge_weights=priorities, pnum=PNUM, optim='optN', selfloop=True)
 
         if not r_estimated:

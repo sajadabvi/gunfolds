@@ -14,7 +14,8 @@ def run_clingo(command,
                capsize=CAPSIZE,
                configuration="tweety",
                pnum=PNUM,
-               optim='optN'):
+               optim='optN',
+               extra_clingo_args=None):
     """
     Open sub-process and run clingo
 
@@ -55,12 +56,18 @@ def run_clingo(command,
         - <bound> : Set initial bound for objective function(s)
     :type optim: string
 
+    :param extra_clingo_args: additional command-line flags passed to the
+        clingo solver (e.g. ``["--opt-heuristic=1"]``)
+    :type extra_clingo_args: list of strings or None
+
     :returns: results of equivalent class
     :rtype: dictionary
     """
     assert len(optim.split(',')) < 3, "optim option only takes 1 or 2 comma-separated parameters"
 
     clingo_control = ["--warn=no-atom-undefined", "--configuration=", configuration, "-t", str(int(pnum)) + ",split", "-n", str(capsize)]
+    if extra_clingo_args:
+        clingo_control.extend(extra_clingo_args)
     ctrl = clngo.Control(clingo_control)
     if not exact:
         ctrl.configuration.solve.opt_mode = optim
@@ -86,7 +93,8 @@ def clingo(command, exact=True,
            capsize=CAPSIZE,
            configuration="crafty",
            optim='optN',
-           pnum=PNUM):
+           pnum=PNUM,
+           extra_clingo_args=None):
     """
     Runs ``run_clingo`` and returns parsed equivalent class
 
@@ -138,7 +146,8 @@ def clingo(command, exact=True,
                         capsize=capsize,
                         configuration=configuration,
                         pnum=pnum,
-                        optim=optim)
+                        optim=optim,
+                        extra_clingo_args=extra_clingo_args)
     if result[0] == {} or result[0] == []:
         return {}
     else:

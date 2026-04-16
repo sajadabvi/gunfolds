@@ -102,29 +102,6 @@ def quantify_graph_difference(graph1, graph2):
 
     return jaccard_similarity
 
-def Glag2CG(results):
-    """Converts lag graph format to gunfolds graph format,
-   and A and B matrices representing directed and bidirected edges weights.
-
-   Args:
-       results (dict): A dictionary containing:
-           - 'graph': A 3D NumPy array of shape [N, N, 2] representing the graph structure.
-           - 'val_matrix': A NumPy array of shape [N, N, 2] storing edge weights.
-
-   Returns:
-       tuple: (graph_dict, A_matrix, B_matrix)
-   """
-
-    graph_array = results['graph']
-    bidirected_edges = np.where(graph_array == 'o-o', 1, 0).astype(int)
-    directed_edges = np.where(graph_array == '-->', 1, 0).astype(int)
-
-    graph_dict = cv.adjs2graph(directed_edges[:, :, 1], bidirected_edges[:, :, 0])
-    A_matrix = results['val_matrix'][:, :, 1]
-    B_matrix = results['val_matrix'][:, :, 0]
-
-    return graph_dict, A_matrix, B_matrix
-
 def precision_recall(graph1, graph2):
     # Convert both graphs to undirected
     graph1_undirected = graph1.to_undirected()
@@ -326,7 +303,7 @@ for nn in [2]:
         SL_undir_normed_errors_comm.append(error_comp2['total'][1])'''
 
         '''task 5''' # full sRASL optimization
-        MAXCOST = 10000
+        MAXCOST = 50
         DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
         BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
 
@@ -343,7 +320,7 @@ for nn in [2]:
                             bdm=[BD],
                             scc=SCC,
                             scc_members=members,
-                            GT_density=int(1000 * gk.density(network_GT_selfloop)),
+                            GT_density=int(100 * gk.density(network_GT_selfloop)),
                             edge_weights=priprities, pnum=args.PNUM, optim='optN')
         endTime = int(round(time.time() * 1000))
         sat_time = endTime - startTime

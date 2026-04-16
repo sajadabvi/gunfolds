@@ -3,45 +3,46 @@
 #SBATCH -N 1
 #SBATCH -n 1
 #SBATCH -c 15
-#SBATCH --mem=230g
-#SBATCH -p qTRDHM
-#SBATCH -t 5-08:00:00
+#SBATCH --mem=160g
+#SBATCH -p qTRDGPU
+#SBATCH -t 4-00:00:00
 #SBATCH -J fmri_large
 #SBATCH -e ./err/fmri_error%A-%a.err
 #SBATCH -o ./out/fmri_out%A-%a.out
 #SBATCH -A psy53c17
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=mabavisani@gsu.edu
-#SBATCH --oversubscribe
 
 # =============================================================================
 # fMRI Large Experiment - Array Job Script
 # =============================================================================
-# Runs ONE subject for a given (N_COMPONENTS, SCC_STRATEGY, METHOD) config.
+# Runs ONE subject per array task (parallel subjects).  Default workflow:
+#   N=20, domain SCC, RASL only, MAXU 5, PRIORITY 11112, PCMCI seeding from Exp4
+#   best config (pcmci tau_max=1 alpha=0.05 fdr none), GT_density fixed 22.
+#
+# Resources: qTRDGPU, 15 CPUs, 160G RAM, 2-day wall clock.
 #
 # Usage:
-#   sbatch --array=0-309 slurm_fmri_large.sh <TIMESTAMP> <N_COMP> <SCC> <METHOD> [GT_DENSITY_MODE] [VALUE]
-#   GT_DENSITY_MODE: none (default) | fixed | fraction
-#   Optional 6th arg: for fixed mode, value 0-1000 (omit to use N-specific default in Python);
-#                     for fraction mode, e.g. 0.5 (default)
+#   sbatch --array=0-309%50 slurm_fmri_large.sh <TIMESTAMP> [N_COMP] [SCC] [METHOD] [GT_MODE] [GT_VALUE]
+#
+#   --array=0-309%50  -> 310 subjects (indices 0-309), max 50 concurrent tasks.
+#   GT_MODE: omit (N=20 defaults to fixed 22) | none | fixed | fraction
 #
 # Examples:
-#   sbatch --array=0-309 slurm_fmri_large.sh 03012026120000 20 domain RASL
-#   sbatch --array=0-309 slurm_fmri_large.sh 03012026120000 20 domain RASL fixed
-#   sbatch --array=0-309 slurm_fmri_large.sh 03012026120000 20 domain RASL fixed 215
-#   sbatch --array=0-309 slurm_fmri_large.sh 03012026120000 20 domain RASL fraction 0.5
-#   sbatch --array=0-309 slurm_fmri_large.sh 03012026120000 53 none PCMCI
-#   sbatch --array=0-309 slurm_fmri_large.sh 03012026120000 10 none GCM
+#   TIMESTAMP=$(date +%m%d%Y%H%M%S)
+#   sbatch --array=0-309%50 slurm_fmri_large.sh "$TIMESTAMP" 20 domain RASL
+#   sbatch --array=0-309%50 slurm_fmri_large.sh "$TIMESTAMP" 20 domain RASL fixed 22
+#   sbatch --array=0-309%50 slurm_fmri_large.sh "$TIMESTAMP" 20 domain RASL fraction 0.5
 # =============================================================================
 
 TIMESTAMP=$1
-N_COMP=${2:-10}
+N_COMP=${2:-20}
 SCC_STRATEGY=${3:-domain}
 METHOD=${4:-RASL}
 
 if [ -z "$TIMESTAMP" ]; then
     echo "Error: TIMESTAMP not provided"
-    echo "Usage: sbatch --array=0-N slurm_fmri_large.sh <TIMESTAMP> <N_COMP> <SCC> <METHOD>"
+    echo "Usage: sbatch --array=0-309%50 slurm_fmri_large.sh <TIMESTAMP> [N_COMP] [SCC] [METHOD] [GT_MODE] [GT_VAL]"
     exit 1
 fi
 
@@ -113,12 +114,16 @@ cd $SLURM_SUBMIT_DIR
 PNUM=${SLURM_CPUS_PER_TASK:-15}
 EXTRA_ARGS="--PNUM $PNUM"
 if [ "$METHOD" = "RASL" ]; then
-    EXTRA_ARGS="$EXTRA_ARGS --MAXU 4 --PRIORITY 11112 --selection_mode top_k --top_k 10"
-    # Optional GT_density: $5=mode (none|fixed|fraction), $6=value (optional; fixed: omit for N-based default)
+    # Exp4 N=20 hyperparam grid best PCMCI seed: run_pcmci tau=1 alpha=0.05 no FDR
+    EXTRA_ARGS="$EXTRA_ARGS --MAXU 5 --PRIORITY 11112 --selection_mode top_k --top_k 10"
+    EXTRA_ARGS="$EXTRA_ARGS --pcmci_method pcmci --pcmci_tau_max 1 --pcmci_alpha 0.05 --pcmci_fdr none"
+    # GT_density: $5/$6 override; if omitted and N=20, use fixed 22 (density×100, literature default)
     if [ -n "${5:-}" ]; then
         EXTRA_ARGS="$EXTRA_ARGS --gt_density_mode $5"
         [ "$5" = "fixed" ] && [ -n "${6:-}" ] && EXTRA_ARGS="$EXTRA_ARGS --gt_density $6"
         [ "$5" = "fraction" ] && EXTRA_ARGS="$EXTRA_ARGS --gt_density_fraction ${6:-0.5}"
+    elif [ "$N_COMP" = "20" ]; then
+        EXTRA_ARGS="$EXTRA_ARGS --gt_density_mode fixed --gt_density 22"
     fi
 fi
 

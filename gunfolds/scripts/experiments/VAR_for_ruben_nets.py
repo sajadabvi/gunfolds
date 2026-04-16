@@ -148,7 +148,7 @@ def RASL(args, network_GT):
     pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
     results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.05)
     g_estimated, A, B = cv.Glag2CG(results)
-    MAXCOST = 10000
+    MAXCOST = 50
     priorities = [4, 2, 5, 3, 1]
     DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
     BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
@@ -158,7 +158,7 @@ def RASL(args, network_GT):
                         dm=[DD],
                         bdm=[BD],
                         scc=False,
-                        GT_density=int(1000 * gk.density(network_GT)),
+                        GT_density=int(100 * gk.density(network_GT)),
                         edge_weights=priorities, pnum=PNUM, optim='optN', selfloop=True)
 
     print('number of optimal solutions is', len(r_estimated))
@@ -179,7 +179,7 @@ def RASL(args, network_GT):
 
 def mRASL(args, network_GT):
     BATCH = args.BATCH * 6
-    MAXCOST = 1000
+    MAXCOST = 50
     N = len(network_GT)
     base_g = {i: {} for i in range(1, N + 1)}
     base_DD = np.zeros((N, N)).astype(int)
@@ -216,7 +216,7 @@ def mRASL(args, network_GT):
                         dm=DD_list,
                         bdm=BD_list,
                         scc=False,
-                        GT_density=int(1000 * gk.density(network_GT)),
+                        GT_density=int(100 * gk.density(network_GT)),
                         edge_weights=priorities, pnum=PNUM, optim='optN', selfloop=True)
 
     print('number of optimal solutions is', len(r_estimated))

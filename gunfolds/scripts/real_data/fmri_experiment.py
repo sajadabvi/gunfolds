@@ -87,9 +87,9 @@ def run_pcmci_to_cg(ts_2d):
     ts_2d: ndarray [T, n_nodes] for one subject
     Returns: (g_estimated, A, B) where g_estimated is CG, A forward lag, B backward lag
     """
-    dataframe = pp.DataFrame(ts_2d.T)
+    dataframe = pp.DataFrame(ts_2d)
     cond_ind_test = ParCorr()
-    pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test)
+    pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond_ind_test, verbosity=0)
     results = pcmci.run_pcmci(tau_max=1, pc_alpha=None, alpha_level=0.1)
     g_estimated, A, B = cv.Glag2CG(results)
     return g_estimated, A, B
@@ -117,7 +117,7 @@ def RASL_subject(ts_2d, args, network_GT, include_selfloop, selection_mode='top_
     else:
         members = [s for s in nx.strongly_connected_components(gk.graph2nx(network_GT))]
 
-    MAXCOST = 10000
+    MAXCOST = 50
     # Normalize and build distance penalties
     DD = (np.abs((np.abs(A / np.abs(A).max()) + (cv.graph2adj(g_estimated) - 1)) * MAXCOST)).astype(int)
     BD = (np.abs((np.abs(B / np.abs(B).max()) + (cv.graph2badj(g_estimated) - 1)) * MAXCOST)).astype(int)
@@ -132,7 +132,7 @@ def RASL_subject(ts_2d, args, network_GT, include_selfloop, selection_mode='top_
         bdm=[BD],
         scc=True,
         scc_members=members,
-        GT_density=int(1000 * gk.density(network_GT)),
+        GT_density=int(100 * gk.density(network_GT)),
         edge_weights=args.PRIORITY,
         pnum=PNUM,
         optim='optN',
@@ -396,7 +396,7 @@ def run_all_subjects(args, network_GT, include_selfloop, selection_mode='top_k',
         group_solutions_info = []
 
         for s in subj_indices:
-            ts_2d = data[s, :, COMP_IDX]  # [T, N]
+            ts_2d = data[s][:, COMP_IDX]  # [T, N]
             res_list, solution_info = RASL_subject(
                 ts_2d, args, network_GT, include_selfloop,
                 selection_mode=selection_mode,

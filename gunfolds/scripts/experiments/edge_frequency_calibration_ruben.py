@@ -232,7 +232,7 @@ def run_single_experiment(network_num, batch_idx, data_root, concat,
     """Run a single configuration on Ruben data and return calibration data."""
     GT = simp_nets(network_num, selfloop=True)
     n_nodes = len(GT)
-    MAXCOST = 10000
+    MAXCOST = 50
 
     try:
         data = load_ruben_data(data_root, network_num, batch_idx,
@@ -258,7 +258,7 @@ def run_single_experiment(network_num, batch_idx, data_root, concat,
               timeout=timeout_sec,
               urate=min(maxu, 3 * n_nodes + 1),
               dm=[DD], bdm=[BD],
-              GT_density=int(1000 * gk.density(GT)),
+              GT_density=int(100 * gk.density(GT)),
               edge_weights=priorities, pnum=pnum, optim='optN',
               selfloop=True)
 

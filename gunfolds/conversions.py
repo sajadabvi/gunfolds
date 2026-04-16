@@ -324,23 +324,53 @@ def vec2g(v, n):
     return adjs2graph(A, B)
 
 def Glag2CG(results):
-    """Converts lag graph format to gunfolds graph format,
-   and A and B matrices representing directed and bidirected edges weights.
+    """Convert tigramite PCMCI / PCMCIplus results to gunfolds graph format.
 
-   Args:
-       results (dict): A dictionary containing:
-           - 'graph': A 3D NumPy array of shape [N, N, 2] representing the graph structure.
-           - 'val_matrix': A NumPy array of shape [N, N, 2] storing edge weights.
+    Tigramite convention: ``graph[i, j, tau]`` describes the link from
+    variable *i* at time *t - tau* to variable *j* at time *t*, i.e.
+    ``graph[source, target, lag]``.  This matches the row=source,
+    col=target layout expected by :func:`adjs2graph`, so **no transpose
+    is needed**.
 
-   Returns:
-       tuple: (graph_dict, A_matrix, B_matrix)
-   """
+    Handles all edge types produced by ``run_pcmci`` and
+    ``run_pcmciplus``:
 
+    * ``'-->'`` — directed (lagged *and* contemporaneous from PCMCIplus)
+    * ``'o-o'`` — undirected contemporaneous (from ``run_pcmci``)
+    * ``'x-x'`` — conflicting contemporaneous orientation (PCMCIplus)
+    * ``'o->'`` / ``'<-o'`` — partially oriented contemporaneous
+
+    All contemporaneous link types are mapped to *bidirected* edges in
+    the gunfolds graph (edge value 2, or 3 when a directed edge is also
+    present).
+
+    Args:
+        results (dict): Tigramite results dictionary with at least
+            ``'graph'`` (str array ``[N, N, tau_max+1]``) and
+            ``'val_matrix'`` (float array, same shape).
+
+    Returns:
+        tuple: ``(graph_dict, A_matrix, B_matrix)``
+
+            * *graph_dict* — gunfolds CG (1-indexed node dict)
+            * *A_matrix*   — ``val_matrix[:, :, 1]`` (lag-1 weights)
+            * *B_matrix*   — ``val_matrix[:, :, 0]`` (contemporaneous weights)
+    """
     graph_array = results['graph']
-    bidirected_edges = np.where(graph_array == 'o-o', 1, 0).astype(int)
-    directed_edges = np.where(graph_array == '-->', 1, 0).astype(int)
 
-    graph_dict = adjs2graph(np.transpose(directed_edges[:, :, 1]), np.transpose((bidirected_edges[:, :, 0])))
+    # Lag-1 directed edges
+    directed_edges = np.where(graph_array[:, :, 1] == '-->', 1, 0).astype(int)
+
+    # Contemporaneous edges — treat all link types as bidirected
+    contemp = graph_array[:, :, 0]
+    bidirected_edges = np.zeros_like(directed_edges)
+    for marker in ('o-o', '-->', 'x-x', 'o->', '<-o'):
+        bidirected_edges = np.clip(
+            bidirected_edges + np.where(contemp == marker, 1, 0).astype(int),
+            0, 1,
+        )
+
+    graph_dict = adjs2graph(directed_edges, bidirected_edges)
     A_matrix = results['val_matrix'][:, :, 1]
     B_matrix = results['val_matrix'][:, :, 0]
 
