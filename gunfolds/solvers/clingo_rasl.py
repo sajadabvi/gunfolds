@@ -253,7 +253,7 @@ def glist2str(g_list, weighted=False, dm=None, bdm=None):
     return s
 
 
-def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=None, dm=None, bdm=None, edge_weights=[1, 1, 1, 1, 1],GT_density=None,selfloop= False):
+def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=None, dm=None, bdm=None, edge_weights=[1, 1, 1, 1, 1], GT_density=None, selfloop=False, density_weight=50):
     """
     Given a list of graphs generates ``clingo`` codes
 
@@ -285,13 +285,23 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
         weights for bidirected edges of each input n-node graph
     :type bdm: list of numpy arrays
 
-    :param edge_weights: a tuple of 2 values, the first is importance of matching
-        directed weights when solving optimization problem and the second is for bidirected.
-    :type edge_weights: tuple with 2 elements
+    :param edge_weights: priority levels for the four weak constraint types
+        (directed false-positive, bidirected false-positive,
+        directed false-negative, bidirected false-negative).  Index 4,
+        if present, is ignored (density is controlled by ``density_weight``).
+    :type edge_weights: list of integers (length 4 or 5)
 
-    :param GT_density: desired desnsity of the grounf truth at causal
-        time-scale, multiplied by 1000
+    :param GT_density: desired density of the ground truth at causal
+        time-scale, expressed as density × 100 (e.g. 35 means 35 %).
+        Internally quantised to 50 two-percent bins so that ``d``
+        inside the ASP program equals ``GT_density // 2``.
     :type GT_density: integer
+
+    :param density_weight: weight per density-bin deviation in the soft
+        density constraint.  Each bin is 2 percentage points.  A value of
+        50 means one bin of density error costs 50, making density more
+        important than a single edge mismatch (MAXCOST = 20).
+    :type density_weight: integer
 
     :returns: clingo code as a string
     :rtype: string
@@ -302,20 +312,23 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
         bdm = [nd.astype('int') for nd in bdm]
 
     assert len({len(g) for g in g_list}) == 1, "Input graphs have variable number of nodes!"
-    # assert len({len(g) for g2 in g_list for g in g2}) == 1, "Input graphs have variable number of nodes!"
 
     if not max_urate:
         max_urate = 1+3*len(g_list[0])
     n = len(g_list)
     command = clingo_preamble(g_list[0])
-    density = edge_weights[4]
     if GT_density is not None:
-        command += f"#const d = {GT_density}. "
+        # Convert GT_density (density × 100) to 50-level bin index (each bin = 2 %).
+        # e.g. GT_density=35 → d=17  (17 bins × 2 % = 34 %, nearest even percent)
+        #      GT_density=22 → d=11  (11 bins × 2 % = 22 %, exact)
+        d_bins = GT_density // 2
+        command += f"#const d = {d_bins}. "
         command += 'countedge1(C):- C = #count { edge1(X, Y): edge1(X, Y), node(X), node(Y)}. '
         command += 'countfull(C):- C = n*n. '
-        command += 'hypoth_density(D) :- D = 1000*X/Y,  countfull(Y), countedge1(X). '
+        # Scale density to 0-50 bins (50 * edges / N²).
+        command += 'hypoth_density(D) :- D = 50*X/Y,  countfull(Y), countedge1(X). '
         command += 'abs_diff(Diff) :- hypoth_density(D), Diff = |D - d|. '
-        command += f':~ abs_diff(Diff). [Diff@{density}] '
+        command += f':~ abs_diff(Diff). [Diff*{density_weight}@1] '
     if scc:
         command += encode_list_sccs(g_list, scc_members)
         print("edit this function later to adjust")
@@ -339,8 +352,8 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
 
 
 def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False, scc_members=None, dm=None,
-          bdm=None, pnum=PNUM, GT_density= None, edge_weights=[1, 1, 1, 1, 1], configuration="crafty", optim='optN',
-          multi_individual=False, selfloop=False):
+          bdm=None, pnum=PNUM, GT_density=None, edge_weights=[1, 1, 1, 1, 1], configuration="crafty", optim='optN',
+          multi_individual=False, selfloop=False, density_weight=50):
     """
     Compute all candidate causal time-scale graphs that could have
     generated all undersampled graphs at all possible undersampling
@@ -385,13 +398,20 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
     :param pnum: number of parallel threads to run ``clingo`` on
     :type pnum: integer
 
-    :param GT_density: desired desnsity of the grounf truth at causal
-        time-scale, multiplied by 1000
+    :param GT_density: desired density of the ground truth at causal
+        time-scale, expressed as density × 100 (e.g. 35 means 35 %).
+        Converted to 50-level bins internally (``GT_density // 2``).
     :type GT_density: integer
 
-    :param edge_weights: a tuple of 2 values, the first is importance
-        of matching directed weights when solving optimization problem and the second is for bidirected.
-    :type edge_weights: tuple with 2 elements
+    :param edge_weights: priority levels for the four weak constraint types.
+        Index 4, if present, is ignored; density is controlled by
+        ``density_weight``.
+    :type edge_weights: list of integers (length 4 or 5)
+
+    :param density_weight: weight per density-bin deviation (each bin = 2 %).
+        Default 50 makes one bin of density error cost 50 units, which
+        dominates a single edge mismatch (MAXCOST = 20).
+    :type density_weight: integer
 
     :param configuration: Select configuration based on problem type
 
@@ -429,7 +449,8 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
         glist = [glist]
 
     return clingo(drasl_command(glist, max_urate=urate, weighted=weighted,
-                                scc=scc, scc_members=scc_members, dm=dm, bdm=bdm, edge_weights=edge_weights,GT_density=GT_density, selfloop=selfloop),
+                                scc=scc, scc_members=scc_members, dm=dm, bdm=bdm, edge_weights=edge_weights,
+                                GT_density=GT_density, selfloop=selfloop, density_weight=density_weight),
                   capsize=capsize, convert=drasl_jclingo2g, configuration=configuration,
                   timeout=timeout, exact=not weighted, pnum=pnum, optim=optim)
 

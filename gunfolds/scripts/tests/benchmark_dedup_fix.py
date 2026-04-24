@@ -90,11 +90,14 @@ def _old_weak_program(priority=1):
 
 def build_command_with_custom_weak(g_list, max_urate, dm, bdm, GT_density,
                                    scc, scc_members, weak_program_str,
-                                   selfloop=False, density_priority=1):
+                                   selfloop=False, density_weight=50):
     """
     Re-assemble an ASP command using a caller-supplied weak-constraint block.
-    Mirrors drasl_command() exactly so OLD and NEW are comparable: same density
-    encoding (1000*X/Y scale, priority-level weight), same structural rules.
+    Mirrors drasl_command() exactly so OLD and NEW differ only in their weak
+    constraints.  Density uses the same 50-bin encoding as drasl_command:
+      hypoth_density = 50 * edge_count / N²
+      d              = GT_density // 2
+      cost           = Diff * density_weight  at priority 1
     """
     from gunfolds.conversions import (clingo_preamble, numbered_g2wclingo,
                                       encode_list_sccs)
@@ -105,15 +108,15 @@ def build_command_with_custom_weak(g_list, max_urate, dm, bdm, GT_density,
     command = clingo_preamble(g_list[0])
 
     if GT_density is not None:
-        command += f"#const d = {GT_density}. "
+        d_bins = GT_density // 2
+        command += f"#const d = {d_bins}. "
         command += ("countedge1(C):- C = #count { edge1(X, Y): "
                     "edge1(X, Y), node(X), node(Y)}. ")
         command += "countfull(C):- C = n*n. "
-        # Use 1000*X/Y to match drasl_command's scaling in this codebase
-        command += ("hypoth_density(D) :- D = 1000*X/Y, "
+        command += ("hypoth_density(D) :- D = 50*X/Y, "
                     "countfull(Y), countedge1(X). ")
         command += "abs_diff(Diff) :- hypoth_density(D), Diff = |D - d|. "
-        command += f":~ abs_diff(Diff). [Diff@{density_priority}] "
+        command += f":~ abs_diff(Diff). [Diff*{density_weight}@1] "
 
     if scc and scc_members:
         command += encode_list_sccs(g_list, scc_members)
