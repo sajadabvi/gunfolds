@@ -126,17 +126,24 @@ def weighted_drasl_program(directed, bidirected, no_directed, no_bidirected):
     :returns: optimization part of the ``clingo`` code
     :rtype: string
     """
+    # The term tuple appended to each weak constraint is the dedup key:
+    # clingo counts two ground instances as the same cost element when their
+    # (weight, priority, tuple) triple is identical, and only adds the weight
+    # once.  Without a type tag, a directed-mismatch penalty at (X,Y) with the
+    # same weight as a co-firing bidirected penalty at the same (X,Y) would be
+    # silently dropped.  The trailing constant (1..4) makes every source
+    # distinct.  K disambiguates across multi-subject inputs.
     t = Template("""
     {edge1(X,Y)} :- node(X), node(Y).
     directed(X, Y, 1) :- edge1(X, Y).
     directed(X, Y, L) :- directed(X, Z, L-1), edge1(Z, Y), L <= U, u(U, _).
     bidirected(X, Y, U) :- directed(Z, X, L), directed(Z, Y, L), node(X;Y;Z), X < Y, L < U, u(U, _).
-    
-    :~ directed(X, Y, L), no_hdirected(X, Y, W, K), node(X;Y), u(L, K). [W@$directed,X,Y]
-    :~ bidirected(X, Y, L), no_hbidirected(X, Y, W, K), node(X;Y), u(L, K), X < Y. [W@$bidirected,X,Y]
-    :~ not directed(X, Y, L), hdirected(X, Y, W, K), node(X;Y), u(L, K). [W@$no_directed,X,Y]
-    :~ not bidirected(X, Y, L), hbidirected(X, Y, W, K), node(X;Y), u(L, K), X < Y. [W@$no_bidirected,X,Y]
-    
+
+    :~ directed(X, Y, L),    no_hdirected(X, Y, W, K),   node(X;Y), u(L, K).         [W@$directed,X,Y,K,1]
+    :~ bidirected(X, Y, L),  no_hbidirected(X, Y, W, K), node(X;Y), u(L, K), X < Y.  [W@$bidirected,X,Y,K,2]
+    :~ not directed(X, Y, L),   hdirected(X, Y, W, K),   node(X;Y), u(L, K).         [W@$no_directed,X,Y,K,3]
+    :~ not bidirected(X, Y, L), hbidirected(X, Y, W, K), node(X;Y), u(L, K), X < Y.  [W@$no_bidirected,X,Y,K,4]
+
     """)
 
     return t.substitute(directed=directed, bidirected=bidirected,no_directed=no_directed,no_bidirected=no_bidirected)
