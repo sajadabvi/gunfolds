@@ -3,6 +3,18 @@
 Short summaries of code and documentation changes made via Cursor AI sessions.
 
 
+## 2026-04-24  (branch: `fix-weak-constraint-dedup`)
+
+### Weak-constraint term-tuple dedup fix + density encoding fix (`gunfolds/solvers/clingo_rasl.py`)
+
+**Dedup fix.** Clingo counts cost elements with identical `(weight, priority, tuple)` only once. The four weak constraints all shared tuple `[W@P, X, Y]`, so directed- and bidirected-mismatch penalties at the same `(X,Y)` with the same weight would silently cancel. Fix: appended a type tag `(K, 1..4)` to each tuple. For N=10/FBIRN subject 0: 5 colliding pairs, 79 hidden cost units.
+
+**Density encoding fix (Option B).** Old code used `1000*X/Y` for density but `d = GT_density` in the 0–100 convention — a 10× mismatch making `abs_diff` never close to zero. Also `[Diff@priority]` used density as a priority level, not a weight multiplier. New encoding: `50*X/Y` (50 bins, 2%/bin), `d = GT_density // 2`, cost `[Diff*density_weight@1]` with `density_weight=50` (new param on `drasl_command` / `drasl`). One density-bin error (cost 50) now outweighs one edge mismatch (max 20).
+
+**Benchmark result (N=10, subject 0):** optimal cost unchanged (373), solve time 266 s → 225 s (1.18×). See `gunfolds/scripts/tests/benchmark_dedup_fix.py`.
+
+---
+
 ## 2026-04-10
 
 ### N-specific default `GT_density` for RASL fixed mode
