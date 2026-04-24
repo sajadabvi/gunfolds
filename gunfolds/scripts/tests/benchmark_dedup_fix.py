@@ -90,10 +90,11 @@ def _old_weak_program(priority=1):
 
 def build_command_with_custom_weak(g_list, max_urate, dm, bdm, GT_density,
                                    scc, scc_members, weak_program_str,
-                                   selfloop=False, density_weight=50):
+                                   selfloop=False, density_priority=1):
     """
     Re-assemble an ASP command using a caller-supplied weak-constraint block.
-    Mirrors drasl_command() but lets us swap in the old or new weak section.
+    Mirrors drasl_command() exactly so OLD and NEW are comparable: same density
+    encoding (1000*X/Y scale, priority-level weight), same structural rules.
     """
     from gunfolds.conversions import (clingo_preamble, numbered_g2wclingo,
                                       encode_list_sccs)
@@ -108,10 +109,11 @@ def build_command_with_custom_weak(g_list, max_urate, dm, bdm, GT_density,
         command += ("countedge1(C):- C = #count { edge1(X, Y): "
                     "edge1(X, Y), node(X), node(Y)}. ")
         command += "countfull(C):- C = n*n. "
-        command += ("hypoth_density(D) :- D = 100*X/Y, "
+        # Use 1000*X/Y to match drasl_command's scaling in this codebase
+        command += ("hypoth_density(D) :- D = 1000*X/Y, "
                     "countfull(Y), countedge1(X). ")
         command += "abs_diff(Diff) :- hypoth_density(D), Diff = |D - d|. "
-        command += f":~ abs_diff(Diff). [Diff*{density_weight}@1] "
+        command += f":~ abs_diff(Diff). [Diff@{density_priority}] "
 
     if scc and scc_members:
         command += encode_list_sccs(g_list, scc_members)
@@ -419,14 +421,14 @@ def process_subject(args, data, labels, subject_idx, comp_indices,
     cmd_old = build_command_with_custom_weak(
         [g_estimated], urate, [DD], [BD],
         GT_density=gt_density, scc=use_scc, scc_members=scc_members,
-        weak_program_str=old_weak, selfloop=False, density_weight=50)
+        weak_program_str=old_weak, selfloop=False)
 
     # ── Build NEW command (fixed term tuples, from patched drasl_command) ──
     cmd_new = drasl_command(
         [g_estimated], max_urate=urate, weighted=True,
         scc=use_scc, scc_members=scc_members,
         dm=[DD], bdm=[BD],
-        GT_density=gt_density, selfloop=False, density_weight=50)
+        GT_density=gt_density, selfloop=False)
 
     print(f"\n  ASP sizes — old: {len(cmd_old):,} bytes  "
           f"new: {len(cmd_new):,} bytes", flush=True)
