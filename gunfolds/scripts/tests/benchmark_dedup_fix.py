@@ -58,7 +58,9 @@ import tigramite.data_processing as pp
 from tigramite.pcmci import PCMCI
 from tigramite.independence_tests.parcorr import ParCorr
 
-from component_config import get_comp_indices, get_comp_names, get_scc_members
+from gunfolds.scripts.real_data.component_config import (
+    get_comp_indices, get_comp_names, get_scc_members,
+)
 
 CLINGO_LIMIT = 64
 MAXCOST = 20

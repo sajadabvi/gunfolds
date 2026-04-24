@@ -28,7 +28,9 @@ from gunfolds import conversions as cv
 _REAL_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "real_data")
 if _REAL_DATA_DIR not in sys.path:
     sys.path.insert(0, _REAL_DATA_DIR)
-from component_config import INDEX_TO_DOMAIN, get_comp_indices
+from gunfolds.scripts.real_data.component_config import (
+    INDEX_TO_DOMAIN, get_comp_indices,
+)
 
 
 # ---------------------------------------------------------------------------
