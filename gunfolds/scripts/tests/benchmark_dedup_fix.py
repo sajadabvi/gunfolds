@@ -75,10 +75,10 @@ _OLD_WEAK_TEMPLATE = Template("""
     directed(X, Y, L) :- directed(X, Z, L-1), edge1(Z, Y), L <= U, u(U, _).
     bidirected(X, Y, U) :- directed(Z, X, L), directed(Z, Y, L), node(X;Y;Z), X < Y, L < U, u(U, _).
 
-    :~ directed(X, Y, L), no_hdirected(X, Y, W, K), node(X;Y), u(L, K). [W@$$p,X,Y]
-    :~ bidirected(X, Y, L), no_hbidirected(X, Y, W, K), node(X;Y), u(L, K), X < Y. [W@$$p,X,Y]
-    :~ not directed(X, Y, L), hdirected(X, Y, W, K), node(X;Y), u(L, K). [W@$$p,X,Y]
-    :~ not bidirected(X, Y, L), hbidirected(X, Y, W, K), node(X;Y), u(L, K), X < Y. [W@$$p,X,Y]
+    :~ directed(X, Y, L), no_hdirected(X, Y, W, K), node(X;Y), u(L, K). [W@$p,X,Y]
+    :~ bidirected(X, Y, L), no_hbidirected(X, Y, W, K), node(X;Y), u(L, K), X < Y. [W@$p,X,Y]
+    :~ not directed(X, Y, L), hdirected(X, Y, W, K), node(X;Y), u(L, K). [W@$p,X,Y]
+    :~ not bidirected(X, Y, L), hbidirected(X, Y, W, K), node(X;Y), u(L, K), X < Y. [W@$p,X,Y]
 
 """)
 
