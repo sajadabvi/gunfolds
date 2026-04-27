@@ -531,12 +531,15 @@ def main():
         urate    = min(args.MAXU, 3 * n_nodes + 1)
 
         # Build base ASP command WITHOUT any density encoding.
-        # Each variant appends its own density block.
+        # Each variant appends its own density block.  Use
+        # density_mode='none' to suppress the auto-density that
+        # drasl_command otherwise emits when GT_density is None.
         base_command = drasl_command(
             [g_estimated], max_urate=urate, weighted=True,
             scc=use_scc, scc_members=scc_members,
             dm=[DD], bdm=[BD], edge_weights=priority,
-            GT_density=None,        # no density — we add it per-variant
+            GT_density=None,
+            density_mode='none',
             selfloop=False,
         )
         print(f"  Base ASP program (no density): {len(base_command):,} bytes",
