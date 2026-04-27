@@ -76,21 +76,24 @@ DEFAULT_GT_DENSITY_BY_N = {10: 35, 20: 22, 53: 13}
 # Density encoding builders
 # ─────────────────────────────────────────────────────────────────────────────
 
-def density_edge_bounds(GT_density, N, tol_pct):
+def density_edge_bounds(GT_density, N, tol_low_pct, tol_high_pct=None):
     """
-    Convert GT_density (0-100 scale) and tolerance into edge-count bounds
-    suitable for hard cardinality constraints.
+    Convert GT_density (0-100 scale) and asymmetric tolerances into
+    edge-count bounds suitable for hard cardinality constraints.
 
-    Uses the same integer floor as #count in the ASP program.
+    ``tol_high_pct`` defaults to ``tol_low_pct`` (symmetric).
     Returns (d_lo, d_hi) as edge counts.
     """
+    if tol_high_pct is None:
+        tol_high_pct = tol_low_pct
     n_sq = N * N
-    d_lo = max(0, int((GT_density - tol_pct) * n_sq / 100))
-    d_hi = min(n_sq, int((GT_density + tol_pct) * n_sq / 100) + 1)
+    d_lo = max(0,    int((GT_density - tol_low_pct)  * n_sq / 100))
+    d_hi = min(n_sq, int((GT_density + tol_high_pct) * n_sq / 100) + 1)
     return d_lo, d_hi
 
 
-def build_density_block(variant, GT_density, N, density_weight, tol_pct):
+def build_density_block(variant, GT_density, N, density_weight,
+                        tol_low_pct, tol_high_pct=None):
     """
     Return the ASP snippet that encodes density for the given variant.
     The snippet is appended to the base command (which has no density encoding).
@@ -102,9 +105,11 @@ def build_density_block(variant, GT_density, N, density_weight, tol_pct):
               orchestration loop, not here, since it is a sequence of
               attempts with different (mode, tol) combinations.
     """
+    if tol_high_pct is None:
+        tol_high_pct = tol_low_pct
     d_bins = GT_density // 2   # same quantisation as drasl_command
     n_sq = N * N
-    d_lo, d_hi = density_edge_bounds(GT_density, N, tol_pct)
+    d_lo, d_hi = density_edge_bounds(GT_density, N, tol_low_pct, tol_high_pct)
 
     # Atoms shared by all variants that need the density value
     shared = (
@@ -143,13 +148,16 @@ def build_density_block(variant, GT_density, N, density_weight, tol_pct):
 
 
 def build_command_for_variant(base_command_bytes, variant, GT_density, N,
-                               density_weight, tol_pct):
+                               density_weight, tol_low_pct, tol_high_pct=None):
     """
     Append the variant-specific density block to a base ASP command that
     was built without any density encoding (GT_density=None).
     """
+    if tol_high_pct is None:
+        tol_high_pct = tol_low_pct
     base_str = base_command_bytes.decode()
-    density_str = build_density_block(variant, GT_density, N, density_weight, tol_pct)
+    density_str = build_density_block(variant, GT_density, N,
+                                       density_weight, tol_low_pct, tol_high_pct)
     full_str = base_str + " " + density_str
     return full_str.encode().replace(b"\n", b" ")
 
@@ -399,12 +407,19 @@ def main():
                    help="Override GT_density (0-100). If omitted, GT_density is "
                         "computed per-subject from the directed-edge density of "
                         "the PCMCI graph (production default).")
-    p.add_argument("--tol", type=int, default=5,
-                   help="Density tolerance in percentage points for hard bounds "
-                        "(variants B/C/D and the first attempt of variant E).")
+    p.add_argument("--tol", type=int, default=None,
+                   help="Symmetric tolerance override (percentage points). "
+                        "If set, overrides both --tol_low and --tol_high.")
+    p.add_argument("--tol_low", type=int, default=15,
+                   help="Downward (lower-bound) tolerance in percentage points. "
+                        "Default 15: PCMCI density tends to overestimate causal "
+                        "density, so the downward window is wider.")
+    p.add_argument("--tol_high", type=int, default=5,
+                   help="Upward (upper-bound) tolerance in percentage points. "
+                        "Default 5: causal density rarely exceeds measurement.")
     p.add_argument("--tol_widen", type=int, default=10,
-                   help="Wider tolerance used by variant E's second attempt "
-                        "before falling back to soft-only.")
+                   help="Amount added to BOTH tol_low and tol_high for variant "
+                        "E's second attempt before falling back to soft-only.")
     p.add_argument("--density_weight", type=int, default=50,
                    help="Weight multiplier on abs_diff for soft density penalty")
     p.add_argument("--timeout", type=int, default=0,
@@ -430,6 +445,16 @@ def main():
     variants = [v.strip().upper() for v in args.variants.split(",")]
     gt_density_override = args.gt_density
 
+    # Resolve symmetric vs asymmetric tolerance.  --tol overrides both
+    # directions when set; otherwise --tol_low and --tol_high apply
+    # (defaults 15 / 5 are the production asymmetric setting).
+    if args.tol is not None:
+        tol_low  = args.tol
+        tol_high = args.tol
+    else:
+        tol_low  = args.tol_low
+        tol_high = args.tol_high
+
     extra_clingo_args = args.extra_clingo_args  # already a list from REMAINDER
 
     print("=" * 72, flush=True)
@@ -439,7 +464,12 @@ def main():
     print(f"  N components:   {args.n_components}", flush=True)
     print(f"  Subjects:       {subject_indices}", flush=True)
     print(f"  Variants:       {variants}", flush=True)
-    print(f"  Tol (±%):       {args.tol}  (widen={args.tol_widen} for E)", flush=True)
+    if tol_low == tol_high:
+        print(f"  Tol (±%):       {tol_low}  (symmetric, "
+              f"widen={args.tol_widen} for E)", flush=True)
+    else:
+        print(f"  Tol (asym):     -{tol_low}% / +{tol_high}%  "
+              f"(widen={args.tol_widen} for E)", flush=True)
     print(f"  Density weight: {args.density_weight}", flush=True)
     print(f"  MAXCOST:        {MAXCOST}", flush=True)
     print(f"  Timeout/var:    {args.timeout}s" if args.timeout else
@@ -448,12 +478,17 @@ def main():
     print(f"  Extra clingo:   {extra_clingo_args or '(none)'}", flush=True)
     print("=" * 72, flush=True)
 
+    if tol_low == tol_high:
+        tol_label = f"GT±{tol_low}%"
+    else:
+        tol_label = f"GT[-{tol_low}%, +{tol_high}%]"
     VARIANT_DESCRIPTIONS = {
         'A': "soft @1 only (current, no hard bounds)",
-        'B': f"hard bounds only [GT±{args.tol}%], no soft penalty",
-        'C': f"hard bounds [GT±{args.tol}%] + soft density @0 (lex below edges)",
-        'D': f"hard bounds [GT±{args.tol}%] + soft density @1 (same as edges)",
-        'E': f"adaptive (production): C@tol={args.tol} → C@tol={args.tol_widen} → A",
+        'B': f"hard bounds only [{tol_label}], no soft penalty",
+        'C': f"hard bounds [{tol_label}] + soft density @0 (lex below edges)",
+        'D': f"hard bounds [{tol_label}] + soft density @1 (same as edges)",
+        'E': (f"adaptive (production): C@[{tol_label}] → "
+              f"C@[-{tol_low+args.tol_widen}%,+{tol_high+args.tol_widen}%] → A"),
     }
 
     # Load data
@@ -546,9 +581,13 @@ def main():
               flush=True)
 
         # Compute and print the hard-bound edge counts for information
-        d_lo, d_hi = density_edge_bounds(gt_density, n_nodes, args.tol)
+        d_lo, d_hi = density_edge_bounds(gt_density, n_nodes, tol_low, tol_high)
+        if tol_low == tol_high:
+            tol_disp = f"tol=±{tol_low}%"
+        else:
+            tol_disp = f"tol_low=-{tol_low}%, tol_high=+{tol_high}%"
         print(f"  Hard bounds (B/C/D): d_lo={d_lo} edges, d_hi={d_hi} edges  "
-              f"(GT={gt_density}%, tol=±{args.tol}%, N={n_nodes})", flush=True)
+              f"(GT={gt_density}%, {tol_disp}, N={n_nodes})", flush=True)
 
         # Detect colliding (X,Y) pairs where DD[x,y] == BD[x,y]
         # for x<y (only pairs where both directed and bidirected constraints fire)
@@ -566,26 +605,31 @@ def main():
             desc = VARIANT_DESCRIPTIONS.get(v, v)
 
             if v == 'E':
-                # Adaptive: try C@tol, then C@tol_widen, then A.  Track
-                # cumulative time and which attempt succeeded so the
-                # summary table reflects what production would experience.
+                # Adaptive: try C with tight asymmetric (tol_low, tol_high),
+                # then C widened by tol_widen on both sides, then A (soft
+                # only).  Track cumulative time and which attempt succeeded
+                # so the summary reflects what production would experience.
                 print(f"\n  ========== Variant E (adaptive production) ==========",
                       flush=True)
+                widen = args.tol_widen
                 attempts = [
-                    ('C', args.tol,       f"E.1 hard+soft0 @ tol=±{args.tol}%"),
-                    ('C', args.tol_widen, f"E.2 hard+soft0 @ tol=±{args.tol_widen}% (widened)"),
-                    ('A', None,           "E.3 soft fallback (no bounds)"),
+                    ('C', tol_low,         tol_high,
+                     f"E.1 hard+soft0 @ [-{tol_low}%, +{tol_high}%]"),
+                    ('C', tol_low + widen, tol_high + widen,
+                     f"E.2 hard+soft0 @ [-{tol_low+widen}%, +{tol_high+widen}%] (widened)"),
+                    ('A', tol_low,         tol_high,
+                     "E.3 soft fallback (no bounds)"),
                 ]
                 cumulative_solve = 0.0
                 cumulative_total = 0.0
                 final_result = None
                 final_attempt_label = None
-                for attempt_idx, (sub_v, this_tol, label) in enumerate(attempts, 1):
+                for attempt_idx, (sub_v, this_tol_low, this_tol_high, label) in \
+                        enumerate(attempts, 1):
                     print(f"\n  --- {label} ---", flush=True)
-                    use_tol = this_tol if this_tol is not None else args.tol
                     cmd = build_command_for_variant(
                         base_command, sub_v, gt_density, n_nodes,
-                        args.density_weight, use_tol,
+                        args.density_weight, this_tol_low, this_tol_high,
                     )
                     print(f"  Full command: {len(cmd):,} bytes", flush=True)
                     attempt_result = run_variant(
@@ -637,7 +681,7 @@ def main():
             print(f"\n  Building command for Variant {v}: {desc}", flush=True)
             cmd = build_command_for_variant(
                 base_command, v, gt_density, n_nodes,
-                args.density_weight, args.tol,
+                args.density_weight, tol_low, tol_high,
             )
             print(f"  Full command: {len(cmd):,} bytes", flush=True)
 

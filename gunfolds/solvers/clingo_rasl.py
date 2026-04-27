@@ -267,7 +267,7 @@ def _compute_directed_density_pct(g):
     return int(round(100.0 * n_dir / (n * n)))
 
 
-def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=None, dm=None, bdm=None, edge_weights=[1, 1, 1, 1, 1], GT_density=None, selfloop=False, density_weight=50, density_mode='soft', tol=5):
+def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=None, dm=None, bdm=None, edge_weights=[1, 1, 1, 1, 1], GT_density=None, selfloop=False, density_weight=50, density_mode='soft', tol=5, tol_low=None, tol_high=None):
     """
     Given a list of graphs generates ``clingo`` codes
 
@@ -324,9 +324,23 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
         level and should not be passed here directly).
     :type density_mode: string
 
-    :param tol: density tolerance in percentage points for the hard
-        cardinality bounds (used by all ``'hard*'`` modes).
+    :param tol: symmetric density tolerance (in percentage points) for
+        the hard cardinality bounds (used by all ``'hard*'`` modes).
+        When ``tol_low`` or ``tol_high`` is supplied separately, it
+        overrides ``tol`` in that direction.
     :type tol: integer
+
+    :param tol_low: downward tolerance in percentage points
+        (``d_lo = (GT − tol_low) · N² / 100``).  If ``None`` the
+        symmetric ``tol`` is used.  PCMCI density tends to overestimate
+        the causal-scale density, so the production default uses a
+        wider downward tolerance than upward.
+    :type tol_low: integer or None
+
+    :param tol_high: upward tolerance in percentage points
+        (``d_hi = (GT + tol_high) · N² / 100``).  If ``None`` the
+        symmetric ``tol`` is used.
+    :type tol_high: integer or None
 
     :returns: clingo code as a string
     :rtype: string
@@ -360,14 +374,25 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
         )
 
     if GT_density is not None and density_mode != 'none':
+        # Asymmetric tolerance.  ``tol_low`` and ``tol_high`` (when provided)
+        # specify the downward / upward percentage-point relaxation around
+        # GT_density.  Falling back to the symmetric ``tol`` preserves
+        # backward compatibility with callers that did not split the bound.
+        # Asymmetric defaults make sense because PCMCI's measurement-graph
+        # density systematically *overestimates* the causal-scale density
+        # (every length-u path becomes an observed edge), so a wider
+        # downward window is the right prior.
+        eff_tol_low  = tol if tol_low  is None else tol_low
+        eff_tol_high = tol if tol_high is None else tol_high
+
         # Convert GT_density (density × 100) to 50-level bin index (each bin = 2 %).
         # e.g. GT_density=35 → d=17  (17 bins × 2 % = 34 %, nearest even percent)
         #      GT_density=22 → d=11  (11 bins × 2 % = 22 %, exact)
         d_bins = GT_density // 2
         n_nodes = len(g_list[0])
         n_sq = n_nodes * n_nodes
-        d_lo_edges = max(0, int((GT_density - tol) * n_sq / 100))
-        d_hi_edges = min(n_sq, int((GT_density + tol) * n_sq / 100) + 1)
+        d_lo_edges = max(0, int((GT_density - eff_tol_low) * n_sq / 100))
+        d_hi_edges = min(n_sq, int((GT_density + eff_tol_high) * n_sq / 100) + 1)
 
         command += f"#const d = {d_bins}. "
         command += 'countedge1(C):- C = #count { edge1(X, Y): edge1(X, Y), node(X), node(Y)}. '
@@ -419,7 +444,8 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
 def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False, scc_members=None, dm=None,
           bdm=None, pnum=PNUM, GT_density=None, edge_weights=[1, 1, 1, 1, 1], configuration="crafty", optim='optN',
           multi_individual=False, selfloop=False, density_weight=50,
-          density_mode='adaptive', tol=5, tol_widen=10, verbose=True):
+          density_mode='adaptive', tol=None, tol_low=15, tol_high=5, tol_widen=10,
+          verbose=True):
     """
     Compute all candidate causal time-scale graphs that could have
     generated all undersampled graphs at all possible undersampling
@@ -490,14 +516,26 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
           will append density code separately).
     :type density_mode: string
 
-    :param tol: density tolerance (in percentage points) for the first
-        attempt of ``adaptive`` and the fixed window for explicit
-        ``hard*`` modes.  ``d_lo = (GT_density - tol) * N² / 100``,
-        ``d_hi = (GT_density + tol) * N² / 100``.
-    :type tol: integer
+    :param tol: legacy symmetric tolerance override.  When not ``None``,
+        sets both ``tol_low`` and ``tol_high`` to ``tol``.  Use
+        ``tol_low``/``tol_high`` for the production asymmetric default.
+    :type tol: integer or None
 
-    :param tol_widen: tolerance used for the second adaptive attempt
-        (only used when ``density_mode='adaptive'``).
+    :param tol_low: downward tolerance in percentage points
+        (``d_lo = (GT − tol_low) · N² / 100``).  Default ``15``: a
+        wide downward window because PCMCI's measurement density tends
+        to overestimate the causal-scale density.
+    :type tol_low: integer
+
+    :param tol_high: upward tolerance in percentage points
+        (``d_hi = (GT + tol_high) · N² / 100``).  Default ``5``: a
+        narrow upward window because the causal density is rarely
+        higher than the measurement density.
+    :type tol_high: integer
+
+    :param tol_widen: amount (in percentage points) added to *both*
+        ``tol_low`` and ``tol_high`` for the second adaptive attempt
+        before falling back to soft-only.  Default ``10``.
     :type tol_widen: integer
 
     :param verbose: print progress lines for each adaptive attempt.
@@ -549,7 +587,7 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
         glist = [glist]
 
     # Resolve per-subject GT_density once so subsequent retries with
-    # different ``tol`` values reuse the same derived density.
+    # different tolerances reuse the same derived density.
     effective_GT_density = GT_density
     if effective_GT_density is None:
         effective_GT_density = _compute_directed_density_pct(glist[0])
@@ -557,32 +595,45 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
             print(f"[drasl] auto-computed GT_density = {effective_GT_density}% "
                   f"(from input graph density)", flush=True)
 
-    def _run(mode, current_tol):
+    # Resolve symmetric vs. asymmetric tolerance.  ``tol`` (when not None)
+    # is the legacy symmetric override that sets both directions; passing
+    # ``tol_low`` / ``tol_high`` keeps the asymmetric defaults.
+    if tol is not None:
+        eff_tol_low  = tol
+        eff_tol_high = tol
+    else:
+        eff_tol_low  = tol_low
+        eff_tol_high = tol_high
+
+    def _run(mode, t_low, t_high):
         cmd = drasl_command(
             glist, max_urate=urate, weighted=weighted,
             scc=scc, scc_members=scc_members, dm=dm, bdm=bdm,
             edge_weights=edge_weights, GT_density=effective_GT_density,
             selfloop=selfloop, density_weight=density_weight,
-            density_mode=mode, tol=current_tol,
+            density_mode=mode, tol_low=t_low, tol_high=t_high,
         )
         return clingo(cmd, capsize=capsize, convert=drasl_jclingo2g,
                       configuration=configuration, timeout=timeout,
                       exact=not weighted, pnum=pnum, optim=optim)
 
     if density_mode == 'adaptive':
-        # Production fallback ladder:
-        # 1. hard_soft0 with tol            (tight, fastest, highest-quality optimum)
-        # 2. hard_soft0 with tol_widen      (relaxed, when sparse subjects need room)
-        # 3. soft                           (no hard bounds, baseline correctness)
-        for attempt, (mode, current_tol) in enumerate([
-            ('hard_soft0', tol),
-            ('hard_soft0', tol_widen),
-        ], start=1):
+        # Production fallback ladder.  Both attempts use asymmetric tolerance
+        # (downward window wider than upward) because PCMCI's measurement
+        # density overestimates the causal-scale density.
+        # 1. hard_soft0 with (tol_low, tol_high)                     (production tight)
+        # 2. hard_soft0 with (tol_low+tol_widen, tol_high+tol_widen) (relaxed)
+        # 3. soft                                                    (no bounds)
+        attempts = [
+            ('hard_soft0', eff_tol_low,              eff_tol_high),
+            ('hard_soft0', eff_tol_low + tol_widen,  eff_tol_high + tol_widen),
+        ]
+        for attempt, (mode, t_low, t_high) in enumerate(attempts, start=1):
             if verbose:
                 print(f"[drasl] adaptive attempt {attempt}: "
-                      f"mode={mode} tol=±{current_tol}% "
+                      f"mode={mode} tol_low=−{t_low}% tol_high=+{t_high}% "
                       f"(GT={effective_GT_density}%)", flush=True)
-            result = _run(mode, current_tol)
+            result = _run(mode, t_low, t_high)
             if result:
                 if verbose:
                     print(f"[drasl] adaptive attempt {attempt}: "
@@ -592,13 +643,13 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
                 print(f"[drasl] adaptive attempt {attempt}: "
                       f"UNSAT — falling back", flush=True)
 
-        # Final fallback: original soft-only encoding.
+        # Final fallback: original soft-only encoding (no hard bounds at all).
         if verbose:
             print(f"[drasl] adaptive fallback: mode=soft (no hard bounds)",
                   flush=True)
-        return _run('soft', tol)
+        return _run('soft', eff_tol_low, eff_tol_high)
 
-    return _run(density_mode, tol)
+    return _run(density_mode, eff_tol_low, eff_tol_high)
 
 
 def rasl(g, capsize, timeout=0, urate=0, pnum=None, configuration="tweety"):
