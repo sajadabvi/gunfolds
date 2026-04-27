@@ -1,5 +1,5 @@
 """
-Benchmark four density-encoding strategies for weighted DRASL.
+Benchmark five density-encoding strategies for weighted DRASL.
 
 Variants
 --------
@@ -12,6 +12,11 @@ Variants
                   breaks ties among equally-good edge solutions.
   D  hard+soft1 : hard bounds + soft density at @1 (same priority as edges).
                   Density and edge matching compete in one objective.
+  E  adaptive   : (production default) per-subject GT_density derived from
+                  the input graph; tries C with tol, then C with tol_widen,
+                  then falls back to A. Combines pruning speedup with the
+                  robustness of A on subjects whose causal density falls
+                  outside the tight window.
 
 Scientific question being tested:
   - Does restricting density to a hard window speed up the solver?
@@ -93,7 +98,9 @@ def build_density_block(variant, GT_density, N, density_weight, tol_pct):
     The density scale matches drasl_command: bins of 2%, so d_bins = GT_density//2
     and hypoth_density = 50 * edge_count / N².  abs_diff is in bin units.
 
-    variant : one of 'A', 'B', 'C', 'D'
+    variant : one of 'A', 'B', 'C', 'D'.  Variant 'E' is built by the
+              orchestration loop, not here, since it is a sequence of
+              attempts with different (mode, tol) combinations.
     """
     d_bins = GT_density // 2   # same quantisation as drasl_command
     n_sq = N * N
@@ -388,11 +395,16 @@ def main():
                    default=int(min(CLINGO_LIMIT, get_process_count(1))))
     p.add_argument("--MAXU", type=int, default=5)
     p.add_argument("--PRIORITY", type=str, default="11112")
-    p.add_argument("--gt_density", type=int, default=None)
+    p.add_argument("--gt_density", type=int, default=None,
+                   help="Override GT_density (0-100). If omitted, GT_density is "
+                        "computed per-subject from the directed-edge density of "
+                        "the PCMCI graph (production default).")
     p.add_argument("--tol", type=int, default=5,
                    help="Density tolerance in percentage points for hard bounds "
-                        "(variants B/C/D). d_lo = GT_density-tol, "
-                        "d_hi = GT_density+tol.")
+                        "(variants B/C/D and the first attempt of variant E).")
+    p.add_argument("--tol_widen", type=int, default=10,
+                   help="Wider tolerance used by variant E's second attempt "
+                        "before falling back to soft-only.")
     p.add_argument("--density_weight", type=int, default=50,
                    help="Weight multiplier on abs_diff for soft density penalty")
     p.add_argument("--timeout", type=int, default=0,
@@ -403,8 +415,10 @@ def main():
     p.add_argument("--pcmci_alpha", type=float, default=0.05)
     p.add_argument("--pcmci_fdr", default="none")
     p.add_argument("--grounding_interval", type=float, default=5.0)
-    p.add_argument("--variants", type=str, default="A,C,D",
-                   help="Comma-separated variants to run: A,B,C,D")
+    p.add_argument("--variants", type=str, default="E,A,C,D",
+                   help="Comma-separated variants to run. Default 'E,A,C,D' "
+                        "puts the production adaptive variant first, then "
+                        "the legacy A and the explicit C/D for comparison.")
     p.add_argument("--configuration", type=str, default="crafty")
     p.add_argument("--extra_clingo_args", nargs=argparse.REMAINDER, default=[],
                    help="Extra clingo flags appended verbatim to every variant. "
@@ -425,7 +439,7 @@ def main():
     print(f"  N components:   {args.n_components}", flush=True)
     print(f"  Subjects:       {subject_indices}", flush=True)
     print(f"  Variants:       {variants}", flush=True)
-    print(f"  Tol (±%):       {args.tol}", flush=True)
+    print(f"  Tol (±%):       {args.tol}  (widen={args.tol_widen} for E)", flush=True)
     print(f"  Density weight: {args.density_weight}", flush=True)
     print(f"  MAXCOST:        {MAXCOST}", flush=True)
     print(f"  Timeout/var:    {args.timeout}s" if args.timeout else
@@ -439,6 +453,7 @@ def main():
         'B': f"hard bounds only [GT±{args.tol}%], no soft penalty",
         'C': f"hard bounds [GT±{args.tol}%] + soft density @0 (lex below edges)",
         'D': f"hard bounds [GT±{args.tol}%] + soft density @1 (same as edges)",
+        'E': f"adaptive (production): C@tol={args.tol} → C@tol={args.tol_widen} → A",
     }
 
     # Load data
@@ -463,10 +478,6 @@ def main():
         ts_2d = data[s_idx][:, comp_indices]
         print(f"  Time-series shape: {ts_2d.shape}", flush=True)
 
-        gt_density = gt_density_override
-        if gt_density is None:
-            gt_density = DEFAULT_GT_DENSITY_BY_N.get(args.n_components, 35)
-
         # PCMCI
         t0 = time.time()
         dataframe = pp.DataFrame(ts_2d)
@@ -482,8 +493,19 @@ def main():
         g_estimated, A, B = cv.Glag2CG(results)
         t_pcmci = time.time() - t0
         density = gk.density(g_estimated)
+
+        # Per-subject GT_density.  Production behaviour: derive from this
+        # subject's PCMCI graph rather than using a fixed population value,
+        # so the hard cardinality bounds do not exclude subjects whose
+        # actual causal density differs from the population mean.
+        if gt_density_override is not None:
+            gt_density = gt_density_override
+            gt_source = "user-override"
+        else:
+            gt_density = int(round(100.0 * density))
+            gt_source = "per-subject from PCMCI"
         print(f"  PCMCI done in {t_pcmci:.2f}s: density={density:.3f}  "
-              f"GT_density target={gt_density}", flush=True)
+              f"GT_density={gt_density}  ({gt_source})", flush=True)
 
         # SCC
         import networkx as nx
@@ -539,8 +561,77 @@ def main():
         subject_results = []
         for v in variants:
             desc = VARIANT_DESCRIPTIONS.get(v, v)
-            print(f"\n  Building command for Variant {v}: {desc}", flush=True)
 
+            if v == 'E':
+                # Adaptive: try C@tol, then C@tol_widen, then A.  Track
+                # cumulative time and which attempt succeeded so the
+                # summary table reflects what production would experience.
+                print(f"\n  ========== Variant E (adaptive production) ==========",
+                      flush=True)
+                attempts = [
+                    ('C', args.tol,       f"E.1 hard+soft0 @ tol=±{args.tol}%"),
+                    ('C', args.tol_widen, f"E.2 hard+soft0 @ tol=±{args.tol_widen}% (widened)"),
+                    ('A', None,           "E.3 soft fallback (no bounds)"),
+                ]
+                cumulative_solve = 0.0
+                cumulative_total = 0.0
+                final_result = None
+                final_attempt_label = None
+                for attempt_idx, (sub_v, this_tol, label) in enumerate(attempts, 1):
+                    print(f"\n  --- {label} ---", flush=True)
+                    use_tol = this_tol if this_tol is not None else args.tol
+                    cmd = build_command_for_variant(
+                        base_command, sub_v, gt_density, n_nodes,
+                        args.density_weight, use_tol,
+                    )
+                    print(f"  Full command: {len(cmd):,} bytes", flush=True)
+                    attempt_result = run_variant(
+                        command=cmd,
+                        variant_label=f"Variant E (attempt {attempt_idx}: {label})",
+                        pnum=args.PNUM,
+                        capsize=args.capsize,
+                        optim="optN",
+                        timeout=args.timeout,
+                        grounding_interval=args.grounding_interval,
+                        n_nodes=n_nodes,
+                        configuration=args.configuration,
+                        extra_clingo_args=extra_clingo_args or None,
+                    )
+                    cumulative_solve += attempt_result["t_solve"]
+                    cumulative_total += attempt_result["clingo_total"]
+                    has_solutions = (
+                        attempt_result["solutions"] and
+                        not all(s.get("cost_primary") == float("inf")
+                                for s in attempt_result["solutions"])
+                        and any(c not in ([float("inf")], (float("inf"),))
+                                for c in [attempt_result["best_cost"]])
+                    )
+                    if has_solutions:
+                        final_result = attempt_result
+                        final_attempt_label = label
+                        print(f"  -> Variant E succeeded at attempt {attempt_idx}: "
+                              f"{label}", flush=True)
+                        break
+                    else:
+                        print(f"  -> attempt {attempt_idx} UNSAT/empty, escalating",
+                              flush=True)
+
+                if final_result is None:
+                    # Even soft fallback returned nothing (extreme corner case).
+                    final_result = attempt_result
+                    final_attempt_label = "all attempts failed"
+
+                # Override the cumulative timing fields so the summary
+                # reflects the *total* cost of running E end-to-end.
+                final_result["t_solve"]      = round(cumulative_solve, 3)
+                final_result["clingo_total"] = round(cumulative_total, 3)
+                final_result["adaptive_attempt"] = final_attempt_label
+                final_result["subject"]      = s_idx
+                final_result["variant_key"]  = v
+                subject_results.append(final_result)
+                continue
+
+            print(f"\n  Building command for Variant {v}: {desc}", flush=True)
             cmd = build_command_for_variant(
                 base_command, v, gt_density, n_nodes,
                 args.density_weight, args.tol,

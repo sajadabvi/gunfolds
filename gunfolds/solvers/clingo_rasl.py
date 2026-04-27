@@ -253,7 +253,21 @@ def glist2str(g_list, weighted=False, dm=None, bdm=None):
     return s
 
 
-def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=None, dm=None, bdm=None, edge_weights=[1, 1, 1, 1, 1], GT_density=None, selfloop=False, density_weight=50):
+def _compute_directed_density_pct(g):
+    """
+    Compute the directed-edge density of a gunfolds graph as an integer
+    percentage (0-100).  Counts every (i, j) with g[i][j] in {1, 3} and
+    divides by N² (matches the ASP-side ``hypoth_density`` definition,
+    which counts ``edge1`` over ``n*n``).
+    """
+    n = len(g)
+    if n == 0:
+        return 0
+    n_dir = sum(1 for src in g for tgt, val in g[src].items() if val in (1, 3))
+    return int(round(100.0 * n_dir / (n * n)))
+
+
+def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=None, dm=None, bdm=None, edge_weights=[1, 1, 1, 1, 1], GT_density=None, selfloop=False, density_weight=50, density_mode='soft', tol=5):
     """
     Given a list of graphs generates ``clingo`` codes
 
@@ -303,6 +317,17 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
         important than a single edge mismatch (MAXCOST = 20).
     :type density_weight: integer
 
+    :param density_mode: how to encode the density target.  One of
+        ``'soft'`` (legacy), ``'hard'``, ``'hard_soft0'``,
+        ``'hard_soft1'``, or ``'none'``.  See :func:`drasl` for the
+        full description (``'adaptive'`` is handled at the ``drasl``
+        level and should not be passed here directly).
+    :type density_mode: string
+
+    :param tol: density tolerance in percentage points for the hard
+        cardinality bounds (used by all ``'hard*'`` modes).
+    :type tol: integer
+
     :returns: clingo code as a string
     :rtype: string
     """
@@ -317,18 +342,58 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
         max_urate = 1+3*len(g_list[0])
     n = len(g_list)
     command = clingo_preamble(g_list[0])
-    if GT_density is not None:
+
+    # Per-subject GT_density auto-computation.  When the caller does not
+    # supply GT_density explicitly we derive it from the directed-edge
+    # density of the first input graph, treating PCMCI's measurement
+    # density as the prior on the causal-scale density.  This avoids the
+    # population-level mismatch where a fixed GT_density excludes the
+    # actual optimal region for sparse subjects.
+    if GT_density is None and density_mode != 'none':
+        GT_density = _compute_directed_density_pct(g_list[0])
+
+    if density_mode not in ('soft', 'hard', 'hard_soft0', 'hard_soft1', 'none'):
+        raise ValueError(
+            f"density_mode must be one of "
+            f"'soft', 'hard', 'hard_soft0', 'hard_soft1', 'none'; "
+            f"got {density_mode!r}"
+        )
+
+    if GT_density is not None and density_mode != 'none':
         # Convert GT_density (density × 100) to 50-level bin index (each bin = 2 %).
         # e.g. GT_density=35 → d=17  (17 bins × 2 % = 34 %, nearest even percent)
         #      GT_density=22 → d=11  (11 bins × 2 % = 22 %, exact)
         d_bins = GT_density // 2
+        n_nodes = len(g_list[0])
+        n_sq = n_nodes * n_nodes
+        d_lo_edges = max(0, int((GT_density - tol) * n_sq / 100))
+        d_hi_edges = min(n_sq, int((GT_density + tol) * n_sq / 100) + 1)
+
         command += f"#const d = {d_bins}. "
         command += 'countedge1(C):- C = #count { edge1(X, Y): edge1(X, Y), node(X), node(Y)}. '
         command += 'countfull(C):- C = n*n. '
         # Scale density to 0-50 bins (50 * edges / N²).
         command += 'hypoth_density(D) :- D = 50*X/Y,  countfull(Y), countedge1(X). '
         command += 'abs_diff(Diff) :- hypoth_density(D), Diff = |D - d|. '
-        command += f':~ abs_diff(Diff). [Diff*{density_weight}@1] '
+
+        # Hard cardinality bounds (for any mode that uses them).
+        if density_mode in ('hard', 'hard_soft0', 'hard_soft1'):
+            command += f"#const d_lo = {d_lo_edges}. "
+            command += f"#const d_hi = {d_hi_edges}. "
+            command += ":- countedge1(K), K < d_lo. "
+            command += ":- countedge1(K), K > d_hi. "
+
+        # Soft penalty (with priority chosen by mode).
+        if density_mode == 'soft':
+            # Original behaviour: soft penalty at @1 mixed with edge cost.
+            command += f':~ abs_diff(Diff). [Diff*{density_weight}@1] '
+        elif density_mode == 'hard_soft0':
+            # Lex below edge matching: density only breaks ties.
+            command += f':~ abs_diff(Diff). [Diff*{density_weight}@0] '
+        elif density_mode == 'hard_soft1':
+            # Density still mixed with edges, but constrained to a window.
+            command += f':~ abs_diff(Diff). [Diff*{density_weight}@1] '
+        # density_mode == 'hard' adds no soft term.
     if scc:
         command += encode_list_sccs(g_list, scc_members)
         print("edit this function later to adjust")
@@ -353,7 +418,8 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
 
 def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False, scc_members=None, dm=None,
           bdm=None, pnum=PNUM, GT_density=None, edge_weights=[1, 1, 1, 1, 1], configuration="crafty", optim='optN',
-          multi_individual=False, selfloop=False, density_weight=50):
+          multi_individual=False, selfloop=False, density_weight=50,
+          density_mode='adaptive', tol=5, tol_widen=10, verbose=True):
     """
     Compute all candidate causal time-scale graphs that could have
     generated all undersampled graphs at all possible undersampling
@@ -401,7 +467,41 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
     :param GT_density: desired density of the ground truth at causal
         time-scale, expressed as density × 100 (e.g. 35 means 35 %).
         Converted to 50-level bins internally (``GT_density // 2``).
-    :type GT_density: integer
+        If ``None`` (the default), GT_density is **auto-computed per
+        subject** from the directed-edge density of ``glist[0]``,
+        making the prior follow the input rather than a fixed
+        population value.
+    :type GT_density: integer or None
+
+    :param density_mode: density encoding strategy.
+
+        - ``adaptive`` *(default, production)* : Try ``hard_soft0`` with
+          ``tol``, then with ``tol_widen``, then fall back to ``soft``
+          if both are UNSAT.  Combines pruning speedup with robustness
+          on subjects whose true causal density falls outside the
+          tight window.
+        - ``soft`` : single soft penalty at @1 (legacy behaviour).
+        - ``hard`` : hard cardinality bounds [GT±tol], no soft term.
+        - ``hard_soft0`` : hard bounds + soft density at @0 (lex below
+          edge matching).  Best primary-cost quality when bounds fit.
+        - ``hard_soft1`` : hard bounds + soft density at @1.  Same
+          objective shape as ``soft`` but with pruning.
+        - ``none`` : no density encoding at all (use only when caller
+          will append density code separately).
+    :type density_mode: string
+
+    :param tol: density tolerance (in percentage points) for the first
+        attempt of ``adaptive`` and the fixed window for explicit
+        ``hard*`` modes.  ``d_lo = (GT_density - tol) * N² / 100``,
+        ``d_hi = (GT_density + tol) * N² / 100``.
+    :type tol: integer
+
+    :param tol_widen: tolerance used for the second adaptive attempt
+        (only used when ``density_mode='adaptive'``).
+    :type tol_widen: integer
+
+    :param verbose: print progress lines for each adaptive attempt.
+    :type verbose: boolean
 
     :param edge_weights: priority levels for the four weak constraint types.
         Index 4, if present, is ignored; density is controlled by
@@ -448,11 +548,57 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
     if not isinstance(glist, list):
         glist = [glist]
 
-    return clingo(drasl_command(glist, max_urate=urate, weighted=weighted,
-                                scc=scc, scc_members=scc_members, dm=dm, bdm=bdm, edge_weights=edge_weights,
-                                GT_density=GT_density, selfloop=selfloop, density_weight=density_weight),
-                  capsize=capsize, convert=drasl_jclingo2g, configuration=configuration,
-                  timeout=timeout, exact=not weighted, pnum=pnum, optim=optim)
+    # Resolve per-subject GT_density once so subsequent retries with
+    # different ``tol`` values reuse the same derived density.
+    effective_GT_density = GT_density
+    if effective_GT_density is None:
+        effective_GT_density = _compute_directed_density_pct(glist[0])
+        if verbose:
+            print(f"[drasl] auto-computed GT_density = {effective_GT_density}% "
+                  f"(from input graph density)", flush=True)
+
+    def _run(mode, current_tol):
+        cmd = drasl_command(
+            glist, max_urate=urate, weighted=weighted,
+            scc=scc, scc_members=scc_members, dm=dm, bdm=bdm,
+            edge_weights=edge_weights, GT_density=effective_GT_density,
+            selfloop=selfloop, density_weight=density_weight,
+            density_mode=mode, tol=current_tol,
+        )
+        return clingo(cmd, capsize=capsize, convert=drasl_jclingo2g,
+                      configuration=configuration, timeout=timeout,
+                      exact=not weighted, pnum=pnum, optim=optim)
+
+    if density_mode == 'adaptive':
+        # Production fallback ladder:
+        # 1. hard_soft0 with tol            (tight, fastest, highest-quality optimum)
+        # 2. hard_soft0 with tol_widen      (relaxed, when sparse subjects need room)
+        # 3. soft                           (no hard bounds, baseline correctness)
+        for attempt, (mode, current_tol) in enumerate([
+            ('hard_soft0', tol),
+            ('hard_soft0', tol_widen),
+        ], start=1):
+            if verbose:
+                print(f"[drasl] adaptive attempt {attempt}: "
+                      f"mode={mode} tol=±{current_tol}% "
+                      f"(GT={effective_GT_density}%)", flush=True)
+            result = _run(mode, current_tol)
+            if result:
+                if verbose:
+                    print(f"[drasl] adaptive attempt {attempt}: "
+                          f"SUCCESS — {len(result)} solution(s)", flush=True)
+                return result
+            if verbose:
+                print(f"[drasl] adaptive attempt {attempt}: "
+                      f"UNSAT — falling back", flush=True)
+
+        # Final fallback: original soft-only encoding.
+        if verbose:
+            print(f"[drasl] adaptive fallback: mode=soft (no hard bounds)",
+                  flush=True)
+        return _run('soft', tol)
+
+    return _run(density_mode, tol)
 
 
 def rasl(g, capsize, timeout=0, urate=0, pnum=None, configuration="tweety"):
