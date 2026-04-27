@@ -406,29 +406,17 @@ def main():
     p.add_argument("--variants", type=str, default="A,C,D",
                    help="Comma-separated variants to run: A,B,C,D")
     p.add_argument("--configuration", type=str, default="crafty")
-    p.add_argument("--extra_clingo_args", type=str, default="",
-                   help="Comma-separated extra clingo flags passed to every variant "
-                        "(e.g. '--opt-strategy=usc,stratify' or "
-                        "'--opt-heuristic=1,--project=show'). "
-                        "Note: commas inside a flag value are fine — the split is on "
-                        "the first comma that starts a new flag (i.e. each flag must "
-                        "start with '-').")
+    p.add_argument("--extra_clingo_args", nargs=argparse.REMAINDER, default=[],
+                   help="Extra clingo flags appended verbatim to every variant. "
+                        "Must be the LAST argument on the command line. "
+                        "Example: --extra_clingo_args --opt-strategy=usc,stratify --opt-heuristic=1")
     args = p.parse_args()
 
     subject_indices = [int(x.strip()) for x in args.subject_idx.split(",")]
     variants = [v.strip().upper() for v in args.variants.split(",")]
     gt_density_override = args.gt_density
 
-    # Parse extra clingo args: split on ',--' so that flag values containing
-    # commas (e.g. --opt-strategy=usc,stratify) are kept intact.
-    extra_clingo_args = []
-    if args.extra_clingo_args.strip():
-        raw = args.extra_clingo_args.strip()
-        # Re-join on split boundary: ",--" → split, restore "--" prefix
-        parts = raw.split(",--")
-        for i, part in enumerate(parts):
-            flag = part if i == 0 else "--" + part
-            extra_clingo_args.append(flag.strip())
+    extra_clingo_args = args.extra_clingo_args  # already a list from REMAINDER
 
     print("=" * 72, flush=True)
     print("DENSITY ENCODING BENCHMARK", flush=True)
