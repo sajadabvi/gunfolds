@@ -221,19 +221,23 @@ def _sg(obj, key, default=0):
 
 
 def run_variant(command, variant_label, pnum, capsize, optim, timeout,
-                grounding_interval, n_nodes, configuration="crafty"):
+                grounding_interval, n_nodes, configuration="crafty",
+                extra_clingo_args=None):
     clingo_args = [
         "--warn=no-atom-undefined",
         f"--configuration={configuration}",
         "-t", f"{int(pnum)},split",
         "-n", str(capsize),
     ]
+    if extra_clingo_args:
+        clingo_args.extend(extra_clingo_args)
 
     print(f"\n{'#'*70}", flush=True)
     print(f"  VARIANT: {variant_label}", flush=True)
     print(f"{'#'*70}", flush=True)
     print(f"  optim={optim}  capsize={capsize}  threads={pnum}  "
-          f"timeout={timeout if timeout else 'none'}", flush=True)
+          f"timeout={timeout if timeout else 'none'}  "
+          f"extra={extra_clingo_args or []}", flush=True)
 
     ctrl = clngo.Control(clingo_args)
     ctrl.configuration.solve.opt_mode = optim
@@ -402,11 +406,29 @@ def main():
     p.add_argument("--variants", type=str, default="A,C,D",
                    help="Comma-separated variants to run: A,B,C,D")
     p.add_argument("--configuration", type=str, default="crafty")
+    p.add_argument("--extra_clingo_args", type=str, default="",
+                   help="Comma-separated extra clingo flags passed to every variant "
+                        "(e.g. '--opt-strategy=usc,stratify' or "
+                        "'--opt-heuristic=1,--project=show'). "
+                        "Note: commas inside a flag value are fine — the split is on "
+                        "the first comma that starts a new flag (i.e. each flag must "
+                        "start with '-').")
     args = p.parse_args()
 
     subject_indices = [int(x.strip()) for x in args.subject_idx.split(",")]
     variants = [v.strip().upper() for v in args.variants.split(",")]
     gt_density_override = args.gt_density
+
+    # Parse extra clingo args: split on ',--' so that flag values containing
+    # commas (e.g. --opt-strategy=usc,stratify) are kept intact.
+    extra_clingo_args = []
+    if args.extra_clingo_args.strip():
+        raw = args.extra_clingo_args.strip()
+        # Re-join on split boundary: ",--" → split, restore "--" prefix
+        parts = raw.split(",--")
+        for i, part in enumerate(parts):
+            flag = part if i == 0 else "--" + part
+            extra_clingo_args.append(flag.strip())
 
     print("=" * 72, flush=True)
     print("DENSITY ENCODING BENCHMARK", flush=True)
@@ -421,6 +443,7 @@ def main():
     print(f"  Timeout/var:    {args.timeout}s" if args.timeout else
           f"  Timeout/var:    none", flush=True)
     print(f"  Configuration:  {args.configuration}", flush=True)
+    print(f"  Extra clingo:   {extra_clingo_args or '(none)'}", flush=True)
     print("=" * 72, flush=True)
 
     VARIANT_DESCRIPTIONS = {
@@ -546,6 +569,7 @@ def main():
                 grounding_interval=args.grounding_interval,
                 n_nodes=n_nodes,
                 configuration=args.configuration,
+                extra_clingo_args=extra_clingo_args or None,
             )
             result["subject"] = s_idx
             result["variant_key"] = v
