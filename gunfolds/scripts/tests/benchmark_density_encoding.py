@@ -575,7 +575,7 @@ def main():
             dm=[DD], bdm=[BD], edge_weights=priority,
             GT_density=None,
             density_mode='none',
-            selfloop=False,
+            selfloop=None,
         )
         print(f"  Base ASP program (no density): {len(base_command):,} bytes",
               flush=True)
