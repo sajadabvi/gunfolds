@@ -3,6 +3,40 @@
 Short summaries of code and documentation changes made via Cursor AI sessions.
 
 
+## 2026-04-27  (branch: `fix-weak-constraint-dedup`)
+
+### Density encoding: hard cardinality window, adaptive ladder, asymmetric tolerance — production default
+
+Three composable changes turning the soft-only density penalty into a robust per-subject hard window with downward bias.
+
+**Hard cardinality window + lex priorities (`drasl_command`).** New `density_mode` parameter selects among `'soft'` (legacy A), `'hard'` (B), `'hard_soft0'` (C, hard bounds + density at `@0`), `'hard_soft1'` (D, hard bounds + density at `@1`), `'none'` (no density encoding), and `'adaptive'` (production default). Variant C lex-separates edge matching at `@1` from density tiebreaker at `@0` — keeps Bayesian framing (likelihood vs prior) and lets clasp prove `@1` optimality on a clean weighted-MaxSAT objective before exercising the prior.
+
+**Adaptive escalation ladder (`drasl`, new default `density_mode='adaptive'`).** Three-step fallback: (E.1) `hard_soft0` with tight tolerance → (E.2) `hard_soft0` with widened tolerance (`+tol_widen` on both sides) → (E.3) `soft` (legacy unbounded). Each attempt is a fresh `clingo()` invocation; ladder advances only on UNSAT (empty result). Verbose progress lines `[drasl] adaptive attempt N: SUCCESS / UNSAT — falling back`.
+
+**Per-subject GT_density auto-derivation.** `_compute_directed_density_pct(g)` derives GT from `glist[0]` when caller passes `GT_density=None`, replacing the fixed-population value (35 for N=10) that excluded ~40 % of subjects' optimal regions.
+
+**Asymmetric tolerance defaults.** `tol_low=15`, `tol_high=5`. PCMCI's measurement density systematically overestimates causal density (every length-`u` walk becomes an observed edge), so the prior should be wider downward than upward. Legacy symmetric `tol` still works as an override when not `None`.
+
+**Benchmark result (N=10, FBIRN subjects 0–9, 500 s timeout).** Adaptive E with asymmetric `[-15 %, +5 %]` reduced primary cost on **every** subject vs the legacy A baseline (17–70 %, median ≈ 47 %). Mean solve time 90.5 s vs 189.9 s (2.10× faster). 9/10 subjects converge within 500 s vs 7/10 for A. All 10 subjects succeed on E.1; no fallback needed. See `gunfolds/scripts/papers/clingo_drasl_encoding_improvements.md` for the full writeup and per-subject tables.
+
+**Files:** `gunfolds/solvers/clingo_rasl.py` (signature: `drasl(..., density_mode='adaptive', tol=None, tol_low=15, tol_high=5, tol_widen=10, verbose=True)`), `gunfolds/scripts/tests/benchmark_density_encoding.py` (variants `E,A,C,D` benchmark with `--tol_low`/`--tol_high`/`--tol_widen`/`--extra_clingo_args`).
+
+
+---
+
+## 2026-04-24  (branch: `fix-weak-constraint-dedup`)
+
+### Weak-constraint term-tuple dedup fix + density encoding fix (`gunfolds/solvers/clingo_rasl.py`)
+
+**Dedup fix.** Clingo counts cost elements with identical `(weight, priority, tuple)` only once. The four weak constraints all shared tuple `[W@P, X, Y]`, so directed- and bidirected-mismatch penalties at the same `(X,Y)` with the same weight would silently cancel. Fix: appended a type tag `(K, 1..4)` to each tuple. For N=10/FBIRN subject 0: 5 colliding pairs, 79 hidden cost units.
+
+**Density encoding fix (Option B).** Old code used `1000*X/Y` for density but `d = GT_density` in the 0–100 convention — a 10× mismatch making `abs_diff` never close to zero. Also `[Diff@priority]` used density as a priority level, not a weight multiplier. New encoding: `50*X/Y` (50 bins, 2%/bin), `d = GT_density // 2`, cost `[Diff*density_weight@1]` with `density_weight=50` (new param on `drasl_command` / `drasl`). One density-bin error (cost 50) now outweighs one edge mismatch (max 20).
+
+**Benchmark result (N=10, subject 0):** optimal cost unchanged (373), solve time 266 s → 225 s (1.18×). See `gunfolds/scripts/tests/benchmark_dedup_fix.py`.
+
+
+---
+
 ## 2026-04-13
 
 ### Clingo / clasp: solver-flag benchmark and paper note
@@ -48,9 +82,11 @@ Short summaries of code and documentation changes made via Cursor AI sessions.
 - **Paper note:** `gunfolds/scripts/papers/exp4_n20_pcmci_hyperparam_results.md` — methodology, top configs by composite score (0.6×Jaccard + 0.4×proximity to 22% density), recommendation **`pcmci_tau1_a0.05_fdrnone`** (~23% mean density, composite 0.474), comparison to PCMCIplus, runtimes, and `fmri_experiment_large.py` CLI mapping.
 - **Cluster:** `slurm_fmri_large.sh` updated for qTRDGPU, 2-day wall time, 160G / 15 CPUs, default N=20 RASL with Exp4 PCMCI seed + `fixed` GT density **22** (×100 scale; `--array=0-309%50` documented).
 
+
 ---
 
 ## 2026-04-10
+
 
 ### PCMCI hyperparameter audit, Glag2CG bug fix, and codebase unification
 
@@ -60,7 +96,7 @@ Fixed reversed edge directions in canonical `cv.Glag2CG` (incorrect `np.transpos
 
 ### N-specific default `GT_density` for RASL fixed mode
 
-- **`fmri_experiment_large.py`:** `--gt_density` now defaults to (`fixed`). Under `--gt_density_mode fixed`, the effective density is **350** (N=10), **215** (N=20), or **125** (N=53) when `--gt_density` is not passed — midpoints of the ranges in `gunfolds/scripts/papers/ground_truth_connectivity_estimates.md` §7. Explicit `--gt_density` still clamps to 0–1000. Saved `result.zkl` / `run_params.zkl` include effective `gt_density` and optional `gt_density_explicit` (CLI value, or `None` if the default was used).
+- **`fmri_experiment_large.py`:** `--gt_density` now defaults to omitted (`None`). Under `--gt_density_mode fixed`, the effective density is **350** (N=10), **215** (N=20), or **125** (N=53) when `--gt_density` is not passed — midpoints of the ranges in `gunfolds/scripts/papers/ground_truth_connectivity_estimates.md` §7. Explicit `--gt_density` still clamps to 0–1000. Saved `result.zkl` / `run_params.zkl` include effective `gt_density` and optional `gt_density_explicit` (CLI value, or `None` if the default was used).
 - **`slurm_fmri_large.sh`**, **`submit_fmri_experiment.sh`**, **`submit_fmri_experiment_partial.sh`:** For `fixed` mode, the optional numeric argument is only forwarded when set, so jobs can rely on the Python N-based defaults.
 - **`Past_chat/fmri_experiment_large_handoff.md`:** Documented the mapping and cluster behavior.
 

@@ -114,28 +114,39 @@ drasl_program += """
 
 def weighted_drasl_program(directed, bidirected, no_directed, no_bidirected):
     """
-    Generates the optimization portion of the ASP program.
+    Adjusts the optimization code based on the directed and bidirected priority
 
-    All weak constraints use a single priority level (@1) so that density
-    and edge-match costs are combined into one sum.  The ``directed``,
-    ``bidirected``, ``no_directed``, and ``no_bidirected`` parameters are
-    kept for API compatibility but are no longer used as priority levels.
-    Relative importance is controlled entirely through the weight
-    magnitudes in the DD/BD matrices and the density multiplier passed to
-    ``drasl_command`` via ``density_weight``.
+    :param directed: priority of directed edges in optimization
+    :type directed: integer
+
+    :param bidirected: priority of bidirected edges in optimization
+        graph
+    :type bidirected: integer
+
+    :returns: optimization part of the ``clingo`` code
+    :rtype: string
     """
-    return """
+    # The term tuple appended to each weak constraint is the dedup key:
+    # clingo counts two ground instances as the same cost element when their
+    # (weight, priority, tuple) triple is identical, and only adds the weight
+    # once.  Without a type tag, a directed-mismatch penalty at (X,Y) with the
+    # same weight as a co-firing bidirected penalty at the same (X,Y) would be
+    # silently dropped.  The trailing constant (1..4) makes every source
+    # distinct.  K disambiguates across multi-subject inputs.
+    t = Template("""
     {edge1(X,Y)} :- node(X), node(Y).
     directed(X, Y, 1) :- edge1(X, Y).
     directed(X, Y, L) :- directed(X, Z, L-1), edge1(Z, Y), L <= U, u(U, _).
     bidirected(X, Y, U) :- directed(Z, X, L), directed(Z, Y, L), node(X;Y;Z), X < Y, L < U, u(U, _).
 
-    :~ directed(X, Y, L), no_hdirected(X, Y, W, K), node(X;Y), u(L, K). [W@1,X,Y]
-    :~ bidirected(X, Y, L), no_hbidirected(X, Y, W, K), node(X;Y), u(L, K), X < Y. [W@1,X,Y]
-    :~ not directed(X, Y, L), hdirected(X, Y, W, K), node(X;Y), u(L, K). [W@1,X,Y]
-    :~ not bidirected(X, Y, L), hbidirected(X, Y, W, K), node(X;Y), u(L, K), X < Y. [W@1,X,Y]
+    :~ directed(X, Y, L),    no_hdirected(X, Y, W, K),   node(X;Y), u(L, K).         [W@$directed,X,Y,K,1]
+    :~ bidirected(X, Y, L),  no_hbidirected(X, Y, W, K), node(X;Y), u(L, K), X < Y.  [W@$bidirected,X,Y,K,2]
+    :~ not directed(X, Y, L),   hdirected(X, Y, W, K),   node(X;Y), u(L, K).         [W@$no_directed,X,Y,K,3]
+    :~ not bidirected(X, Y, L), hbidirected(X, Y, W, K), node(X;Y), u(L, K), X < Y.  [W@$no_bidirected,X,Y,K,4]
 
-    """
+    """)
+
+    return t.substitute(directed=directed, bidirected=bidirected,no_directed=no_directed,no_bidirected=no_bidirected)
 
 
 def rate(u, uname='u'):
@@ -242,7 +253,21 @@ def glist2str(g_list, weighted=False, dm=None, bdm=None):
     return s
 
 
-def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=None, dm=None, bdm=None, edge_weights=[1, 1, 1, 1, 1],GT_density=None,selfloop= False, density_weight=50):
+def _compute_directed_density_pct(g):
+    """
+    Compute the directed-edge density of a gunfolds graph as an integer
+    percentage (0-100).  Counts every (i, j) with g[i][j] in {1, 3} and
+    divides by N² (matches the ASP-side ``hypoth_density`` definition,
+    which counts ``edge1`` over ``n*n``).
+    """
+    n = len(g)
+    if n == 0:
+        return 0
+    n_dir = sum(1 for src in g for tgt, val in g[src].items() if val in (1, 3))
+    return int(round(100.0 * n_dir / (n * n)))
+
+
+def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=None, dm=None, bdm=None, edge_weights=[1, 1, 1, 1, 1], GT_density=None, selfloop=False, density_weight=50, density_mode='soft', tol=5, tol_low=None, tol_high=None):
     """
     Given a list of graphs generates ``clingo`` codes
 
@@ -274,21 +299,48 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
         weights for bidirected edges of each input n-node graph
     :type bdm: list of numpy arrays
 
-    :param edge_weights: a tuple of 5 values kept for API
-        compatibility.  Previously controlled per-constraint priority
-        levels; now all constraints share ``@1`` and relative
-        importance comes from weight magnitudes and ``density_weight``.
-    :type edge_weights: list of integers
+    :param edge_weights: priority levels for the four weak constraint types
+        (directed false-positive, bidirected false-positive,
+        directed false-negative, bidirected false-negative).  Index 4,
+        if present, is ignored (density is controlled by ``density_weight``).
+    :type edge_weights: list of integers (length 4 or 5)
 
     :param GT_density: desired density of the ground truth at causal
-        time-scale, multiplied by 100 (density × 100)
+        time-scale, expressed as density × 100 (e.g. 35 means 35 %).
+        Internally quantised to 50 two-percent bins so that ``d``
+        inside the ASP program equals ``GT_density // 2``.
     :type GT_density: integer
 
-    :param density_weight: multiplicative scaling applied to the
-        density deviation before it enters the single-level cost.
-        Higher values make density more important relative to edge
-        matching (default 50).
+    :param density_weight: weight per density-bin deviation in the soft
+        density constraint.  Each bin is 2 percentage points.  A value of
+        50 means one bin of density error costs 50, making density more
+        important than a single edge mismatch (MAXCOST = 20).
     :type density_weight: integer
+
+    :param density_mode: how to encode the density target.  One of
+        ``'soft'`` (legacy), ``'hard'``, ``'hard_soft0'``,
+        ``'hard_soft1'``, or ``'none'``.  See :func:`drasl` for the
+        full description (``'adaptive'`` is handled at the ``drasl``
+        level and should not be passed here directly).
+    :type density_mode: string
+
+    :param tol: symmetric density tolerance (in percentage points) for
+        the hard cardinality bounds (used by all ``'hard*'`` modes).
+        When ``tol_low`` or ``tol_high`` is supplied separately, it
+        overrides ``tol`` in that direction.
+    :type tol: integer
+
+    :param tol_low: downward tolerance in percentage points
+        (``d_lo = (GT − tol_low) · N² / 100``).  If ``None`` the
+        symmetric ``tol`` is used.  PCMCI density tends to overestimate
+        the causal-scale density, so the production default uses a
+        wider downward tolerance than upward.
+    :type tol_low: integer or None
+
+    :param tol_high: upward tolerance in percentage points
+        (``d_hi = (GT + tol_high) · N² / 100``).  If ``None`` the
+        symmetric ``tol`` is used.
+    :type tol_high: integer or None
 
     :returns: clingo code as a string
     :rtype: string
@@ -299,19 +351,74 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
         bdm = [nd.astype('int') for nd in bdm]
 
     assert len({len(g) for g in g_list}) == 1, "Input graphs have variable number of nodes!"
-    # assert len({len(g) for g2 in g_list for g in g2}) == 1, "Input graphs have variable number of nodes!"
 
     if not max_urate:
         max_urate = 1+3*len(g_list[0])
     n = len(g_list)
     command = clingo_preamble(g_list[0])
-    if GT_density is not None:
-        command += f"#const d = {GT_density}. "
+
+    # Per-subject GT_density auto-computation.  When the caller does not
+    # supply GT_density explicitly we derive it from the directed-edge
+    # density of the first input graph, treating PCMCI's measurement
+    # density as the prior on the causal-scale density.  This avoids the
+    # population-level mismatch where a fixed GT_density excludes the
+    # actual optimal region for sparse subjects.
+    if GT_density is None and density_mode != 'none':
+        GT_density = _compute_directed_density_pct(g_list[0])
+
+    if density_mode not in ('soft', 'hard', 'hard_soft0', 'hard_soft1', 'none'):
+        raise ValueError(
+            f"density_mode must be one of "
+            f"'soft', 'hard', 'hard_soft0', 'hard_soft1', 'none'; "
+            f"got {density_mode!r}"
+        )
+
+    if GT_density is not None and density_mode != 'none':
+        # Asymmetric tolerance.  ``tol_low`` and ``tol_high`` (when provided)
+        # specify the downward / upward percentage-point relaxation around
+        # GT_density.  Falling back to the symmetric ``tol`` preserves
+        # backward compatibility with callers that did not split the bound.
+        # Asymmetric defaults make sense because PCMCI's measurement-graph
+        # density systematically *overestimates* the causal-scale density
+        # (every length-u path becomes an observed edge), so a wider
+        # downward window is the right prior.
+        eff_tol_low  = tol if tol_low  is None else tol_low
+        eff_tol_high = tol if tol_high is None else tol_high
+
+        # Convert GT_density (density × 100) to 50-level bin index (each bin = 2 %).
+        # e.g. GT_density=35 → d=17  (17 bins × 2 % = 34 %, nearest even percent)
+        #      GT_density=22 → d=11  (11 bins × 2 % = 22 %, exact)
+        d_bins = GT_density // 2
+        n_nodes = len(g_list[0])
+        n_sq = n_nodes * n_nodes
+        d_lo_edges = max(0, int((GT_density - eff_tol_low) * n_sq / 100))
+        d_hi_edges = min(n_sq, int((GT_density + eff_tol_high) * n_sq / 100) + 1)
+
+        command += f"#const d = {d_bins}. "
         command += 'countedge1(C):- C = #count { edge1(X, Y): edge1(X, Y), node(X), node(Y)}. '
         command += 'countfull(C):- C = n*n. '
-        command += 'hypoth_density(D) :- D = 100*X/Y,  countfull(Y), countedge1(X). '
+        # Scale density to 0-50 bins (50 * edges / N²).
+        command += 'hypoth_density(D) :- D = 50*X/Y,  countfull(Y), countedge1(X). '
         command += 'abs_diff(Diff) :- hypoth_density(D), Diff = |D - d|. '
-        command += f':~ abs_diff(Diff). [Diff*{density_weight}@1] '
+
+        # Hard cardinality bounds (for any mode that uses them).
+        if density_mode in ('hard', 'hard_soft0', 'hard_soft1'):
+            command += f"#const d_lo = {d_lo_edges}. "
+            command += f"#const d_hi = {d_hi_edges}. "
+            command += ":- countedge1(K), K < d_lo. "
+            command += ":- countedge1(K), K > d_hi. "
+
+        # Soft penalty (with priority chosen by mode).
+        if density_mode == 'soft':
+            # Original behaviour: soft penalty at @1 mixed with edge cost.
+            command += f':~ abs_diff(Diff). [Diff*{density_weight}@1] '
+        elif density_mode == 'hard_soft0':
+            # Lex below edge matching: density only breaks ties.
+            command += f':~ abs_diff(Diff). [Diff*{density_weight}@0] '
+        elif density_mode == 'hard_soft1':
+            # Density still mixed with edges, but constrained to a window.
+            command += f':~ abs_diff(Diff). [Diff*{density_weight}@1] '
+        # density_mode == 'hard' adds no soft term.
     if scc:
         command += encode_list_sccs(g_list, scc_members)
         print("edit this function later to adjust")
@@ -335,8 +442,10 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
 
 
 def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False, scc_members=None, dm=None,
-          bdm=None, pnum=PNUM, GT_density= None, edge_weights=[1, 1, 1, 1, 1], configuration="crafty", optim='optN',
-          multi_individual=False, selfloop=False, density_weight=50, extra_clingo_args=None):
+          bdm=None, pnum=PNUM, GT_density=None, edge_weights=[1, 1, 1, 1, 1], configuration="crafty", optim='optN',
+          multi_individual=False, selfloop=False, density_weight=50,
+          density_mode='adaptive', tol=None, tol_low=15, tol_high=5, tol_widen=10,
+          verbose=True):
     """
     Compute all candidate causal time-scale graphs that could have
     generated all undersampled graphs at all possible undersampling
@@ -382,13 +491,65 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
     :type pnum: integer
 
     :param GT_density: desired density of the ground truth at causal
-        time-scale, multiplied by 100 (density × 100)
-    :type GT_density: integer
+        time-scale, expressed as density × 100 (e.g. 35 means 35 %).
+        Converted to 50-level bins internally (``GT_density // 2``).
+        If ``None`` (the default), GT_density is **auto-computed per
+        subject** from the directed-edge density of ``glist[0]``,
+        making the prior follow the input rather than a fixed
+        population value.
+    :type GT_density: integer or None
 
-    :param edge_weights: kept for API compatibility.  Previously
-        controlled per-constraint priority levels; now all constraints
-        share @1.
-    :type edge_weights: list of integers
+    :param density_mode: density encoding strategy.
+
+        - ``adaptive`` *(default, production)* : Try ``hard_soft0`` with
+          ``tol``, then with ``tol_widen``, then fall back to ``soft``
+          if both are UNSAT.  Combines pruning speedup with robustness
+          on subjects whose true causal density falls outside the
+          tight window.
+        - ``soft`` : single soft penalty at @1 (legacy behaviour).
+        - ``hard`` : hard cardinality bounds [GT±tol], no soft term.
+        - ``hard_soft0`` : hard bounds + soft density at @0 (lex below
+          edge matching).  Best primary-cost quality when bounds fit.
+        - ``hard_soft1`` : hard bounds + soft density at @1.  Same
+          objective shape as ``soft`` but with pruning.
+        - ``none`` : no density encoding at all (use only when caller
+          will append density code separately).
+    :type density_mode: string
+
+    :param tol: legacy symmetric tolerance override.  When not ``None``,
+        sets both ``tol_low`` and ``tol_high`` to ``tol``.  Use
+        ``tol_low``/``tol_high`` for the production asymmetric default.
+    :type tol: integer or None
+
+    :param tol_low: downward tolerance in percentage points
+        (``d_lo = (GT − tol_low) · N² / 100``).  Default ``15``: a
+        wide downward window because PCMCI's measurement density tends
+        to overestimate the causal-scale density.
+    :type tol_low: integer
+
+    :param tol_high: upward tolerance in percentage points
+        (``d_hi = (GT + tol_high) · N² / 100``).  Default ``5``: a
+        narrow upward window because the causal density is rarely
+        higher than the measurement density.
+    :type tol_high: integer
+
+    :param tol_widen: amount (in percentage points) added to *both*
+        ``tol_low`` and ``tol_high`` for the second adaptive attempt
+        before falling back to soft-only.  Default ``10``.
+    :type tol_widen: integer
+
+    :param verbose: print progress lines for each adaptive attempt.
+    :type verbose: boolean
+
+    :param edge_weights: priority levels for the four weak constraint types.
+        Index 4, if present, is ignored; density is controlled by
+        ``density_weight``.
+    :type edge_weights: list of integers (length 4 or 5)
+
+    :param density_weight: weight per density-bin deviation (each bin = 2 %).
+        Default 50 makes one bin of density error cost 50 units, which
+        dominates a single edge mismatch (MAXCOST = 20).
+    :type density_weight: integer
 
     :param configuration: Select configuration based on problem type
 
@@ -414,9 +575,6 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
         and optimize for making them similar and get a single graph output
     :type multi_individual: boolean
 
-    :param density_weight: multiplicative scaling applied to density
-        deviation in the single-level cost (default 50).
-    :type density_weight: integer
 
     :returns: results of parsed equivalent class
     :rtype: dictionary
@@ -428,12 +586,70 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
     if not isinstance(glist, list):
         glist = [glist]
 
-    return clingo(drasl_command(glist, max_urate=urate, weighted=weighted,
-                                scc=scc, scc_members=scc_members, dm=dm, bdm=bdm, edge_weights=edge_weights,
-                                GT_density=GT_density, selfloop=selfloop, density_weight=density_weight),
-                  capsize=capsize, convert=drasl_jclingo2g, configuration=configuration,
-                  timeout=timeout, exact=not weighted, pnum=pnum, optim=optim,
-                  extra_clingo_args=extra_clingo_args)
+    # Resolve per-subject GT_density once so subsequent retries with
+    # different tolerances reuse the same derived density.
+    effective_GT_density = GT_density
+    if effective_GT_density is None:
+        effective_GT_density = _compute_directed_density_pct(glist[0])
+        if verbose:
+            print(f"[drasl] auto-computed GT_density = {effective_GT_density}% "
+                  f"(from input graph density)", flush=True)
+
+    # Resolve symmetric vs. asymmetric tolerance.  ``tol`` (when not None)
+    # is the legacy symmetric override that sets both directions; passing
+    # ``tol_low`` / ``tol_high`` keeps the asymmetric defaults.
+    if tol is not None:
+        eff_tol_low  = tol
+        eff_tol_high = tol
+    else:
+        eff_tol_low  = tol_low
+        eff_tol_high = tol_high
+
+    def _run(mode, t_low, t_high):
+        cmd = drasl_command(
+            glist, max_urate=urate, weighted=weighted,
+            scc=scc, scc_members=scc_members, dm=dm, bdm=bdm,
+            edge_weights=edge_weights, GT_density=effective_GT_density,
+            selfloop=selfloop, density_weight=density_weight,
+            density_mode=mode, tol_low=t_low, tol_high=t_high,
+        )
+        return clingo(cmd, capsize=capsize, convert=drasl_jclingo2g,
+                      configuration=configuration, timeout=timeout,
+                      exact=not weighted, pnum=pnum, optim=optim)
+
+    if density_mode == 'adaptive':
+        # Production fallback ladder.  Both attempts use asymmetric tolerance
+        # (downward window wider than upward) because PCMCI's measurement
+        # density overestimates the causal-scale density.
+        # 1. hard_soft0 with (tol_low, tol_high)                     (production tight)
+        # 2. hard_soft0 with (tol_low+tol_widen, tol_high+tol_widen) (relaxed)
+        # 3. soft                                                    (no bounds)
+        attempts = [
+            ('hard_soft0', eff_tol_low,              eff_tol_high),
+            ('hard_soft0', eff_tol_low + tol_widen,  eff_tol_high + tol_widen),
+        ]
+        for attempt, (mode, t_low, t_high) in enumerate(attempts, start=1):
+            if verbose:
+                print(f"[drasl] adaptive attempt {attempt}: "
+                      f"mode={mode} tol_low=−{t_low}% tol_high=+{t_high}% "
+                      f"(GT={effective_GT_density}%)", flush=True)
+            result = _run(mode, t_low, t_high)
+            if result:
+                if verbose:
+                    print(f"[drasl] adaptive attempt {attempt}: "
+                          f"SUCCESS — {len(result)} solution(s)", flush=True)
+                return result
+            if verbose:
+                print(f"[drasl] adaptive attempt {attempt}: "
+                      f"UNSAT — falling back", flush=True)
+
+        # Final fallback: original soft-only encoding (no hard bounds at all).
+        if verbose:
+            print(f"[drasl] adaptive fallback: mode=soft (no hard bounds)",
+                  flush=True)
+        return _run('soft', eff_tol_low, eff_tol_high)
+
+    return _run(density_mode, eff_tol_low, eff_tol_high)
 
 
 def rasl(g, capsize, timeout=0, urate=0, pnum=None, configuration="tweety"):

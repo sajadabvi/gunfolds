@@ -42,7 +42,7 @@ _REAL_DATA_DIR = os.path.join(
 )
 if _REAL_DATA_DIR not in sys.path:
     sys.path.insert(0, _REAL_DATA_DIR)
-from component_config import get_comp_indices
+from gunfolds.scripts.real_data.component_config import get_comp_indices
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
