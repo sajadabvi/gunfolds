@@ -744,33 +744,70 @@ def old_g2clingo(g, file=sys.stdout):
                 print('edgeu('+str(v)+','+str(w)+').', file=file)
                 print('confu('+str(v)+','+str(w)+').', file=file)
 
-def encode_sccs(g, idx, components=True, SCCS=None):
+def encode_sccs(g, idx, components=True, SCCS=None, quotient_edges=None):
     """
-    Encodes strongly connected components of ``gunfolds`` graph to ``clingo`` predicates 
+    Encodes strongly connected components of ``gunfolds`` graph to ``clingo`` predicates.
+
+    Emits three families of facts:
+
+    - ``scc_edge(K, L, idx)`` — there is at least one edge from a node in
+      group ``K`` to a node in group ``L`` in the measured graph ``g``.  This
+      is the edge relation of the quotient graph ``G / SCCS``.
+    - ``scc(node, K)`` — node membership in group ``K`` (only when
+      ``components=True``).
+    - ``sccsize(K, Z)`` — group ``K`` has ``Z`` nodes (only when
+      ``components=True``).
+
+    .. note::
+
+       The caller is responsible for passing a partition whose quotient is
+       acyclic, OR providing the ``quotient_edges`` override.  Callers that
+       go through :func:`encode_list_sccs` get this for free — that function
+       computes an acyclic edge set via :func:`_acyclic_quotient_edges`
+       (dropping back-edges within any cyclic SCC of the quotient) and
+       passes the result via ``quotient_edges``, so the partition itself is
+       preserved.
+
+       Direct callers who omit ``quotient_edges`` and pass an arbitrary
+       partition through ``SCCS`` will produce a cyclic ``scc_edge``
+       relation via NetworkX's :func:`condensation`, which makes the SCC
+       integrity constraints in :func:`encode_list_sccs` unsound.  Either
+       supply ``quotient_edges`` or pass ``SCCS=None`` to use the true SCCs
+       of ``g``.
+
+    :param quotient_edges: optional precomputed list of ``(K, L)`` quotient
+        edges to emit as ``scc_edge(K, L, idx)``.  When ``None``, the edge
+        set is computed via :func:`condensation` (which may produce cycles
+        for arbitrary partitions — see the note above).
+    :type quotient_edges: list of (int, int) pairs, or None
 
     :param g: ``gunfolds`` graph
     :type g: dictionary (``gunfolds`` graphs)
-    
+
     :param idx: index of the graph
     :type idx: integer
-    
+
     :param components: If True, encodes SCC components and memberships to ``clingo`` predicates
     :type components: boolean
-    
-    :param SCCS: SCC membership of nodes 
+
+    :param SCCS: SCC membership of nodes (or any node partition)
     :type SCCS: list
-    
-    :returns: ``clingo`` predicates 
+
+    :returns: ``clingo`` predicates
     :rtype: string
     """
     G = graph2nx(g)
     if SCCS is None:
         SCCS = strongly_connected_components(G)
-    CG = condensation(G, scc=SCCS)
     s = ''
-    for v in CG:
-        for w in CG[v]:
-            s += 'dag(' + str(v) + ', ' + str(w) + ', ' + str(idx) + '). '
+    if quotient_edges is not None:
+        for (v, w) in quotient_edges:
+            s += 'scc_edge(' + str(v) + ', ' + str(w) + ', ' + str(idx) + '). '
+    else:
+        CG = condensation(G, scc=SCCS)
+        for v in CG:
+            for w in CG[v]:
+                s += 'scc_edge(' + str(v) + ', ' + str(w) + ', ' + str(idx) + '). '
     if not components:
         return s
     for c, component in enumerate(SCCS):
@@ -785,37 +822,224 @@ def encode_sccs(g, idx, components=True, SCCS=None):
     return s
 
 
+def _acyclic_quotient_edges(glist, partition):
+    """
+    Compute the per-graph quotient edges for ``partition`` over ``glist``,
+    with cycles broken to keep the ``scc_edge/3`` relation acyclic *without*
+    merging any classes.
+
+    Why we drop edges instead of merging classes
+    --------------------------------------------
+    The DRASL encoding's SCC integrity constraints are technically sound
+    only when ``partition`` is a coarsening of the measured graph's actual
+    SCC partition (so the quotient is a DAG by construction).  When the
+    caller supplies a partition that *splits* a real SCC across multiple
+    classes — e.g. ``--scc_strategy=domain`` grouping by NeuroMark domain,
+    where two domains routinely exchange signals in both directions — the
+    quotient gains cycles.  The mathematically clean response is to merge
+    any classes within the same quotient-SCC; the side-effect on fMRI is
+    that *every* domain pair has bidirectional evidence at PCMCI
+    alpha=0.05, so the partition collapses to a single SCC and all SCC
+    pruning is lost.
+
+    This helper takes the *opposite* trade-off: keep every input class as
+    its own SCC in the encoding, and drop only the back-edges in the
+    quotient that close cycles.  The resulting ``scc_edge/3`` relation is
+    acyclic, the constraints fire on every cross-class arrow, and per-SCC
+    decomposition (e.g. solving each class as an independent sub-problem)
+    remains meaningful.
+
+    The cost is *technical unsoundness*: a valid causal graph whose
+    cross-class arrows happen to go in a dropped (back) direction will be
+    rejected.  This is an explicit speed-vs-correctness lever.
+
+    Algorithm
+    ---------
+    1. Build the union digraph ``H`` over ``glist`` (directed edges only;
+       bidirected edges do not contribute to the quotient).
+    2. Build the quotient ``Q`` over ``H`` using ``partition``.
+    3. Find SCCs of ``Q``.  Edges between distinct SCCs of ``Q`` are
+       always one-directional (otherwise the two SCCs would be a single
+       SCC), so they are kept verbatim.  Edges within a non-trivial SCC
+       of ``Q`` are filtered: we pick a deterministic within-SCC class
+       order (sorted by class index) and keep only forward edges.
+    4. Apply the same per-class forward filter to each graph in
+       ``glist`` independently to produce the final ``(K, L, idx)``
+       triples.
+
+    :param glist: list of measured graphs (gunfolds 1-indexed dicts).
+    :param partition: list of node-id sets — one per class.
+
+    :returns: a tuple ``(triples, n_dropped)``:
+        ``triples`` is a deduplicated list of ``(K, L, idx)`` triples to
+        emit as ``scc_edge`` facts (idx is 1-based);
+        ``n_dropped`` is the number of distinct ``(K, L)`` quotient edges
+        that were dropped to break cycles (0 means the partition's
+        quotient was already a DAG).
+    """
+    H = nx.DiGraph()
+    for g in glist:
+        for u in g:
+            H.add_node(u)
+            for v in g[u]:
+                # gunfolds edge codes: 1=directed, 2=bidirected, 3=both.
+                if g[u][v] in (1, 3):
+                    H.add_edge(u, v)
+
+    node_to_class = {}
+    for idx, members in enumerate(partition):
+        for n in members:
+            node_to_class[n] = idx
+
+    # Quotient over the union — used to detect within-SCC back-edges.
+    Q = nx.DiGraph()
+    Q.add_nodes_from(range(len(partition)))
+    for u, v in H.edges():
+        ku = node_to_class.get(u)
+        kv = node_to_class.get(v)
+        if ku is None or kv is None or ku == kv:
+            continue
+        Q.add_edge(ku, kv)
+
+    # For each non-trivial SCC of Q, fix a within-SCC order so that we
+    # can drop back-edges deterministically.  Singleton SCCs of Q play no
+    # role (no internal back-edges possible).
+    class_qscc = {}
+    within_qscc_pos = {}
+    for q_idx, comp in enumerate(strongly_connected_components(Q)):
+        for pos, cls in enumerate(sorted(comp)):
+            class_qscc[cls] = q_idx
+            within_qscc_pos[cls] = pos
+
+    # Count dropped quotient edges (distinct (K, L) pairs over the union).
+    union_edges = set(Q.edges())
+    dropped_edges = {
+        (u, v) for (u, v) in union_edges
+        if class_qscc[u] == class_qscc[v]
+        and within_qscc_pos[u] >= within_qscc_pos[v]
+    }
+    n_dropped = len(dropped_edges)
+
+    # Per-graph emission: same forward filter applied to each graph's
+    # cross-class arrows.
+    triples_seen = set()
+    triples = []
+    for g_idx, g in enumerate(glist):
+        for u in g:
+            ku = node_to_class.get(u)
+            if ku is None:
+                continue
+            for v in g[u]:
+                if g[u][v] not in (1, 3):
+                    continue
+                kv = node_to_class.get(v)
+                if kv is None or ku == kv:
+                    continue
+                if class_qscc[ku] != class_qscc[kv]:
+                    # Different quotient-SCCs -> direction is fixed by the
+                    # condensation (always forward).
+                    keep = True
+                else:
+                    keep = within_qscc_pos[ku] < within_qscc_pos[kv]
+                if keep:
+                    key = (ku, kv, g_idx + 1)
+                    if key not in triples_seen:
+                        triples_seen.add(key)
+                        triples.append(key)
+    return triples, n_dropped
+
+
 def encode_list_sccs(glist, scc_members=None):
     """
-    Encodes strongly connected components of a list of ``gunfolds`` graph to ``clingo`` predicates 
+    Encodes strongly connected components of a list of ``gunfolds`` graphs to
+    ``clingo`` predicates and the three integrity constraints that use them.
 
-    :param glist: a list of graphs that are under sampled versions of
+    Predicates emitted (per graph in ``glist``):
+
+    - ``scc_edge(K, L, idx)`` — the measured graph ``idx`` has at least one
+      edge from a node in group ``K`` to a node in group ``L``.  Always
+      acyclic across all idx values.  When ``scc_members`` is supplied and
+      its quotient would be cyclic, the cycle-creating back-edges are
+      dropped via :func:`_acyclic_quotient_edges` — every input class is
+      preserved as its own SCC in the encoding, but the constraint may
+      reject some valid causal graphs whose arrows go in dropped
+      directions.  This is an explicit speed-vs-soundness trade-off: it
+      keeps the per-class pruning power that lets the SCC integrity
+      constraints below actually fire, at the cost of technical
+      unsoundness.  The alternative (merging classes within each cyclic
+      quotient-SCC) is theoretically sounder but collapses the partition
+      to one class on typical fMRI data, eliminating all pruning.
+    - ``scc(node, K)``, ``sccsize(K, Z)`` — emitted only for the first graph
+      (the partition is graph-independent).
+
+    Constraints emitted:
+
+    1. No ``edge1(X, Y)`` may cross from group ``K`` to a non-singleton group
+       ``L`` unless the measured graph witnessed at least one direct quotient
+       edge ``K -> L`` (in any idx).
+    2. No ``2``-cycle between two distinct groups at the same undersampling
+       rate (would imply they are a single SCC).
+    3. Per-undersampling version of constraint (1): a ``U``-step directed
+       path crossing into a non-singleton group must be witnessed at the
+       matching ``u(U, idx)`` in the corresponding measured graph.
+
+    :param glist: a list of graphs that are under-sampled versions of
         the same system
     :type glist: list of dictionaries (``gunfolds`` graphs)
 
-    :param scc_members: a list of dictionaries for nodes in each SCC
-    :type scc_members: list
-    
-    :returns: ``clingo`` predicates 
+    :param scc_members: a list of node-id sets describing the SCC partition
+        used to interpret ``glist``.  If ``None``, the actual strongly
+        connected components of ``glist[0]`` are computed and used.
+    :type scc_members: list of sets, or None
+
+    :returns: ``clingo`` predicates
     :rtype: string
     """
     s = ''
+    if scc_members is not None:
+        SCCS = scc_members
+        # Precompute the acyclic quotient edge set: drop back-edges in any
+        # cyclic SCC of the quotient, but keep every input class as its own
+        # SCC in the encoding (no class merging).  Trade-off: the encoding
+        # may technically reject some valid causal graphs whose cross-class
+        # arrows go in dropped directions; in exchange the SCC integrity
+        # constraints retain pruning power and per-SCC decomposition is
+        # meaningful.  See ``_acyclic_quotient_edges`` for the algorithm.
+        triples, n_dropped = _acyclic_quotient_edges(glist, SCCS)
+        if n_dropped > 0:
+            print(f"  [encode_list_sccs] supplied partition had a cyclic "
+                  f"quotient; kept all {len(SCCS)} classes and dropped "
+                  f"{n_dropped} back-edge(s) to break cycles.")
+        # Bucket triples by graph idx for per-graph emission.
+        edges_by_idx = {}
+        for (k, l, gi) in triples:
+            edges_by_idx.setdefault(gi, []).append((k, l))
+    else:
+        SCCS = None  # will be computed from glist[0] inside encode_sccs
+        edges_by_idx = None  # condensation path inside encode_sccs
+
     first_graph = True
     for i, g in enumerate(glist):
-        if first_graph:
-            if scc_members is not None:
-                SCCS = scc_members
-            else:
-                SCCS = [s for s in strongly_connected_components(graph2nx(g))]
-        s += encode_sccs(g, i+1, components=first_graph, SCCS=SCCS)
+        if first_graph and SCCS is None:
+            SCCS = [c for c in strongly_connected_components(graph2nx(g))]
+        qe = (edges_by_idx.get(i + 1, []) if edges_by_idx is not None else None)
+        s += encode_sccs(g, i + 1, components=first_graph, SCCS=SCCS,
+                         quotient_edges=qe)
         first_graph = False
-    # if the generating graph has an edge between non singleton SCCs that are
-    # not connected in any of the measured graphs - no go
-    s += ':- edge1(X,Y), scc(X,K), scc(Y,L), K != L, sccsize(L,Z), Z > 1, not dag(K,L,_). '
-    # if the produced graph has a cycle connecting 2 SCCs - no go
+    # If the generating (causal-scale) graph proposes a cross-group edge to a
+    # non-singleton group L that was *never observed* in any measured graph
+    # (i.e. no scc_edge(K,L,_) fact for any graph idx), reject. ``scc_edge``
+    # here is the existence relation on quotient edges of the measured graph
+    # — it is not required to be a DAG; see ``encode_sccs`` for the rationale.
+    s += ':- edge1(X,Y), scc(X,K), scc(Y,L), K != L, sccsize(L,Z), Z > 1, not scc_edge(K,L,_). '
+    # If the produced graph has a 2-cycle between two distinct groups at the
+    # measurement undersampling rate, reject (would imply a single SCC).
     s += ':- directed(X,Y,M), directed(Y,X,N), scc(X, K), scc(Y,L), K != L, M<=U, N<=U, M<=N, u(U,_).'
-    # if there is an edge between SCCs in the produced graph and none in the measured for nonsingleton SCCs - no go
-    s += ':- directed(X,Y,U), scc(X,K), scc(Y,L), K != L, sccsize(L,Z), Z > 1, not dag(K,L,N), u(U,N).'
+    # Same check as the first constraint but at the per-undersampling level:
+    # forbid a U-step directed path crossing into a non-singleton group L
+    # unless the corresponding measured graph (idx N) directly witnessed a
+    # K -> L quotient edge.
+    s += ':- directed(X,Y,U), scc(X,K), scc(Y,L), K != L, sccsize(L,Z), Z > 1, not scc_edge(K,L,N), u(U,N).'
     return s
 
 

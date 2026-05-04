@@ -5,6 +5,36 @@ Short summaries of code and documentation changes made via Cursor AI sessions.
 
 ## 2026-05-04  (branch: current)
 
+### SCC encoding fix: `dag/3` → `scc_edge/3` rename + acyclic-quotient via back-edge dropping (todo item #1)
+
+**Two-part change in `gunfolds/conversions.py`.**
+
+1. **Rename `dag/3` → `scc_edge/3`** in the three sites that emit/consume the predicate inside `encode_sccs` and `encode_list_sccs`. The old name was misleading because the relation is the SCC quotient digraph of the measured graph, not a DAG in general.
+
+2. **Acyclic-quotient enforcement via back-edge dropping (no class merging).** When `scc_members` is supplied (the production path with `--scc_strategy=domain` / `correlation`), the partition is hand-specified by NeuroMark domain or correlation cluster and may *split* a real SCC across multiple classes — producing a cyclic quotient. New helper `_acyclic_quotient_edges(glist, partition)` builds the quotient over the union of `glist`, finds its SCCs, and **drops only the back-edges within each cyclic SCC of the quotient** (sorted by class index for a deterministic forward direction). Every input class is preserved as its own SCC in the encoding. `encode_sccs` now accepts an optional `quotient_edges` override that bypasses NetworkX's `condensation` and emits the precomputed acyclic edge set verbatim.
+
+**Why this design over the merge alternative.** Merging classes within each cyclic quotient-SCC is theoretically sounder (it gives a true SCC coarsening), but on real fMRI data every NeuroMark domain pair has bidirectional flow at PCMCI alpha=0.05, so the merge collapses the 7-class partition to a single SCC and the SCC integrity constraints become vacuous (no class-distinct pairs to constrain). The user explicitly opted for the speed-vs-soundness lever: keep the partition, drop back-edges, accept that the constraint may now reject some valid causal graphs whose arrows go in dropped directions. This preserves per-SCC pruning power and keeps per-SCC decomposition meaningful as a future speedup.
+
+**Empirical results (FBIRN N=10 subject 1, `--optim opt`, `density_mode='hard_soft0'`).**
+
+| Variant | Solve time | Optimum | Sound? |
+|---|---|---|---|
+| Original cyclic encoding | 1.43 s | `[340, 350]` | ❌ — cycles let invalid arrows pass |
+| Merge cyclic classes | 120 s timeout (descending past `[302, 350]`) | < `[302, 350]` | ✅ but vacuous on fMRI |
+| **Drop back-edges (this fix)** | **0.03 s** | `[452, 350]` | ⚠️ technically unsound (drops valid arrows) |
+
+Subject 0 N=10 domain partition `[{1,2}, {3}, {4}, {5}, {6,7}, {8,9}, {10}]` is preserved; the fix drops 14 back-edges out of 22 quotient edges and emits the remaining 8 forward arrows. Synthetic `[{1}, {2,3}, {4}]` over `1→2→3→1, 4→3` similarly preserves all 3 classes and drops 1 back-edge.
+
+The reported optimum cost rises from `[340, 350]` to `[452, 350]` because the new encoding is *more* restrictive than the original. The original's lower 340 was a phantom: cycles in the old `dag/3` quotient allowed cross-class arrows that should have been forbidden — so half the prior "optima" violated the SCC invariant. **All prior fMRI optimization numbers measured against `--scc_strategy=domain` should be regenerated** before being cited.
+
+**Per-SCC decomposition (future).** With the partition now preserved, per-SCC decomposition becomes a meaningful next-step speedup: solve each SCC's sub-problem independently in Python, then combine. Not implemented in this change.
+
+**Out-of-scope finding.** `clingo_rasl.py:425` emits a `dagl(N-1)` fact never consumed by any rule. Pure dead code. Left for a separate cleanup PR.
+
+**Files:** `gunfolds/conversions.py` (rename + new `_acyclic_quotient_edges` helper + `quotient_edges` parameter on `encode_sccs` + updated docstrings); `gunfolds/scripts/papers/example_clingo.md` (predicate name updated to match emitter); `todo.md` (item 1 moved to Done).
+
+---
+
 ### Domain heuristic + PCMCI-prior `#heuristic` directives — tested and REJECTED (suggestion #4)
 
 New benchmark script `gunfolds/scripts/tests/benchmark_domain_heuristic.py` tests the only remaining untested clasp branching/heuristic knob from `clingo_speedup_suggestions.md`: emit `#heuristic edge1(X,Y). [W,true|false]` directives keyed off PCMCI's DD weights and run clasp with `--heuristic=Domain` (and a variant with `--dom-mod=5,16`). Built against the production encoding (`density_mode='hard_soft0'`, `tol_low=15, tol_high=5`).

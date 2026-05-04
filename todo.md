@@ -6,41 +6,6 @@ A running list of things to investigate or implement when time allows. Add to th
 
 ## Open
 
-### 1. Investigate the cycle in `dag/3` facts emitted by `encode_list_sccs`
-
-**Where:** `gunfolds/conversions.py` (the `encode_list_sccs` function) → ASP facts emitted into the base command built by `drasl_command`.
-
-**Symptom:** The `dag(K, L, gnum)` facts are supposed to encode an SCC-level DAG (the name says so), but the emitted facts contain cycles. Concrete example observed in a single-subject N=10 run:
-
-```
-dag(0, 2, 1).
-dag(2, 5, 1).
-dag(5, 0, 1).      ← closes a 3-cycle 0 → 2 → 5 → 0
-dag(0, 1, 1).
-dag(5, 1, 1).
-```
-
-If the relation is a true DAG (as the name suggests), this is a bug in `encode_list_sccs`. If it is actually a transitive-closure / reachability relation (and the name is misleading), the constraint logic in `drasl_command` that consumes it still works — but the name should change and the docstring should clarify.
-
-**Why it matters:** the constraint
-
-```clingo
-:- directed(X,Y,U), scc(X,K), scc(Y,L), K != L,
-   sccsize(L,Z), Z > 1, not dag(K,L,N), u(U,N).
-```
-
-uses `not dag(K,L,N)` as a NAF guard. If `dag` is a true DAG, this rule excludes "back-edges" relative to a topological order. If `dag` is reachability, it excludes any cross-SCC edge to a non-reachable SCC. The two semantics give different optimal graphs in some cases.
-
-**Action items:**
-
-- Read `encode_list_sccs` and confirm whether the cycle is intended.
-- If unintended → fix the function and re-benchmark on FBIRN N=10 to confirm cost numbers don't shift.
-- If intended → rename the relation (e.g. `scc_reach/3`) or at minimum add a docstring/comment in both `encode_list_sccs` and the `drasl_command` rule that consumes it.
-
-**Reference:** noticed during the N=10 / `selfloop=None` benchmark on 2026-04-28 while reviewing the base ASP command for subject 0.
-
----
-
 ### 2. Why does clingo report `choices = 0`, `conflicts = 0`, `restarts = 0` in every run?
 
 **Where:** `gunfolds/scripts/tests/benchmark_density_encoding.py` (the `_sg(...)` stats extraction in `run_variant`), and any other script that reads `ctrl.statistics["solving"]["solvers"]…`.
@@ -95,4 +60,70 @@ The current code does `_sg(solvers, 0, _sg(solvers, "0", {}))` then reads `.choi
 
 ## Done
 
-*(nothing yet)*
+### 1. Investigate the cycle in `dag/3` facts emitted by `encode_list_sccs` — **resolved 2026-05-04: rename + acyclic-quotient via back-edge dropping**
+
+**Root cause.** `encode_sccs` (in `gunfolds/conversions.py`) calls
+`networkx.algorithms.components.condensation(G, scc=SCCS)`. NetworkX's
+`condensation` requires `scc` to be a *partition* of the nodes, but does
+**not** enforce that the elements are actually strongly connected. When
+`scc_members` comes from `--scc_strategy=domain` / `correlation`, the
+partition may *split* a real SCC across multiple classes, and the
+"condensation" is a generic quotient digraph with cycles — making the SCC
+integrity constraints reject some valid cross-class arrows and accept some
+invalid ones.
+
+**Design decision: drop back-edges, keep all classes.** Two ways to make the
+quotient acyclic:
+
+1. **Merge** any classes that lie in the same SCC of the quotient
+   (theoretically sound; restores a true SCC coarsening).
+2. **Drop back-edges** within each cyclic SCC of the quotient (technically
+   unsound — may reject valid arrows in dropped directions — but preserves
+   the user's intended class granularity).
+
+Approach (1) collapses the 7-class NeuroMark domain partition to a single
+SCC on real fMRI data because every domain pair has bidirectional flow at
+PCMCI alpha=0.05; the constraint then becomes vacuous and all SCC pruning
+power is lost. The user explicitly chose approach (2) to preserve per-class
+pruning and keep per-SCC decomposition meaningful as a future speedup.
+
+**Fix applied.**
+
+1. Renamed predicate `dag/3` → `scc_edge/3` (3 sites in
+   `gunfolds/conversions.py`).
+2. Added new helper `_acyclic_quotient_edges(glist, partition)` — builds
+   the quotient over the union of `glist`, finds its SCCs, picks a
+   deterministic within-SCC class order (sorted by class index), and
+   filters edges so only forward arrows survive. Returns
+   `(triples, n_dropped)`.
+3. Added a `quotient_edges` override parameter to `encode_sccs` so callers
+   can bypass `condensation` and emit a precomputed acyclic edge set.
+4. `encode_list_sccs` now precomputes the acyclic edges via the helper and
+   passes per-graph slices to `encode_sccs`; prints a one-line stdout
+   report when back-edges are actually dropped.
+5. Docstrings updated on all three functions.
+6. `gunfolds/scripts/papers/example_clingo.md` updated to match the
+   emitter.
+
+**Empirical verification.**
+
+| Test | Input | Output |
+|---|---|---|
+| Synthetic | partition `[{1}, {2,3}, {4}]` over `1→2, 2→3, 3→1, 4→3` | preserved 3 classes; dropped 1 back-edge; `scc_edge` acyclic |
+| Real fMRI subject 0 N=10 | domain partition `[{1,2}, {3}, {4}, {5}, {6,7}, {8,9}, {10}]` | preserved 7 classes; dropped 14 back-edges; 8 forward `scc_edge` facts; acyclic |
+| Real fMRI subject 1 N=10 baseline | `--optim opt` | **0.03 s** to optimum `[452, 350]` (was 1.43 s for `[340, 350]` under unsound cyclic encoding) |
+
+The new optimum (452) is *higher* than the prior 340 because the new
+encoding is more restrictive: cycles in the old quotient allowed cross-class
+arrows that should have been forbidden, so the prior 340 was a phantom
+optimum produced by an unsound encoding. **All prior fMRI optimization
+numbers measured against `--scc_strategy=domain` should be regenerated
+before being cited.**
+
+**Future work.** Per-SCC decomposition (solve each class's sub-problem
+independently in Python, then combine) is now meaningful since the
+partition is preserved. Not implemented in this change.
+
+**Out-of-scope finding (separate cleanup):** `clingo_rasl.py:425` emits a
+`dagl(N-1)` fact that is never consumed by any rule in the project — pure
+dead code. Should be deleted in a separate change.
