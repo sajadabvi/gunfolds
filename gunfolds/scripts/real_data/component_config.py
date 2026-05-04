@@ -77,6 +77,26 @@ COMP_SET_10 = [
     49,  # CB  Cerebellum
 ]
 
+# N=14: exactly 2 per domain (7 domains × 2). Superset of COMP_SET_10,
+# subset of COMP_SET_20 — chosen so any sweep across N=10/14/20 only adds
+# components, never swaps them.
+COMP_SET_14 = [
+    # SC (2): Caudate, Thalamus  — same as N=10
+    0, 4,
+    # AU (2): STG, MTG_au        — N=10 had 1, add MTG_au from N=20
+    5, 6,
+    # SM (2): PoCG, +1 from N=20 (index 9)
+    7, 9,
+    # VI (2): CalcarineG, +1 from N=20 (index 17)
+    16, 17,
+    # CC (2): IPL, Insula        — same as N=10
+    25, 26,
+    # DM (2): ACC, PCC           — same as N=10
+    44, 45,
+    # CB (2): Cerebellum, +1 from CB pool (index 50)
+    49, 50,
+]
+
 # N=20: 2-4 per domain
 COMP_SET_20 = [
     # SC (4)
@@ -100,6 +120,7 @@ COMP_SET_53 = list(range(53))
 
 COMP_SETS = {
     10: COMP_SET_10,
+    14: COMP_SET_14,
     20: COMP_SET_20,
     53: COMP_SET_53,
 }

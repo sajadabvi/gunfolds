@@ -3,6 +3,24 @@
 Short summaries of code and documentation changes made via Cursor AI sessions.
 
 
+## 2026-05-04  (branch: current)
+
+### Domain heuristic + PCMCI-prior `#heuristic` directives — tested and REJECTED (suggestion #4)
+
+New benchmark script `gunfolds/scripts/tests/benchmark_domain_heuristic.py` tests the only remaining untested clasp branching/heuristic knob from `clingo_speedup_suggestions.md`: emit `#heuristic edge1(X,Y). [W,true|false]` directives keyed off PCMCI's DD weights and run clasp with `--heuristic=Domain` (and a variant with `--dom-mod=5,16`). Built against the production encoding (`density_mode='hard_soft0'`, `tol_low=15, tol_high=5`).
+
+**Outcome: REJECTED.** Two-N empirical sweep on subject 1:
+
+- **N=10, `--optim opt`, 600 s timeout:** all three scenarios proved the same optimum `[608]`. Baseline 1.43 s; Domain 45.54 s (0.03×, 32× slower); Domain+`dom-mod=5,16` 19.17 s (0.07×, 13× slower).
+- **N=14, `--optim opt`, 800 s timeout:** all three timed out. Baseline reached `[664, 400]`; Domain reached `[779, 350]` (17 % worse incumbent); Domain+`dom-mod=5,16` reached `[807, 350]` (21 % worse).
+
+The PCMCI prior is informative enough to land on a 7–42 % better first-feasible model but *misleading enough* over the rest of the search space to lock the solver in a sub-optimal basin it can't escape. The "Domain helps at scale" hypothesis was empirically inverted: at larger N the bigger search space offers more places for the prior to mislead.
+
+**Production recommendation:** keep clasp's default branching. PCMCI evidence is already used appropriately as *cost* in `[W@1,…]` weak-constraint terms. This rejection joins USC, `--opt-heuristic=1`, and `--project=show` — all four heuristic/objective-shaping knobs tested on this encoding have failed to give a robust speedup. The remaining speedup levers are structural (per-u splitting, weak-constraint reification).
+
+**Files:** `gunfolds/scripts/tests/benchmark_domain_heuristic.py` (new); `gunfolds/scripts/real_data/component_config.py` (new `COMP_SET_14`: 2 ICNs/domain, `N=10 ⊂ N=14 ⊂ N=20`); `gunfolds/scripts/papers/clingo_speedup_suggestions.md` (§4 marked REJECTED with results table and diagnosis); `gunfolds/scripts/papers/clingo_drasl_encoding_improvements.md` (status table updated); `gunfolds/scripts/papers/clingo_clasp_optimization_flags_benchmark.md` (new §5).
+
+
 ## 2026-04-27  (branch: `fix-weak-constraint-dedup`)
 
 ### Density encoding: hard cardinality window, adaptive ladder, asymmetric tolerance — production default
