@@ -822,7 +822,7 @@ def encode_sccs(g, idx, components=True, SCCS=None, quotient_edges=None):
     return s
 
 
-def _acyclic_quotient_edges(glist, partition):
+def _acyclic_quotient_edges(glist, partition, dm=None):
     """
     Compute the per-graph quotient edges for ``partition`` over ``glist``,
     with cycles broken to keep the ``scc_edge/3`` relation acyclic *without*
@@ -861,21 +861,55 @@ def _acyclic_quotient_edges(glist, partition):
     3. Find SCCs of ``Q``.  Edges between distinct SCCs of ``Q`` are
        always one-directional (otherwise the two SCCs would be a single
        SCC), so they are kept verbatim.  Edges within a non-trivial SCC
-       of ``Q`` are filtered: we pick a deterministic within-SCC class
-       order (sorted by class index) and keep only forward edges.
+       of ``Q`` are filtered: we pick a back-edge set for removal as
+       described below.
     4. Apply the same per-class forward filter to each graph in
        ``glist`` independently to produce the final ``(K, L, idx)``
        triples.
 
+    Back-edge selection
+    -------------------
+    Two strategies, picked at runtime based on ``dm``:
+
+    - **Weighted MFAS (preferred, ``dm`` provided).**  For each cyclic SCC
+      of ``Q``, run an exact integer-programming Minimum Feedback Arc Set
+      with edge weights derived from the PCMCI evidence.  For class pair
+      ``(K, L)`` the drop cost is
+
+      ``w(K -> L) = pos(K -> L) + neg(L -> K)``
+
+      where ``pos(K -> L)`` is the total ``hdirected`` weight of node-pair
+      arrows from class K to class L (sum of ``dm[g_idx][X-1, Y-1]`` over
+      ``X in K, Y in L`` with ``g[X][Y] in {1, 3}``), and ``neg(L -> K)``
+      is the total ``no_hdirected`` weight in the *reverse* direction
+      (sum over ``Y in L, X in K`` with ``g[Y][X] not in {1, 3}``).  This
+      uses both signals the user identified — evidence supporting the
+      arrow we'd drop and evidence against the arrow we'd keep instead —
+      and minimises the total evidence cost of the drops.  See
+      ``gunfolds/scripts/papers/scc_quotient_edge_dropping_research.md``
+      for the literature review and the rationale for this choice over
+      Bayesian-ratio alternatives (logged in ``todo.md`` for future).
+    - **Class-index ordering (fallback, ``dm`` is None).**  Sort the
+      classes within each cyclic SCC by their integer class index and
+      keep only forward edges.  Used when callers do not supply ``dm``,
+      preserving backward compatibility.
+
     :param glist: list of measured graphs (gunfolds 1-indexed dicts).
     :param partition: list of node-id sets — one per class.
+    :param dm: optional list of NxN integer matrices, one per graph in
+        ``glist``, holding the directed-edge PCMCI weights (``DD`` from
+        the standard recipe).  When provided, weighted MFAS is used to
+        pick back-edges; otherwise class-index fallback is used.
+    :type dm: list of numpy.ndarray, or None
 
-    :returns: a tuple ``(triples, n_dropped)``:
+    :returns: a tuple ``(triples, n_dropped, weight_dropped)``:
         ``triples`` is a deduplicated list of ``(K, L, idx)`` triples to
         emit as ``scc_edge`` facts (idx is 1-based);
         ``n_dropped`` is the number of distinct ``(K, L)`` quotient edges
         that were dropped to break cycles (0 means the partition's
-        quotient was already a DAG).
+        quotient was already a DAG);
+        ``weight_dropped`` is the total MFAS weight cost of the drops
+        (0 in the unweighted fallback path).
     """
     H = nx.DiGraph()
     for g in glist:
@@ -901,27 +935,92 @@ def _acyclic_quotient_edges(glist, partition):
             continue
         Q.add_edge(ku, kv)
 
-    # For each non-trivial SCC of Q, fix a within-SCC order so that we
-    # can drop back-edges deterministically.  Singleton SCCs of Q play no
-    # role (no internal back-edges possible).
+    # Identify SCCs of Q.  Singleton SCCs play no role (no internal
+    # back-edges possible).  Non-singleton SCCs are exactly the cycles
+    # we need to break.
     class_qscc = {}
-    within_qscc_pos = {}
+    qscc_members = {}
     for q_idx, comp in enumerate(strongly_connected_components(Q)):
-        for pos, cls in enumerate(sorted(comp)):
+        members = set(comp)
+        qscc_members[q_idx] = members
+        for cls in members:
             class_qscc[cls] = q_idx
-            within_qscc_pos[cls] = pos
 
-    # Count dropped quotient edges (distinct (K, L) pairs over the union).
-    union_edges = set(Q.edges())
-    dropped_edges = {
-        (u, v) for (u, v) in union_edges
-        if class_qscc[u] == class_qscc[v]
-        and within_qscc_pos[u] >= within_qscc_pos[v]
-    }
+    # Decide which back-edges to drop, using weighted MFAS when we have
+    # PCMCI weights and class-index fallback otherwise.
+    dropped_edges = set()
+    weight_dropped = 0
+
+    if dm is not None:
+        # Weighted MFAS via igraph's exact_ip.  Pre-compute pos/neg per
+        # class pair (only for pairs we may need — i.e. those inside a
+        # non-trivial SCC of Q).
+        cyclic_classes = set()
+        for q_idx, members in qscc_members.items():
+            if len(members) > 1:
+                cyclic_classes |= members
+        if cyclic_classes:
+            pos_evidence = {}  # (K, L) -> int
+            neg_evidence = {}  # (K, L) -> int
+            for K in cyclic_classes:
+                for L in cyclic_classes:
+                    if K == L:
+                        continue
+                    p, n_ev = 0, 0
+                    for g_idx, g in enumerate(glist):
+                        M = dm[g_idx]
+                        for x in partition[K]:
+                            row_x = M[x - 1]
+                            adj_x = g.get(x, {})
+                            for y in partition[L]:
+                                w = int(row_x[y - 1])
+                                if adj_x.get(y, 0) in (1, 3):
+                                    p += w
+                                else:
+                                    n_ev += w
+                    pos_evidence[(K, L)] = p
+                    neg_evidence[(K, L)] = n_ev
+
+            for q_idx, members in qscc_members.items():
+                if len(members) <= 1:
+                    continue
+                # Collect internal edges of this cyclic SCC.
+                internal = [(u, v) for u, v in Q.edges()
+                            if u in members and v in members]
+                if not internal:
+                    continue
+                # Local class indexing for the igraph subgraph.
+                cls_list = sorted(members)
+                cls_to_local = {c: i for i, c in enumerate(cls_list)}
+                local_edges = [(cls_to_local[u], cls_to_local[v])
+                               for (u, v) in internal]
+                weights = [pos_evidence[(u, v)] + neg_evidence[(v, u)]
+                           for (u, v) in internal]
+                ig_g = igraph.Graph(n=len(cls_list), edges=local_edges,
+                                    directed=True)
+                ig_g.es['weight'] = weights
+                # Exact ILP — fast at our scale (<= 7 classes per SCC).
+                fas_local = ig_g.feedback_arc_set(weights='weight',
+                                                  method='exact_ip')
+                for li in fas_local:
+                    dropped_edges.add(internal[li])
+                    weight_dropped += weights[li]
+    else:
+        # Class-index fallback: deterministic within-SCC ordering.
+        within_qscc_pos = {}
+        for members in qscc_members.values():
+            for pos, cls in enumerate(sorted(members)):
+                within_qscc_pos[cls] = pos
+        for (u, v) in Q.edges():
+            if class_qscc[u] != class_qscc[v]:
+                continue  # different SCCs -> already forward
+            if within_qscc_pos[u] >= within_qscc_pos[v]:
+                dropped_edges.add((u, v))
+
     n_dropped = len(dropped_edges)
 
-    # Per-graph emission: same forward filter applied to each graph's
-    # cross-class arrows.
+    # Per-graph emission: drop any cross-class arrow whose quotient edge
+    # is in the dropped set; emit the rest.
     triples_seen = set()
     triples = []
     for g_idx, g in enumerate(glist):
@@ -935,21 +1034,16 @@ def _acyclic_quotient_edges(glist, partition):
                 kv = node_to_class.get(v)
                 if kv is None or ku == kv:
                     continue
-                if class_qscc[ku] != class_qscc[kv]:
-                    # Different quotient-SCCs -> direction is fixed by the
-                    # condensation (always forward).
-                    keep = True
-                else:
-                    keep = within_qscc_pos[ku] < within_qscc_pos[kv]
-                if keep:
-                    key = (ku, kv, g_idx + 1)
-                    if key not in triples_seen:
-                        triples_seen.add(key)
-                        triples.append(key)
-    return triples, n_dropped
+                if (ku, kv) in dropped_edges:
+                    continue
+                key = (ku, kv, g_idx + 1)
+                if key not in triples_seen:
+                    triples_seen.add(key)
+                    triples.append(key)
+    return triples, n_dropped, weight_dropped
 
 
-def encode_list_sccs(glist, scc_members=None):
+def encode_list_sccs(glist, scc_members=None, dm=None):
     """
     Encodes strongly connected components of a list of ``gunfolds`` graphs to
     ``clingo`` predicates and the three integrity constraints that use them.
@@ -1004,12 +1098,18 @@ def encode_list_sccs(glist, scc_members=None):
         # may technically reject some valid causal graphs whose cross-class
         # arrows go in dropped directions; in exchange the SCC integrity
         # constraints retain pruning power and per-SCC decomposition is
-        # meaningful.  See ``_acyclic_quotient_edges`` for the algorithm.
-        triples, n_dropped = _acyclic_quotient_edges(glist, SCCS)
+        # meaningful.  See ``_acyclic_quotient_edges`` for the algorithm —
+        # weighted MFAS via igraph when ``dm`` is provided, class-index
+        # fallback otherwise.
+        triples, n_dropped, weight_dropped = _acyclic_quotient_edges(
+            glist, SCCS, dm=dm)
         if n_dropped > 0:
+            method = "weighted MFAS" if dm is not None else "class-index"
+            extra = (f", total evidence cost: {weight_dropped}"
+                     if dm is not None else "")
             print(f"  [encode_list_sccs] supplied partition had a cyclic "
                   f"quotient; kept all {len(SCCS)} classes and dropped "
-                  f"{n_dropped} back-edge(s) to break cycles.")
+                  f"{n_dropped} back-edge(s) via {method}{extra}.")
         # Bucket triples by graph idx for per-graph emission.
         edges_by_idx = {}
         for (k, l, gi) in triples:

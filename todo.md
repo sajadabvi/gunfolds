@@ -6,6 +6,59 @@ A running list of things to investigate or implement when time allows. Add to th
 
 ## Open
 
+### 7. Bayesian evidence-ratio weights for the SCC quotient MFAS (Option D)
+
+**Where:** `_acyclic_quotient_edges` in `gunfolds/conversions.py`. Currently uses Option C from the design discussion — additive `w(K → L) = pos(K → L) + neg(L → K)` weights with `igraph.Graph.feedback_arc_set(method='exact_ip')`.
+
+**Idea.** Replace the additive weight with a log-likelihood-ratio weight:
+
+```
+w(K → L) = log[ pos(K → L) / pos(L → K) ]
+```
+
+(or a Bayes-factor variant summed across node pairs, or a smoothed version with a small prior to handle the `pos(L → K) = 0` case).
+
+**Why it might be better.** The additive Option C treats the DD weights as additive evidence units; the Bayesian ratio treats them as log-odds. If we ever calibrate DD weights so they're closer to actual log-likelihood-ratios — e.g. by mapping `|partial_correlation_t_statistic|` to a proper p-value-derived score — then Option D becomes the principled choice and Option C becomes a heuristic surrogate.
+
+**Why it's not implemented today.** The current DD recipe `|A_norm| × MAXCOST` is a heuristic transform of partial-correlation magnitudes, not a calibrated probability. Treating these as log-odds without calibration risks distorting the MFAS objective in subtle ways (especially with the `log(0)` degenerate case requiring a small prior). The additive Option C is robust to scaling and works without calibration.
+
+**Action items.**
+
+- Calibrate DD weights against partial-correlation t-statistics (or against a held-out subject's known SCC structure). Validate that the log-ratio form yields meaningful weights.
+- Implement as a `weight_strategy` parameter on `_acyclic_quotient_edges` (`'asymmetry'` for current Option C, `'log_ratio'` for Option D).
+- A/B test on FBIRN N=10 / N=14: does Option D give lower-evidence-cost drops than Option C? Does it change the encoding's optimum cost on real subjects?
+
+**Reference:** logged in chat 2026-05-04 alongside the implementation of Option C. Detailed write-up in `gunfolds/scripts/papers/scc_quotient_edge_dropping_research.md` (local, gitignored).
+
+---
+
+### 6. Suggestion #9 — drop weight-0 `hdirected` / `no_hdirected` (and bidirected) facts at grounding time
+
+**Where:** `glist2str` (or the helper it calls) in `gunfolds/conversions.py`, and any other site that emits `hdirected/no_hdirected/hbidirected/no_hbidirected` facts based on `dm`/`bdm` matrices. Item from §9 of [`gunfolds/scripts/papers/clingo_speedup_suggestions.md`](gunfolds/scripts/papers/clingo_speedup_suggestions.md).
+
+**Idea.** A weak-constraint instance with weight 0 contributes nothing to the cost regardless of whether it's satisfied or violated, but clingo still grounds the rule and tracks it. For node pairs `(X, Y)` where PCMCI has no signal at all (both `DD[X-1, Y-1] == 0` and `BD[X-1, Y-1] == 0`), the four ground facts are dead weight that bloats the program without affecting the objective.
+
+**Conservative version (recommended first step).** Skip emission of all four families for `(X, Y, K)` whenever `dm[K][X-1, Y-1] == 0` AND `bdm[K][X-1, Y-1] == 0`. Zero risk — these facts genuinely contribute nothing.
+
+**Aggressive variants** (each progressively more aggressive, each requires measurement before adopting):
+
+- **#9-A** — also skip an *individual* family when its weight is 0, even if the other family has nonzero weight. E.g. emit only `hbidirected(...)` if `DD = 0` but `BD > 0`.
+- **#9-B** — threshold-based: skip facts with weight `< T` for some cutoff `T` (e.g. 2). Bigger savings, but starts dropping faintly informative constraints; needs a knob to tune.
+
+**Why not done today.** Mostly because we have not actually *measured* whether weight-0 facts are common in our PCMCI output. For FBIRN N=10 with `tau_max=1` and `alpha=0.05`, the DD ranges we have observed are roughly `[4, 20]` and BD `[6, 20]` — no zeros at all in the runs we have looked at. The trick may save 0% on real fMRI runs, in which case it is not worth the implementation. Synthetic / longer-tau runs may behave differently.
+
+**Note about the user's "drop both `hdirected` and `no_hdirected`" recall.** In single-graph mode, only one of `{hdirected(X, Y, W, K), no_hdirected(X, Y, W, K)}` is ever emitted per `(X, Y, K)` — picked by whether `g_estimated[X][Y]` has the directed edge. They are mutually exclusive. Suggestion #9 is *not* about that case; it's about the `DD = BD = 0` case where all four families would carry weight 0. The mutually-exclusive-pair case only arises in multi-graph DRASL where graphs disagree, which we are not currently using.
+
+**Action items.**
+
+- First, *measure*: count how often `DD == 0` AND `BD == 0` per `(X, Y)` pair in production fMRI runs. If never, do not implement.
+- If common enough to matter (say >5% of pairs), implement the conservative version: a one-line guard in `glist2str` that skips both pairs of facts when both DD and BD are 0.
+- Consider the aggressive variants only after seeing what the conservative version saves.
+
+**Reference:** logged in chat 2026-05-04. Tracking item from `clingo_speedup_suggestions.md` §9 bullet 2.
+
+---
+
 ### 5. Checkpoint + warm-restart for long clingo runs that hit timeouts
 
 **Where:** wrapper around the existing solve loop in `gunfolds/scripts/tests/benchmark_domain_heuristic.py` (and any production caller of `drasl()` that has a wall-time budget). Likely lives as a small standalone script `gunfolds/scripts/tests/clingo_with_checkpoint.py` so the checkpoint logic stays orthogonal to other benchmarks.

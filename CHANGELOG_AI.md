@@ -5,6 +5,30 @@ Short summaries of code and documentation changes made via Cursor AI sessions.
 
 ## 2026-05-04  (branch: current)
 
+### SCC quotient back-edge selection: weighted MFAS via igraph `exact_ip` (Option C)
+
+Replaces the class-index-ordering criterion in `_acyclic_quotient_edges` (introduced in `0079ca60`) with a principled minimum-weight feedback arc set (MFAS) using exact integer programming via `python-igraph`'s `Graph.feedback_arc_set(method='exact_ip')`.
+
+**Edge weight definition** (uses *all* available PCMCI signal, per the user's design ask). For each candidate cross-class arrow `K → L`:
+
+```
+w(K → L) = pos(K → L) + neg(L → K)
+```
+
+where `pos(K → L)` is the total `hdirected` weight summed across `(X ∈ K, Y ∈ L)` node pairs that PCMCI judges present, and `neg(L → K)` is the total `no_hdirected` weight summed across `(Y ∈ L, X ∈ K)` node pairs that PCMCI judges absent. The first term penalises dropping arrows that PCMCI directly supports; the second penalises drops that would force the encoding into the reverse direction, which `no_hdirected` facts contradict. The minimum-weight feedback arc set returned by igraph's exact ILP solver is the principled drop set: minimum number of edges (NP-hard in general, trivial at our 7-node quotient size) and minimum total PCMCI evidence cost.
+
+**Headline result on FBIRN N=10 subject 0** (NeuroMark domain partition → cyclic 7-class quotient with 22 internal edges): class-index fallback dropped 14 back-edges keeping 8 quotient edges; weighted MFAS drops only **5 back-edges keeping 17** (77% retention) with a total evidence cost of 142. The number of dropped edges is provably minimum at this scale; the choice of *which* 5 minimises lost PCMCI evidence.
+
+**Empirical impact on subject 1 N=10 baseline:** solve time effectively unchanged (0.04 s vs prior 0.03 s). Optimum cost descends from `[452, 350]` to `[423, 350]` — expected and correct: keeping 17 quotient edges instead of 8 gives the solver more freedom (the SCC integrity constraints fire less often), so a lower-cost graph becomes reachable. The encoding is *less* restrictive than the class-index fallback but *more principled* — it only drops the cycle-creating back-edges that are necessary, weighted by PCMCI confidence. Compared to the original cyclic encoding (which optimum was `[340, 350]`, an unsound phantom), this 423 is sound modulo the speed-vs-soundness lever already documented (we still drop *some* valid cross-class arrows; just the minimum-evidence-cost subset).
+
+**Backward compatibility.** When `dm` is not supplied to `encode_list_sccs` (legacy callers), `_acyclic_quotient_edges` falls back to the class-index ordering. `drasl_command` always has `dm` available and now passes it through.
+
+**Logged for future.** Bayesian log-likelihood-ratio weights (Option D from the design discussion) requires calibrating DD weights against actual probability scales and is captured in `todo.md` item #7. Suggestion #9 ground-reduction trick (drop weight-0 facts) is captured in `todo.md` item #6 — to measure first before implementing.
+
+**Files:** `gunfolds/conversions.py` (`_acyclic_quotient_edges` gains `dm` parameter and weighted-MFAS path; `encode_list_sccs` plumbs `dm` through; updated docstrings). `gunfolds/solvers/clingo_rasl.py` (passes `dm` to `encode_list_sccs`). `gunfolds/scripts/papers/scc_quotient_edge_dropping_research.md` (new — local-only research doc with literature review, weight-function options A–D, and the Option C derivation). `todo.md` (items 6 and 7 added).
+
+---
+
 ### SCC encoding fix: `dag/3` → `scc_edge/3` rename + acyclic-quotient via back-edge dropping (todo item #1)
 
 **Two-part change in `gunfolds/conversions.py`.**
