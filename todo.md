@@ -6,6 +6,172 @@ A running list of things to investigate or implement when time allows. Add to th
 
 ## Open
 
+### 5. Checkpoint + warm-restart for long clingo runs that hit timeouts
+
+**Where:** wrapper around the existing solve loop in `gunfolds/scripts/tests/benchmark_domain_heuristic.py` (and any production caller of `drasl()` that has a wall-time budget). Likely lives as a small standalone script `gunfolds/scripts/tests/clingo_with_checkpoint.py` so the checkpoint logic stays orthogonal to other benchmarks.
+
+**Idea.** When a clingo solve hits a timeout (or a cluster preemption), we currently throw away the best incumbent and the next attempt starts from cost ∞. The descent through high-cost models took ~50–60 s on N=14 subject 1 (out of an 800 s budget that timed out without proving optimum). Save the incumbent on every new best, and on resume start a fresh clingo session that knows the previous best as an upper bound. Standard "warm-restart" pattern from MaxSAT competition.
+
+**Two ingredients (clasp supports both natively).**
+
+1. **Cost upper bound** — pass `--opt-bound=C` (or per-priority `--opt-bound=C1,C2` for the `[edge@1, density@0]` vector). Clasp prunes any partial assignment whose lower bound exceeds it. **One scalar per priority level, no model state needed.** Always safe.
+2. **Branching seed** (optional, opt-in) — emit `#heuristic edge1(X,Y). [W,true|false]` directives derived from the incumbent atoms, run clasp with `--heuristic=Domain`. The first model in the resumed session typically lands at or near the previous incumbent in the first few decisions.
+
+The cost-bound part alone (#1) is the unambiguous win and should be the default. The branching seed (#2) is the same mechanism rejected as suggestion #4 — but used here from a *known feasible incumbent* rather than the noisy PCMCI prior, which is qualitatively different. Worth re-testing as an opt-in flag, with the awareness that it could re-introduce the "biases backtracking, hurts proof" failure mode in a different costume.
+
+**What is NOT possible.** Clasp does not serialize internal solver state — clause database, conflict trail, restart phase, VSIDS scores. Each new `Control()` is a fresh search. "Resume from checkpoint" really means "warm-start hint to a fresh search," not "pick up where you left off." This means the proof-phase budget after warm restart is a fresh budget (not cumulative). The win is purely on the descent: skip the time spent finding any model worse than the incumbent.
+
+**Hard guard rails.**
+
+- **Never include the incumbent's edges as hard constraints** (`:- not edge1(X,Y).` for each true edge). If the true optimum requires removing one of those edges, you have made it unreachable and silently sub-optimal. Hard-pinning is a tempting shortcut and breaks soundness — only use the soft Domain heuristic.
+- The cost bound must be passed correctly for the *full* priority vector. Passing `--opt-bound=778` when the cost is `[778, 350]` is ambiguous and may be interpreted as a single-priority bound. Always pass the comma-separated form matching the vector length.
+- Atomic checkpoint writes (write to `checkpoint.json.tmp`, then `os.replace`) so a SIGTERM mid-write doesn't corrupt the file.
+
+**Design sketch.**
+
+```
+class CheckpointWriter:
+    def __init__(self, path):
+        self.path = path
+        self.best_cost = None
+    def maybe_save(self, cost, atoms):
+        if self.best_cost is None or cost < self.best_cost:
+            tmp = self.path + ".tmp"
+            with open(tmp, "w") as f:
+                json.dump({"cost": list(cost), "atoms": atoms,
+                           "ts": time.time()}, f)
+            os.replace(tmp, self.path)
+            self.best_cost = cost
+
+# In the solve loop:
+ckpt = CheckpointWriter(args.checkpoint_path)
+for model in handle:
+    cost = list(model.cost)
+    atoms = [str(a) for a in model.symbols(shown=True)]
+    ckpt.maybe_save(cost, atoms)
+
+# On resume:
+def resume_args(checkpoint_path, with_heuristic_seed=False):
+    data = json.load(open(checkpoint_path))
+    cost = data["cost"]
+    bound = ",".join(str(c - 1) for c in cost)   # strict improvement
+    extra = [f"--opt-bound={bound}"]
+    program_addendum = ""
+    if with_heuristic_seed:
+        extra.append("--heuristic=Domain")
+        true_edges = parse_edge1_atoms(data["atoms"])
+        program_addendum = build_heuristic_block_from_incumbent(
+            true_edges, n_nodes)
+    return extra, program_addendum
+```
+
+**CLI flags to add to a new `clingo_with_checkpoint.py`.**
+
+- `--checkpoint_path PATH` (default `<output_dir>/checkpoint.json`)
+- `--resume_from PATH` — read cost + atoms, set `--opt-bound`, optionally seed.
+- `--warm_seed_from_checkpoint` (flag, default off) — also emit Domain-heuristic seed from the incumbent atoms.
+- `--auto_resume_chain N` — run N consecutive sessions of `--timeout` each, automatically chaining checkpoint between them. Useful for cluster jobs with strict per-job time limits.
+
+**Open design questions to resolve when implementing.**
+
+- **Per-priority bound semantics.** `--opt-bound=778,349` enforces strict improvement on edge cost AND on density. Sometimes desirable (force progress on both axes), sometimes not (we want to keep density and just improve edge cost). Reasonable default: pass the bound from the previous best with `-1` only on the highest priority (`@1`), keep `@0` at the previous value (allow same density). Worth measuring both.
+- **Where to store checkpoints in production.** Same directory as benchmark logs is fine for one-off experiments. For SLURM jobs, the SCRATCH dir convention. Should match whatever pattern existing `fmri_experiment_large.py` already uses.
+- **Should `drasl()` itself learn to write checkpoints, or only the orchestration layer?** Lean toward orchestration only — `drasl_command` should stay a pure encoding builder, and checkpointing is solver-loop concern.
+
+**Action items.**
+
+1. Implement cost-bound-only first as a standalone script. Measure on N=14 subject 1: does a 200 s session followed by a 200 s warm-resume reach a better incumbent than a single 400 s fresh session?
+2. If (1) shows a win, add the optional Domain-heuristic seed as a flag. A/B test whether seeding helps further or re-introduces the suggestion #4 failure pattern.
+3. If both win, integrate with the SLURM job scripts so cluster preemption automatically chains checkpoints.
+
+**Reference:** raised in chat 2026-05-04 after the GPU-acceleration discussion.
+
+---
+
+### 4. GPU acceleration of the clingo optimization — revisit when GPU SAT/MaxSAT tooling matures
+
+**Where:** the clingo solving step inside `drasl()` / `drasl_command` (currently parallelised via clasp's `-t N,split` or `-t N,compete` across CPU threads).
+
+**Question.** Today clingo runs on CPUs. A single subject at N=14 already pegs ~10 cores for tens of seconds with diminishing returns past ~16 threads. Could we plug in a GPU somewhere to get the kind of 10–100× wall-time win that GPUs deliver for, e.g., neural network training?
+
+**Current assessment (2026-05-04): no clear path with present-day tooling, revisit later.**
+
+The hot loop inside clasp is CDCL — Conflict-Driven Clause Learning. Each step is: pick a branching variable, propagate via watched literals (pointer-chasing through linked lists), on conflict analyse and learn a clause, backtrack to the right level, repeat. Per-step work is tiny, memory access is highly irregular, and every step depends on the previous one. The `-t N,split` / `compete` modes are *coarse-grained* parallelism: each thread runs an independent CDCL solver and they share learned clauses. They do not parallelise the per-step work.
+
+GPUs need (a) regular memory access, (b) high arithmetic intensity, (c) the same operation over millions of elements. CDCL is the opposite on all three axes. Branch divergence inside a warp would be near-total. A small academic literature exists on GPU SAT solvers (e.g. *clauSPaR*, *ParaFROST-GPU*); they generally lose to a single modern CPU solver on industrial benchmarks. Running 10 000 GPU-resident solvers in portfolio mode tends to net out as 10 000 solvers each at 1/1000th of CPU speed.
+
+**What this argument does NOT cover (and why it's worth revisiting later).**
+
+- The argument applies to *complete* CDCL/Branch-and-Bound. *Incomplete* GPU MaxSAT solvers based on parallel local search (simulated annealing, parallel tempering) are an active research area and could in principle scale. They would not produce optimality proofs but might match clingo's "best feasible" within seconds.
+- NVIDIA's *cuOpt* (GPU-accelerated optimisation, currently focused on routing/ILP) keeps adding solver families. If they ever add weighted MaxSAT or pseudo-boolean optimisation, plugging it in becomes worth measuring.
+- Tensor-network / GBP-style approaches to constraint satisfaction map naturally to GPUs and have shown promise on structured problems. The DRASL encoding is highly structured (per-undersampling, per-SCC), so it could be a good candidate.
+- Quantum-inspired annealers (D-Wave, Fujitsu Digital Annealer, NEC SX-Aurora) are a separate hardware path; they target QUBO and weighted MaxSAT directly. Worth re-evaluating every 12–18 months.
+
+**What we *would* implement first if GPU acceleration ever made sense.**
+
+- **GPU PCMCI.** Partial correlation tests are dense linear algebra and well-suited to GPUs. This is independent of the clingo question and would speed up the whole pipeline; trivial to prototype with `cupy`.
+- **GPU brute-force as an oracle for small N (N ≤ 6).** A CUDA kernel could enumerate all `2^(N²)` candidate edge sets in minutes and serve as ground truth for verifying the clingo solver. Useful for correctness validation, not a production solver.
+
+**What we should NOT do.**
+
+- Port CDCL to CUDA. Would take weeks and produce a slower solver.
+- Switch to a GPU-only ILP encoding without measuring against the existing CPU clingo first.
+
+**Higher-priority alternatives that should land first.**
+
+- **Per-SCC Python decomposition** (item 3 below). Expected 10–100× wall-time win on N≥14, ≈1–2 days of engineering. This dominates anything GPU work could plausibly deliver and should be done before any GPU exploration.
+- **Cluster job parallelism.** One subject per cluster node with `-t 64,compete` gives linear scaling across subjects with no code change.
+- **Tighter density tolerance** (`tol_low=8, tol_high=3`). Cheap configuration tweak that prunes the cardinality search by ~2–5× on hard subjects.
+
+**Action items.**
+
+- Re-evaluate this entry every ~18 months or whenever a credible GPU MaxSAT / weighted-PB solver ships (NVIDIA cuOpt updates, academic releases, etc.).
+- Before spending serious time on a GPU port, confirm that per-SCC decomposition (item 3) and density-tolerance tuning are already in production.
+- If a candidate GPU solver appears, validate first on the small-N brute-force oracle to make sure it returns the same optimum as clingo.
+
+**Reference:** raised in chat 2026-05-04 after delivering the SCC encoding fix on branch `scc-edge-acyclic-quotient`.
+
+---
+
+### 3. Per-SCC Python-level decomposition of the DRASL optimization
+
+**Where:** Orchestration layer above `drasl_command` / `drasl` in `gunfolds/solvers/clingo_rasl.py`, plus the existing SCC-aware encoding in `gunfolds/conversions.py` (where `_acyclic_quotient_edges` already preserves the partition).
+
+**Idea.** Once the user-supplied SCC partition is preserved as distinct classes (delivered in commit `0079ca60` on branch `scc-edge-acyclic-quotient`), we can split the global optimization into one independent sub-problem per SCC and solve them in parallel. Each sub-problem is exponentially smaller in the candidate-edge space, so the combined wall time should drop by another order of magnitude beyond the in-encoding pruning win we already measured (47× on N=10 subject 1).
+
+**Decomposition sketch.**
+
+1. Split nodes by SCC class: ``n_classes`` sub-problems, each over the nodes inside one class.
+2. Build a per-class measurement view: restrict ``g_estimated``, ``DD``, and ``BD`` to the rows/columns of nodes inside the class.
+3. Solve each per-class DRASL instance independently (parallel processes / threads), each finds its own optimum causal sub-graph.
+4. Merge: the combined causal graph is the union of within-class edges from each sub-problem plus the *forward* cross-class edges that are witnessed in `scc_edge` (these are determined by the DAG order, not optimization variables).
+
+**Open design questions.**
+
+- **Cross-SCC `hdirected` / `hbidirected` weights.** Each one is a measurement-scale fact about a pair (X, Y) where X and Y can be in different classes. Naively, this couples two sub-problems. Options: (a) treat cross-class measurement weights as a separate small post-processing step that decides whether to include each cross-class edge, given the within-class solutions; (b) include them as boundary constraints in both sub-problems and re-solve if they disagree; (c) ignore them inside sub-problems and recover them from the post-merge graph using the existing `bfutils.undersample` machinery. Option (a) is cleanest if the DAG-order constraint already determines most cross-class edges.
+
+- **Undersampling closure across classes.** The encoding's `directed(X, Y, L)` rule chains length-L paths through *any* nodes — including nodes in different classes. Splitting by class breaks this chain. Probably fine for within-class subproblems (they only enumerate paths through their own nodes) but cross-class paths need separate handling. Verify on a small N=10 case.
+
+- **Density window decomposition.** The hard `[GT-tol_low, GT+tol_high]` cardinality constraint is over the *whole* graph. We need either a per-class proportional sub-budget or a single post-merge feasibility check. Per-class proportional is simpler but may over-constrain on uneven class sizes.
+
+- **`MAXU` and `u/2` choice.** The undersampling rate is a single global decision. Either fix it across all sub-problems (probably what we want) or treat it as a top-level loop with K sub-problems per u-value.
+
+**Why it matters.**
+
+- Per-SCC independence is a structural decomposition that VSIDS / clasp branching cannot exploit on its own — it requires Python-side orchestration.
+- If each sub-problem is small enough (say, ≤4 nodes per SCC at N=14), each one solves in well under a second even with `optN`. Combined wall time stays bounded as N grows, instead of exponential.
+- This is the single biggest speedup lever we have not yet pulled. It complements (not replaces) all the encoding-level fixes.
+
+**Action items.**
+
+- Prototype on a 2-SCC synthetic case first (e.g. two disjoint 5-node graphs joined by one cross-edge) to validate the decomposition recovers the same optimum as the monolithic solve.
+- Then apply to N=14 fMRI subject 1 (same subject we benchmarked, where SCC pruning now actually fires) and compare wall time and optimum cost vs. the monolithic baseline.
+- If validated, add a `decompose_by_scc=True` flag to `drasl()` and benchmark across N=10/14/20.
+
+**Reference:** spun out from chat 2026-05-04 ("Reading 2: Python-level decomposition") after delivering the in-encoding SCC fix on branch `scc-edge-acyclic-quotient`.
+
+---
+
 ### 2. Why does clingo report `choices = 0`, `conflicts = 0`, `restarts = 0` in every run?
 
 **Where:** `gunfolds/scripts/tests/benchmark_density_encoding.py` (the `_sg(...)` stats extraction in `run_variant`), and any other script that reads `ctrl.statistics["solving"]["solvers"]…`.
