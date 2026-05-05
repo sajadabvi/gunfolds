@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 
 
-N_VALUES = [8, 10, 12, 14, 18, 20]
+N_VALUES = [8, 10, 12, 14, 18, 20, 24, 30, 42, 54]
 INSTANCES_PER_N = 10
 
 

@@ -95,6 +95,7 @@ NOISE = 0.1
 U_RATE = 2
 
 # SCC composition table (max SCC size = 6).  Documented in prompt.
+# Compositions for N >= 24 are uniform 6-node SCCs (N must be a multiple of 6).
 SCC_COMPOSITION = {
     8:  [6, 2],
     10: [6, 4],
@@ -102,6 +103,10 @@ SCC_COMPOSITION = {
     14: [6, 4, 4],
     18: [6, 6, 6],
     20: [6, 6, 4, 4],
+    24: [6] * 4,
+    30: [6] * 5,
+    42: [6] * 7,
+    54: [6] * 9,
 }
 
 

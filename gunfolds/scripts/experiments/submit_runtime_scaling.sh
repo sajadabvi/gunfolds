@@ -1,7 +1,8 @@
 #!/bin/bash
 # =============================================================================
-# Submit the drasl runtime-scaling experiment as 60 SLURM jobs:
-#   N ∈ {8, 10, 12, 14, 18, 20}  ×  10 instances  =  60 jobs.
+# Submit the drasl runtime-scaling experiment as 100 SLURM jobs:
+#   N ∈ {8, 10, 12, 14, 18, 20, 24, 30, 42, 54}  ×  10 instances  =  100 jobs.
+#   N >= 24 use uniform 6-node SCCs (so 24=4×6, 30=5×6, 42=7×6, 54=9×6).
 #
 # Single global walltime: 36 hours.  drasl internal timeout: 35 hours
 # (1-hour safety margin so the script can write a "timeout" CSV row before
@@ -34,14 +35,18 @@ WALLTIME="36:00:00"
 CPUS=16              # 15 clingo threads + 1 buffer
 TIMEOUT_HOURS=35
 
-# Per-N RAM tier
+# Per-N RAM tier — drasl grounding footprint scales with N² × urate, so
+# larger graphs need progressively more memory.
 declare -A MEM_BY_N=(
-    [8]="8g"  [10]="8g"
+    [8]="8g"   [10]="8g"
     [12]="32g" [14]="32g"
     [18]="64g" [20]="64g"
+    [24]="128g" [30]="128g"
+    [42]="192g"
+    [54]="256g"
 )
 
-N_VALUES=(8 10 12 14 18 20)
+N_VALUES=(8 10 12 14 18 20 24 30 42 54)
 INSTANCES_PER_N=10
 
 JOB_IDS=()
@@ -89,7 +94,7 @@ echo ""
 echo "=============================================================="
 echo "SUBMISSION COMPLETE"
 echo "=============================================================="
-echo "Total jobs:    ${#JOB_IDS[@]}  (expected 60)"
+echo "Total jobs:    ${#JOB_IDS[@]}  (expected 100 — 10 N-values × 10 instances)"
 echo "Output dir:    ${OUTPUT_DIR}/"
 echo "Log dir:       ${LOG_DIR}/"
 echo "Walltime/job:  ${WALLTIME}"
