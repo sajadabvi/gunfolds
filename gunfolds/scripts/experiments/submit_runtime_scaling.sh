@@ -71,11 +71,11 @@ for N in "${N_VALUES[@]}"; do
             -t "$WALLTIME" \
             -o "$OUT_LOG" \
             -e "$ERR_LOG" \
-            --wrap "
+            --wrap "#!/bin/bash
                 set -e
                 export OMP_NUM_THREADS=\${SLURM_CPUS_PER_TASK:-${CPUS}}
                 export MODULEPATH=/apps/Compilers/modules-3.2.10/Debug-Build/Modules/3.2.10/modulefiles/
-                source /home/users/mabavisani/anaconda3/etc/profile.d/conda.sh
+                . /home/users/mabavisani/anaconda3/etc/profile.d/conda.sh
                 conda activate multi_v3
                 cd \$SLURM_SUBMIT_DIR
                 python ${RUNNER} \
