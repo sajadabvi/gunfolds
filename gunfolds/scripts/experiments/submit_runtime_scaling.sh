@@ -49,11 +49,18 @@ declare -A MEM_BY_N=(
 N_VALUES=(8 10 12 14 18 20 24 30 42 54)
 INSTANCES_PER_N=10
 
-# Set FORCE=1 to disable the skip-if-completed guard and resubmit everything.
+# Set FORCE=1 to disable both skip guards and resubmit everything.
 FORCE="${FORCE:-0}"
 
+# Snapshot of currently-queued/running job names for this user (cheap, one squeue call).
+RUNNING_NAMES=""
+if [ "$FORCE" != "1" ]; then
+    RUNNING_NAMES=$(squeue -u "$USER" -h -o "%j" 2>/dev/null || true)
+fi
+
 JOB_IDS=()
-SKIPPED=0
+SKIPPED_DONE=0
+SKIPPED_RUNNING=0
 
 for N in "${N_VALUES[@]}"; do
     MEM="${MEM_BY_N[$N]}"
@@ -63,11 +70,17 @@ for N in "${N_VALUES[@]}"; do
         ERR_LOG="${LOG_DIR}/n${N}_inst${I}.err"
         CSV="${OUTPUT_DIR}/n${N}_inst${I}.csv"
 
-        # Skip if a previous run already wrote a completed CSV (status == "completed").
-        # Override with FORCE=1 to resubmit.
+        # Skip 1: a previous run already wrote a completed CSV.
         if [ "$FORCE" != "1" ] && [ -f "$CSV" ] && tail -n 1 "$CSV" | grep -q ',completed$'; then
             printf "  [skip] N=%-2s  inst=%-2s  (already completed)\n" "$N" "$I"
-            SKIPPED=$((SKIPPED + 1))
+            SKIPPED_DONE=$((SKIPPED_DONE + 1))
+            continue
+        fi
+
+        # Skip 2: a job with this name is already queued or running.
+        if [ "$FORCE" != "1" ] && echo "$RUNNING_NAMES" | grep -qxF "$JOB_NAME"; then
+            printf "  [skip] N=%-2s  inst=%-2s  (already in queue: %s)\n" "$N" "$I" "$JOB_NAME"
+            SKIPPED_RUNNING=$((SKIPPED_RUNNING + 1))
             continue
         fi
 
@@ -108,7 +121,7 @@ echo ""
 echo "=============================================================="
 echo "SUBMISSION COMPLETE"
 echo "=============================================================="
-echo "Total jobs:    ${#JOB_IDS[@]}  submitted   (skipped ${SKIPPED} already-completed)"
+echo "Total jobs:    ${#JOB_IDS[@]} submitted  (skipped ${SKIPPED_DONE} completed, ${SKIPPED_RUNNING} already-queued)"
 echo "Output dir:    ${OUTPUT_DIR}/"
 echo "Log dir:       ${LOG_DIR}/"
 echo "Walltime/job:  ${WALLTIME}"
