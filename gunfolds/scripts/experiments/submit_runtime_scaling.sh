@@ -82,7 +82,8 @@ for N in "${N_VALUES[@]}"; do
                     --n_nodes ${N} \
                     --instance_id ${I} \
                     --output_dir ${OUTPUT_DIR} \
-                    --timeout_hours ${TIMEOUT_HOURS}
+                    --timeout_hours ${TIMEOUT_HOURS} \
+                    --pnum \${SLURM_CPUS_PER_TASK:-15}
             ")
         JOB_IDS+=("$JOB_ID")
         printf "  submitted N=%-2s  inst=%-2s  mem=%-4s  JobID=%s\n" \
