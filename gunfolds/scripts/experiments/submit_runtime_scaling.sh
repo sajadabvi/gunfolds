@@ -49,7 +49,11 @@ declare -A MEM_BY_N=(
 N_VALUES=(8 10 12 14 18 20 24 30 42 54)
 INSTANCES_PER_N=10
 
+# Set FORCE=1 to disable the skip-if-completed guard and resubmit everything.
+FORCE="${FORCE:-0}"
+
 JOB_IDS=()
+SKIPPED=0
 
 for N in "${N_VALUES[@]}"; do
     MEM="${MEM_BY_N[$N]}"
@@ -57,6 +61,15 @@ for N in "${N_VALUES[@]}"; do
         JOB_NAME="rt_n${N}_i${I}"
         OUT_LOG="${LOG_DIR}/n${N}_inst${I}.out"
         ERR_LOG="${LOG_DIR}/n${N}_inst${I}.err"
+        CSV="${OUTPUT_DIR}/n${N}_inst${I}.csv"
+
+        # Skip if a previous run already wrote a completed CSV (status == "completed").
+        # Override with FORCE=1 to resubmit.
+        if [ "$FORCE" != "1" ] && [ -f "$CSV" ] && tail -n 1 "$CSV" | grep -q ',completed$'; then
+            printf "  [skip] N=%-2s  inst=%-2s  (already completed)\n" "$N" "$I"
+            SKIPPED=$((SKIPPED + 1))
+            continue
+        fi
 
         JOB_ID=$(sbatch \
             --parsable \
@@ -95,7 +108,7 @@ echo ""
 echo "=============================================================="
 echo "SUBMISSION COMPLETE"
 echo "=============================================================="
-echo "Total jobs:    ${#JOB_IDS[@]}  (expected 100 — 10 N-values × 10 instances)"
+echo "Total jobs:    ${#JOB_IDS[@]}  submitted   (skipped ${SKIPPED} already-completed)"
 echo "Output dir:    ${OUTPUT_DIR}/"
 echo "Log dir:       ${LOG_DIR}/"
 echo "Walltime/job:  ${WALLTIME}"
