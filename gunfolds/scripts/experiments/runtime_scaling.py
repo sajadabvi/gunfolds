@@ -218,11 +218,15 @@ def verify_partition(g, partition, max_scc_size):
 
 def create_stable_weighted_matrix(A, threshold=0.1, powers=(1, 2, 3, 4),
                                   max_attempts=1_000_000, damping=0.99):
+    # NOTE: exp4_pcmci_drasl_ringmore5.py used `scipy.sparse.linalg.eigs(Ws, k=1)`
+    # here (Arnoldi/ARPACK iterative method).  For N >= ~50 this routinely
+    # fails to converge on random W ("ARPACK error -1: No convergence"),
+    # killing the job before drasl runs.  Dense `np.linalg.eigvals` is fast
+    # and robust at our sizes (N <= 54), so we use it instead.
     for _ in range(max_attempts):
         W = A * np.random.randn(*A.shape)
-        Ws = sp.csr_matrix(W)
-        evals, _ = eigs(Ws, k=1, which='LM')
-        rho = np.abs(evals[0])
+        evals = np.linalg.eigvals(W)
+        rho = np.abs(evals).max()
         if rho == 0:
             continue
         W *= damping / rho
