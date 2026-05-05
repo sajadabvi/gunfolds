@@ -491,7 +491,13 @@ def main():
         # ── Step 3: VAR + BOLD ────────────────────────────────────────────
         bold_t0 = time.perf_counter()
         A = cv.graph2adj(gt_g)
-        W = create_stable_weighted_matrix(A, threshold=0.1, powers=(2, 3, 4))
+        # threshold=0.01, powers=(2,) — relaxed from exp4's (0.1, (2,3,4)) which
+        # was tuned for N=5.  For sparse graphs at N=42+, products of small
+        # weights along length-3/4 paths fall below 0.1 in essentially every
+        # random draw, so the original filter never accepted any W.  The
+        # spectral-radius stability check (rho < 1) is the bit that actually
+        # matters for the VAR; the threshold is a loose path-strength check.
+        W = create_stable_weighted_matrix(A, threshold=0.01, powers=(2,))
         var_data = simulate_var(W, ssize=args.ssize * args.u_rate,
                                 noise=args.noise)
         bold_data = simulate_bold(var_data, u_rate=args.u_rate)
