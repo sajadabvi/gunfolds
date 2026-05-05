@@ -252,11 +252,32 @@ def simulate_var(W, ssize, noise):
 
 
 def simulate_bold(var_data, u_rate):
-    data_scaled = var_data / (np.abs(var_data).max() + 1e-12)
     # end_time must scale with u_rate so the effective TR = 100/ssize * u_rate.
     # Without this, generating ssize*u_rate VAR samples and then taking [::u_rate]
     # cancels exactly and u_rate has no effect on the observed signal.
-    bold_out, _ = hrf.compute_bold_signals(data_scaled, end_time=100 * u_rate)
+    #
+    # Numerical-stability retry: for large N, random VAR transients can push
+    # the balloon-model ODE past `vode`'s error tolerance on a single node;
+    # that node's output is then shorter than the others and np.array() in
+    # compute_bold_signals returns a 1-D object array (`.ndim == 1`), which
+    # blows up `bold_out.shape[1]`.  Detect that and retry with the input
+    # rescaled tighter — smaller drive ⇒ gentler dynamics ⇒ stable integration.
+    extra_scale = 1.0
+    bold_out = None
+    for _ in range(5):
+        data_scaled = var_data / (np.abs(var_data).max() * extra_scale + 1e-12)
+        bold_out, _ = hrf.compute_bold_signals(data_scaled, end_time=100 * u_rate)
+        if bold_out.ndim == 2 and bold_out.shape[1] > 0:
+            break
+        extra_scale *= 3.0
+        print(f"    [simulate_bold] BOLD ODE failed (ragged output); "
+              f"retrying with input rescaled by {extra_scale:g}x", flush=True)
+    else:
+        raise RuntimeError(
+            "simulate_bold: BOLD ODE integrator failed even after rescaling "
+            f"input by {extra_scale:g}x.  This VAR realisation may be "
+            "intrinsically unstable for the balloon model."
+        )
     drop = bold_out.shape[1] // 5
     bold_out = bold_out[:, drop:]
     return bold_out[:, ::u_rate]
