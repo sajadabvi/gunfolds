@@ -59,8 +59,27 @@ show_status() {
             local state="missing"
             local extra=""
 
-            # 1. Check the CSV first — final outcome wins.
-            if [ -f "$csv" ]; then
+            # 1. Live queue state wins over historical CSV.  If a job with this
+            #    name is currently queued/running, the CSV (if any) reflects an
+            #    earlier run that's about to be overwritten — so report the
+            #    in-flight state instead.
+            local sq_state
+            sq_state=$(echo "$squeue_snap" | awk -v n="$job_name" '$1==n {print $2; exit}')
+            if [ -n "$sq_state" ]; then
+                case "$sq_state" in
+                    R|RUNNING)        state="running"; extra="(in queue: RUNNING)" ;;
+                    PD|PENDING)       state="pending"; extra="(in queue: PENDING)" ;;
+                    CG|COMPLETING)    state="running"; extra="(in queue: COMPLETING)" ;;
+                    *)                state="running"; extra="(in queue: $sq_state)" ;;
+                esac
+                # Note if there's a historical CSV that will be overwritten.
+                if [ -f "$csv" ]; then
+                    local prev
+                    prev=$(tail -n 1 "$csv" 2>/dev/null | awk -F',' '{print $NF}' | cut -c1-30)
+                    extra="$extra  [prev: $prev]"
+                fi
+            elif [ -f "$csv" ]; then
+                # 2. No live job — CSV is authoritative.
                 local last
                 last=$(tail -n 1 "$csv" 2>/dev/null)
                 if echo "$last" | grep -q ',completed$'; then
@@ -74,25 +93,11 @@ show_status() {
                     state="error"
                     extra="(timeout)"
                 else
-                    # any other status string (error: ...)
                     state="error"
                     extra=$(echo "$last" | awk -F',' '{print $NF}' | cut -c1-60)
                 fi
             fi
-
-            # 2. If no CSV yet, check squeue.
-            if [ "$state" = "missing" ]; then
-                local sq_state
-                sq_state=$(echo "$squeue_snap" | awk -v n="$job_name" '$1==n {print $2; exit}')
-                if [ -n "$sq_state" ]; then
-                    case "$sq_state" in
-                        R|RUNNING)        state="running"; extra="(in queue: RUNNING)" ;;
-                        PD|PENDING)       state="pending"; extra="(in queue: PENDING)" ;;
-                        CG|COMPLETING)    state="running"; extra="(in queue: COMPLETING)" ;;
-                        *)                state="running"; extra="(in queue: $sq_state)" ;;
-                    esac
-                fi
-            fi
+            # 3. Else: state stays "missing" (no CSV and not in queue).
 
             # Tally.
             STATE_COUNT[$state]=$(( ${STATE_COUNT[$state]:-0} + 1 ))
