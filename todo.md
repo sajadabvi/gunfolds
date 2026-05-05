@@ -6,6 +6,26 @@ A running list of things to investigate or implement when time allows. Add to th
 
 ## Open
 
+### 8. Re-run the H-frequency test experiment with the new bug fixes and recreate the paper figure
+
+**What:** Re-run the experiment that produced the H-frequency test figure in the paper, now with two bugs fixed that silently corrupted the simulation pipeline:
+
+1. **`end_time` scaling bug** (`simulate_bold` must pass `end_time=100 * u_rate` — checklist item 16). Without this fix, the BOLD signal before and after undersampling was identical regardless of `u_rate`, meaning the experiment was effectively testing `u_rate=1` for all conditions.
+2. **`gk.randomDAG` infinite-loop workaround** (`randomDAG` bypassed for ≤2 SCC quotient nodes — checklist item 17). This was a hang, not a silent data corruption, so it likely did not affect figures that completed — but verify.
+
+**Why:** If any figure was produced using the uncorrected `simulate_bold` (without `end_time` scaling), the simulated fMRI data was not actually undersampled — the ground-truth / observed mismatch used to benchmark H-frequency recovery was wrong. The corrected pipeline may produce materially different recovery curves.
+
+**Action items:**
+
+1. Identify the exact script and commit used to generate the H-frequency figure. Check whether `compute_bold_signals` was called with or without `end_time=100*u_rate`.
+2. If the bug was present, re-run with the corrected `simulate_bold` and compare the new curves to the published ones. Document any differences.
+3. Regenerate the figure and update the paper draft accordingly.
+4. If the figures are unchanged (bug was absent in that script), note it here and close.
+
+**Reference:** bugs found 2026-05-04 during `runtime_scaling.py` local test run; documented in checklist items 16 and 17.
+
+---
+
 ### 7. Bayesian evidence-ratio weights for the SCC quotient MFAS (Option D)
 
 **Where:** `_acyclic_quotient_edges` in `gunfolds/conversions.py`. Currently uses Option C from the design discussion — additive `w(K → L) = pos(K → L) + neg(L → K)` weights with `igraph.Graph.feedback_arc_set(method='exact_ip')`.
