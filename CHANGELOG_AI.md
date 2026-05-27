@@ -3,6 +3,38 @@
 Short summaries of code and documentation changes made via Cursor AI sessions.
 
 
+## 2026-05-27  (branch: current)
+
+### runtime_scaling: stable-matrix sampling strategies + large-N resubmit script
+
+Diagnosed the `Could not find stable matrix after 1,000,000 tries` failure: ρ(random sparse W) grows like √(N·density), so the post-`0.99/ρ` rescale shrinks entries as 1/√N and the path-strength filter rejects nearly every draw at large N.
+
+Added five composable strategies to `create_stable_weighted_matrix` in `runtime_scaling.py`: `scale_aware` (σ = 1/√⟨in-deg⟩, on by default), `bias_magnitudes`, `auto_threshold`, configurable `powers`, and a new deterministic `construct_stable_matrix_from_sccs(A, partition)` (block-triangular, zero rejection, ρ < 1 by construction). Plus `get_stable_weighted_matrix(...)` dispatcher and CLI flags `--w_strategy`, `--w_threshold`, `--w_powers`, `--w_scale_aware`/`--w_no_scale_aware`, `--w_bias_magnitudes`, `--w_auto_threshold`. All strategies succeed in < 3 ms at N=24, 36, 54 in standalone tests.
+
+New `submit_runtime_scaling_large.sh`: one instance each at N=30/42/54 with max walltime `5-08:00:00`, `--timeout_hours=127`, `--w_bias_magnitudes`. Memory + CPUs sized so `mem/cpu ≤ 15 GB` (qTRDGPU MaxMemPerCPU), avoiding the silent CPU bump the old N=54 run hit: N=30 → 160 GB/11 cpus, N=42 → 256 GB/18 cpus, N=54 → 480 GB/32 cpus.
+
+**Files:** `gunfolds/scripts/experiments/runtime_scaling.py`, `gunfolds/scripts/experiments/submit_runtime_scaling_large.sh` (new).
+
+
+## 2026-05-07  (branch: current)
+
+### New experiment + three library-bug workarounds + checklist updates
+
+**New experiment** in `gunfolds/scripts/experiments/`: `runtime_scaling.py` (one job per `(N, instance_id)`: build multi-SCC ring G¹ → VAR + BOLD → PCMCI `tau_max=1,alpha=0.05` → drasl with `threading.Timer` interrupt → F1), `submit_runtime_scaling.sh` (100 jobs, skip-if-completed/queued guards), `aggregate_results.py`, `check_status.sh`. SCC compositions: `N=8→[6,2], 10→[6,4], 12→[6,6], 14→[6,4,4], 18→[6,6,6], 20→[6,6,4,4], 24..54=[6]*k`. Headline medians: N=8 → 0.2 s, N=10 → 2.9 s, N=12 → 1.6 min, N=14 → 1.4 min, N=18 → 50 min, N=20 → 8.9 h.
+
+**Three caller-side workarounds for gunfolds bugs** (upstream issues filed):
+
+1. `gk.randomDAG` infinite-loops for `N ≤ 2` (`remove_tril_singletons` off-by-one); replaced with a hand-rolled `nx.DiGraph` chain in `make_multi_scc_ring`.
+2. `simulate_bold` ignored `u_rate` because `end_time=100` was fixed; now passes `end_time=100*u_rate`.
+3. `compute_bold_signals` returns a ragged 1-D object array when scipy `vode` fails on one node; detect `ndim == 1` and retry with tighter input rescaling.
+
+**Cluster-ops lessons:** `sbatch --wrap` runs under `/bin/sh` (dash) so `source` must be `.` or prepend `#!/bin/bash`; `qTRDGPU` enforces `MaxMemPerCPU≈15.2 GB` and silently bumps `--cpus-per-task` to satisfy the ratio; `clingo -n 1 --opt-mode=opt` returns the first feasible model, not the optimum — use `-n 0`.
+
+**Checklist skill updates** (`~/.claude/skills/checklist/SKILL.md`): item 16 (`simulate_bold` end_time scaling), item 17 (never call `gk.randomDAG` when `num_sccs ≤ 2`), mandatory `_assert_glag2cg_direction()` sanity check under item 2.
+
+**Files:** `gunfolds/scripts/experiments/{runtime_scaling.py,submit_runtime_scaling.sh,aggregate_results.py,check_status.sh}` (all new); `~/.claude/skills/checklist/SKILL.md`.
+
+
 ## 2026-05-04  (branch: current)
 
 ### SCC quotient back-edge selection: weighted MFAS via igraph `exact_ip` (Option C)
