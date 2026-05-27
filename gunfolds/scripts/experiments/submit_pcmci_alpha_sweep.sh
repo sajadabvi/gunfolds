@@ -74,14 +74,13 @@ JOB_ID=$(sbatch \
     --array=0-${LAST_IDX} \
     -o "${LOG_DIR}/alpha_%a.out" \
     -e "${LOG_DIR}/alpha_%a.err" \
-    --wrap "#!/bin/bash
-        set -e
+    --wrap "set -e
         export OMP_NUM_THREADS=\${SLURM_CPUS_PER_TASK:-${CPUS}}
         . /home/users/mabavisani/anaconda3/etc/profile.d/conda.sh
         conda activate multi_v3
         cd \$SLURM_SUBMIT_DIR
-        ALPHAS=(${ALPHAS})
-        ALPHA=\${ALPHAS[\$SLURM_ARRAY_TASK_ID]}
+        # POSIX-safe alpha pick: --wrap runs under /bin/sh (dash), no bash arrays.
+        ALPHA=\$(echo '${ALPHAS}' | awk -v i=\$((SLURM_ARRAY_TASK_ID + 1)) '{print \$i}')
         echo \"task \$SLURM_ARRAY_TASK_ID -> alpha=\$ALPHA\"
         python ${RUNNER} \
             --alpha \$ALPHA \
