@@ -216,15 +216,46 @@ def verify_partition(g, partition, max_scc_size):
 # VAR + BOLD simulation — match exp4_pcmci_drasl_ringmore5.py
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _sample_W(A, scale_aware=True, bias_magnitudes=False):
+    # Idea 1: pre-scale draws so post-damping entries stay O(1).
+    #   ρ(random sparse) ~ σ·√(mean_in_degree); choose σ so ρ ≈ 1.
+    # Idea 2: bias away from zero so |W^n| stays above the floor for more n.
+    N = A.shape[0]
+    if scale_aware:
+        mean_in_deg = max(1.0, A.sum(axis=0).mean())
+        sigma = 1.0 / np.sqrt(mean_in_deg)
+    else:
+        sigma = 1.0
+    if bias_magnitudes:
+        r = np.random.randn(*A.shape)
+        # |entry| in [0.5σ, ~2.5σ], sign uniform
+        mag = sigma * (0.5 + 0.5 * np.abs(r))
+        W = A * np.sign(r) * mag
+    else:
+        W = A * (sigma * np.random.randn(*A.shape))
+    return W
+
+
 def create_stable_weighted_matrix(A, threshold=0.1, powers=(1, 2, 3, 4),
-                                  max_attempts=1_000_000, damping=0.99):
-    # NOTE: exp4_pcmci_drasl_ringmore5.py used `scipy.sparse.linalg.eigs(Ws, k=1)`
-    # here (Arnoldi/ARPACK iterative method).  For N >= ~50 this routinely
-    # fails to converge on random W ("ARPACK error -1: No convergence"),
-    # killing the job before drasl runs.  Dense `np.linalg.eigvals` is fast
-    # and robust at our sizes (N <= 54), so we use it instead.
+                                  max_attempts=1_000_000, damping=0.99,
+                                  scale_aware=True, bias_magnitudes=False,
+                                  auto_threshold=False,
+                                  threshold_decay_ref_n=8):
+    # NOTE: exp4_pcmci_drasl_ringmore5.py used scipy.sparse.linalg.eigs (ARPACK)
+    # which routinely fails to converge for N>=50.  Dense np.linalg.eigvals is
+    # fast and robust at N<=54.
+    #
+    # Ideas implemented:
+    #   1) scale_aware     — σ = 1/√⟨in-deg⟩ keeps ρ(W) near 1 before damping
+    #   2) bias_magnitudes — draw |entry| ≥ 0.5σ so powers stay above floor
+    #   3) auto_threshold  — threshold scales by √(ref_N/N); set threshold=base
+    #   4) powers          — caller picks lag set; () disables filter entirely
+    N = A.shape[0]
+    if auto_threshold and N > threshold_decay_ref_n:
+        threshold = threshold * np.sqrt(threshold_decay_ref_n / N)
+
     for _ in range(max_attempts):
-        W = A * np.random.randn(*A.shape)
+        W = _sample_W(A, scale_aware=scale_aware, bias_magnitudes=bias_magnitudes)
         evals = np.linalg.eigvals(W)
         rho = np.abs(evals).max()
         if rho == 0:
@@ -240,6 +271,96 @@ def create_stable_weighted_matrix(A, threshold=0.1, powers=(1, 2, 3, 4),
         if ok:
             return W
     raise ValueError(f'Could not find stable matrix after {max_attempts} tries.')
+
+
+def construct_stable_matrix_from_sccs(A, partition, spectral_radius=0.95,
+                                       min_magnitude=0.2, max_magnitude=0.8):
+    # Idea 5: deterministic block-triangular construction.
+    #   - Per SCC: place eigenvalues on a circle of radius `spectral_radius`
+    #     by building a normalised companion-style block, then mask by the
+    #     SCC's own adjacency pattern with sampled magnitudes ≥ min_magnitude.
+    #   - Cross-SCC edges: sampled in [min_magnitude, max_magnitude] with
+    #     random sign.  Quotient is a DAG so cross-edges don't affect ρ(W).
+    # Returns a W with sparsity ⊆ A, ρ(W) ≤ spectral_radius by construction,
+    # and every nonzero entry ≥ min_magnitude in magnitude.
+    N = A.shape[0]
+    W = np.zeros_like(A, dtype=float)
+
+    # node-id (1-indexed from partition) → matrix index (0-indexed)
+    # partition is 1-indexed per make_multi_scc_ring convention
+    node_to_idx = {}
+    for scc in partition:
+        for node in scc:
+            node_to_idx[node] = node - 1  # gunfolds 1-indexed → 0-indexed
+
+    def _rand_mag():
+        return np.random.uniform(min_magnitude, max_magnitude)
+
+    def _rand_signed():
+        return _rand_mag() * np.random.choice([-1.0, 1.0])
+
+    for scc in partition:
+        idxs = [node_to_idx[n] for n in scc]
+        k = len(idxs)
+        if k == 1:
+            i = idxs[0]
+            if A[i, i] != 0:
+                W[i, i] = spectral_radius * np.random.choice([-1.0, 1.0])
+            continue
+
+        # Sub-block: build a magnitudes matrix only where A has edges.
+        sub = np.zeros((k, k))
+        for a, ia in enumerate(idxs):
+            for b, ib in enumerate(idxs):
+                if A[ia, ib] != 0:
+                    sub[a, b] = _rand_signed()
+        # Rescale this block to target spectral radius.
+        evals = np.linalg.eigvals(sub)
+        rho = np.abs(evals).max()
+        if rho > 0:
+            sub *= spectral_radius / rho
+        # Floor magnitudes: any nonzero that fell below min_magnitude gets
+        # bumped back up (preserves sign).  Slightly perturbs ρ but keeps
+        # it below spectral_radius * (max_magnitude/min_magnitude) bound.
+        nz = sub != 0
+        small = nz & (np.abs(sub) < min_magnitude)
+        if small.any():
+            sub[small] = np.sign(sub[small]) * min_magnitude
+        for a, ia in enumerate(idxs):
+            for b, ib in enumerate(idxs):
+                W[ia, ib] = sub[a, b]
+
+    # Cross-SCC edges: any A[i,j] not yet filled and not on the diagonal of
+    # the SCC blocks above.
+    scc_node_sets = [set(node_to_idx[n] for n in scc) for scc in partition]
+
+    def _same_scc(i, j):
+        for s in scc_node_sets:
+            if i in s and j in s:
+                return True
+        return False
+
+    nz_a = np.argwhere(A != 0)
+    for i, j in nz_a:
+        if _same_scc(i, j):
+            continue
+        W[i, j] = _rand_signed()
+
+    return W
+
+
+def get_stable_weighted_matrix(A, partition=None, strategy='sample', **kwargs):
+    if strategy == 'construct':
+        if partition is None:
+            raise ValueError("strategy='construct' requires partition")
+        return construct_stable_matrix_from_sccs(
+            A, partition,
+            spectral_radius=kwargs.get('damping', 0.95),
+            min_magnitude=kwargs.get('threshold', 0.2),
+        )
+    if strategy != 'sample':
+        raise ValueError(f"unknown strategy {strategy!r}")
+    return create_stable_weighted_matrix(A, **kwargs)
 
 
 def simulate_var(W, ssize, noise):
@@ -451,6 +572,27 @@ def main():
     parser.add_argument("--ssize", type=int, default=SSIZE)
     parser.add_argument("--noise", type=float, default=NOISE)
     parser.add_argument("--u_rate", type=int, default=U_RATE)
+    # Stable-matrix strategy (ideas 1–5).  Defaults preserve old behaviour
+    # (no path-strength filter); flags let you re-enable a calibrated filter
+    # or switch to deterministic block-triangular construction at high N.
+    parser.add_argument("--w_strategy", choices=['sample', 'construct'],
+                        default='sample',
+                        help="'sample': random + rejection (ideas 1-4); "
+                             "'construct': deterministic block-triangular "
+                             "from SCC partition (idea 5).")
+    parser.add_argument("--w_threshold", type=float, default=0.0,
+                        help="Path-strength floor.  0 disables filter.")
+    parser.add_argument("--w_powers", type=str, default="",
+                        help="Comma-sep lag powers to check, e.g. '1,2'. "
+                             "Empty disables filter (default).")
+    parser.add_argument("--w_scale_aware", action='store_true', default=True,
+                        help="Idea 1: σ = 1/√⟨in-deg⟩.  On by default.")
+    parser.add_argument("--w_no_scale_aware", dest='w_scale_aware',
+                        action='store_false')
+    parser.add_argument("--w_bias_magnitudes", action='store_true', default=False,
+                        help="Idea 2: bias |entry| away from zero.")
+    parser.add_argument("--w_auto_threshold", action='store_true', default=False,
+                        help="Idea 3: scale threshold by √(8/N).")
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -520,7 +662,18 @@ def main():
         # determined by spectral radius < 1, which is enforced by the
         # damping/rho normalisation inside create_stable_weighted_matrix —
         # no extra filter is needed.
-        W = create_stable_weighted_matrix(A, threshold=0.0, powers=())
+        powers_tuple = tuple(int(p) for p in args.w_powers.split(',')
+                             if p.strip()) if args.w_powers else ()
+        W = get_stable_weighted_matrix(
+            A,
+            partition=partition,
+            strategy=args.w_strategy,
+            threshold=args.w_threshold,
+            powers=powers_tuple,
+            scale_aware=args.w_scale_aware,
+            bias_magnitudes=args.w_bias_magnitudes,
+            auto_threshold=args.w_auto_threshold,
+        )
         var_data = simulate_var(W, ssize=args.ssize * args.u_rate,
                                 noise=args.noise)
         bold_data = simulate_bold(var_data, u_rate=args.u_rate)
