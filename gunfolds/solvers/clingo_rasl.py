@@ -421,7 +421,6 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
         # density_mode == 'hard' adds no soft term.
     if scc:
         command += encode_list_sccs(g_list, scc_members, dm=dm)
-        print("edit this function later to adjust")
     command += f"dagl({len(g_list[0])-1}). "
     command += glist2str(g_list, weighted=weighted, dm=dm, bdm=bdm) + ' '   # generate all graphs
     command += 'uk(1..'+str(max_urate)+').' + ' '

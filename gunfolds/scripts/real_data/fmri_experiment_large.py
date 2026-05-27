@@ -130,7 +130,7 @@ def parse_arguments():
                    help="PCMCI variant: pcmciplus (more stable, recommended) or pcmci")
     p.add_argument("--pcmci_tau_max", default=1, type=int,
                    help="Max lag for PCMCI (default 2; higher = more stable but slower)")
-    p.add_argument("--pcmci_alpha", default=0.01, type=float,
+    p.add_argument("--pcmci_alpha", default=0.04, type=float,
                    help="Significance level for PCMCI (only affects run_pcmci)")
     p.add_argument("--pcmci_pc_alpha", default=0.01, type=float,
                    help="PC skeleton alpha (0.01 for pcmciplus, None=auto for pcmci)")
@@ -320,8 +320,7 @@ def run_rasl_subject(ts_2d, args, comp_indices, scc_members_override=None,
         edge_weights=priority,
         pnum=args.PNUM,
         optim="optN",
-        selfloop=False,
-        extra_clingo_args=["--opt-heuristic=1"],
+        selfloop=None,
     )
 
     kept = select_top_solutions(
