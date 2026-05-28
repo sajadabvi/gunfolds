@@ -59,6 +59,7 @@ from gunfolds.scripts.real_data.component_config import (
 
 MAXCOST = 20
 DEFAULT_GT_DENSITY_BY_N = {10: 35, 14: 30, 20: 22, 53: 13}
+DEFAULT_PCMCI_ALPHA_BY_N = {10: 0.08, 20: 0.05, 53: 0.05}  # swept per-N (pcmci_alpha_sweep.py); N not in table -> 0.05
 
 
 def histogram_str(values, bins=10, lo=0, hi=20, width=40):
@@ -202,9 +203,13 @@ def main():
     p.add_argument("--tol_high", type=int, default=5)
     p.add_argument("--pcmci_method", default="pcmci")
     p.add_argument("--pcmci_tau_max", type=int, default=1)
-    p.add_argument("--pcmci_alpha", type=float, default=0.05)
+    p.add_argument("--pcmci_alpha", type=float, default=None,
+                   help="PCMCI significance level. Omit to use the swept "
+                        "per-N default (DEFAULT_PCMCI_ALPHA_BY_N).")
     p.add_argument("--pcmci_fdr", default="none")
     args = p.parse_args()
+    if args.pcmci_alpha is None:
+        args.pcmci_alpha = DEFAULT_PCMCI_ALPHA_BY_N.get(args.n_components, 0.05)
 
     subject_idxs = [int(x) for x in args.subjects.split(",") if x.strip()]
     gt_density = args.gt_density or DEFAULT_GT_DENSITY_BY_N[args.n_components]

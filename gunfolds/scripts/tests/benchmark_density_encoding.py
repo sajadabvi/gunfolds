@@ -70,6 +70,7 @@ from gunfolds.scripts.real_data.component_config import (
 CLINGO_LIMIT = 64
 MAXCOST = 20
 DEFAULT_GT_DENSITY_BY_N = {10: 35, 20: 22, 53: 13}
+DEFAULT_PCMCI_ALPHA_BY_N = {10: 0.08, 20: 0.05, 53: 0.05}  # swept per-N (pcmci_alpha_sweep.py); N not in table -> 0.05
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -243,6 +244,7 @@ def run_variant(command, variant_label, pnum, capsize, optim, timeout,
         f"--configuration={configuration}",
         "-t", f"{int(pnum)},split",
         "-n", str(capsize),
+        "--stats=2",
     ]
     if extra_clingo_args:
         clingo_args.extend(extra_clingo_args)
@@ -276,6 +278,8 @@ def run_variant(command, variant_label, pnum, capsize, optim, timeout,
     model_count = 0
     best_cost = None
     timed_out = False
+    trajectory = []      # list of (t_elapsed, cost_tuple) for every yielded model
+    improving = []       # subset: only strictly-improving costs
 
     timer = None
     if timeout and timeout > 0:
@@ -297,9 +301,11 @@ def run_variant(command, variant_label, pnum, capsize, optim, timeout,
                 models.append((atoms, cost))
 
                 elapsed = time.time() - t0
+                trajectory.append((elapsed, tuple(cost)))
                 improved = ""
                 if best_cost is None or cost < best_cost:
                     best_cost = cost
+                    improving.append((elapsed, tuple(cost)))
                     improved = " ** NEW BEST **"
 
                 if model_count <= 10 or optimality or improved:
@@ -327,19 +333,56 @@ def run_variant(command, variant_label, pnum, capsize, optim, timeout,
     solve_time   = _sg(times, "solve", 0)
     sat_time     = _sg(times, "sat", 0)
     unsat_time   = _sg(times, "unsat", 0)
-    solver0  = _sg(solvers, 0, _sg(solvers, "0", {}))
-    choices   = _sg(solver0, "choices", 0)
-    conflicts = _sg(solver0, "conflicts", 0)
-    restarts  = _sg(solver0, "restarts", 0)
+    # Aggregate CDCL counters live directly on solving.solvers (clingo 5.7+).
+    # The per-thread breakdown is at solving.solver[i] (singular). The previous
+    # path solving.solvers[0]/["0"] silently returned 0 via _sg's TypeError catch.
+    choices   = _sg(solvers, "choices", 0)
+    conflicts = _sg(solvers, "conflicts", 0)
+    restarts  = _sg(solvers, "restarts", 0)
+    solver_extra    = _sg(solvers, "extra", {})
+    lemmas          = _sg(solver_extra, "lemmas", 0)
+    lemmas_deleted  = _sg(solver_extra, "lemmas_deleted", 0)
+    domain_choices  = _sg(solver_extra, "domain_choices", 0)
+
+    # Trajectory-based phase fingerprint.
+    # Improving = strictly cost-decreasing models. We split wall time into:
+    #   pre_first  : t=0  -> first improving model
+    #   descent    : first improving -> last improving
+    #   proof_tail : last improving -> end of solve
+    t_pre_first = improving[0][0] if improving else None
+    t_last_impr = improving[-1][0] if improving else None
+    t_descent   = (t_last_impr - improving[0][0]) if len(improving) >= 2 else 0.0
+    t_proof     = (t_solve - t_last_impr) if t_last_impr is not None else None
 
     print(f"\n  [RESULT]  solve={t_solve:.2f}s  "
           f"clingo_total={total_time:.2f}s  "
           f"(sat={sat_time:.2f}  unsat={unsat_time:.2f})", flush=True)
     print(f"    models: enumerated={n_enumerated}  optimal={n_optimal}  "
-          f"returned={model_count}", flush=True)
+          f"returned={model_count}  improving={len(improving)}", flush=True)
     print(f"    cost vector: {list(costs)}", flush=True)
     print(f"    choices={choices:,.0f}  conflicts={conflicts:,.0f}  "
-          f"restarts={restarts:,.0f}", flush=True)
+          f"restarts={restarts:,.0f}  lemmas={lemmas:,.0f}  "
+          f"domain_choices={domain_choices:,.0f}", flush=True)
+    # Derived rates (whole-run averages — mid-solve stats unavailable in clingo 5.7).
+    if t_solve > 0:
+        c_per_s = choices / t_solve
+        x_per_s = conflicts / t_solve
+        x_per_c = (conflicts / choices) if choices > 0 else 0.0
+        l_per_x = (lemmas / conflicts) if conflicts > 0 else 0.0
+        print(f"    rates: choices/s={c_per_s:,.0f}  conflicts/s={x_per_s:,.0f}  "
+              f"conflicts/choice={x_per_c:.3f}  lemmas/conflict={l_per_x:.2f}",
+              flush=True)
+    # Phase breakdown.
+    if t_pre_first is not None:
+        f_pre  = t_pre_first / t_solve if t_solve > 0 else 0.0
+        f_desc = t_descent   / t_solve if t_solve > 0 else 0.0
+        f_proof = (t_proof / t_solve) if (t_proof is not None and t_solve > 0) else 0.0
+        proof_str = f"{t_proof:.2f}s ({f_proof:.0%})" if t_proof is not None else "n/a"
+        print(f"    phases: pre_first={t_pre_first:.2f}s ({f_pre:.0%})  "
+              f"descent={t_descent:.2f}s ({f_desc:.0%})  "
+              f"proof_tail={proof_str}", flush=True)
+    else:
+        print(f"    phases: no improving model found within budget", flush=True)
     if timed_out:
         print(f"    *** TIMED OUT — results are best-so-far ***", flush=True)
 
@@ -373,10 +416,19 @@ def run_variant(command, variant_label, pnum, capsize, optim, timeout,
         "n_returned":     model_count,
         "n_enumerated":   int(n_enumerated),
         "n_optimal":      int(n_optimal),
+        "n_improving":    len(improving),
         "best_cost":      list(costs),
         "choices":        int(choices),
         "conflicts":      int(conflicts),
         "restarts":       int(restarts),
+        "lemmas":         int(lemmas),
+        "lemmas_deleted": int(lemmas_deleted),
+        "domain_choices": int(domain_choices),
+        "t_pre_first":    round(t_pre_first, 3) if t_pre_first is not None else None,
+        "t_descent":      round(t_descent, 3),
+        "t_proof":        round(t_proof, 3) if t_proof is not None else None,
+        "trajectory":     [(round(t, 3), list(c)) for t, c in trajectory],
+        "improving":      [(round(t, 3), list(c)) for t, c in improving],
         "ground_atoms":   ground_stats["atoms"],
         "ground_rules":   ground_stats["rules"],
         "ground_minimize": ground_stats["minimize_stmts"],
@@ -427,7 +479,9 @@ def main():
     p.add_argument("--capsize", type=int, default=0)
     p.add_argument("--pcmci_method", default="pcmci")
     p.add_argument("--pcmci_tau_max", type=int, default=1)
-    p.add_argument("--pcmci_alpha", type=float, default=0.05)
+    p.add_argument("--pcmci_alpha", type=float, default=None,
+                   help="PCMCI significance level. Omit to use the swept "
+                        "per-N default (DEFAULT_PCMCI_ALPHA_BY_N).")
     p.add_argument("--pcmci_fdr", default="none")
     p.add_argument("--grounding_interval", type=float, default=5.0)
     p.add_argument("--variants", type=str, default="E,A,C,D",
@@ -440,6 +494,8 @@ def main():
                         "Must be the LAST argument on the command line. "
                         "Example: --extra_clingo_args --opt-strategy=usc,stratify --opt-heuristic=1")
     args = p.parse_args()
+    if args.pcmci_alpha is None:
+        args.pcmci_alpha = DEFAULT_PCMCI_ALPHA_BY_N.get(args.n_components, 0.05)
 
     subject_indices = [int(x.strip()) for x in args.subject_idx.split(",")]
     variants = [v.strip().upper() for v in args.variants.split(",")]
@@ -712,10 +768,11 @@ def main():
         results = all_results[s_idx]
         print(f"\n  Subject {s_idx}:", flush=True)
 
-        header = (f"  {'Variant':<10s} {'Solve(s)':>10s} {'Total(s)':>10s} "
-                  f"{'Models':>8s} {'Optimal':>8s} {'#Sols':>7s} "
-                  f"{'CostVec':>20s} {'Choices':>10s} {'Conflicts':>10s} "
-                  f"{'Minimize':>9s} {'Note':>5s}")
+        header = (f"  {'Variant':<10s} {'Solve(s)':>9s} "
+                  f"{'Pre':>6s} {'Desc':>6s} {'Proof':>6s} "
+                  f"{'#Impr':>6s} {'CostVec':>20s} "
+                  f"{'Choices':>10s} {'Conflicts':>10s} {'C/Ch':>6s} "
+                  f"{'Lemmas':>9s} {'Note':>5s}")
         print(header, flush=True)
         print("  " + "-" * (len(header) - 2), flush=True)
 
@@ -724,17 +781,20 @@ def main():
             if len(cost_str) > 20:
                 cost_str = cost_str[:19] + "~"
             note = "T/O" if r.get("timed_out") else ""
-            n_sol = len(r["solutions"])
+            ts = r["t_solve"] if r["t_solve"] > 0 else 1.0
+            f_pre  = (r["t_pre_first"] / ts) if r.get("t_pre_first") is not None else 0.0
+            f_desc = (r["t_descent"]   / ts) if r.get("t_descent")   is not None else 0.0
+            f_prf  = (r["t_proof"]     / ts) if r.get("t_proof")     is not None else 0.0
+            c_per_ch = (r["conflicts"] / r["choices"]) if r["choices"] > 0 else 0.0
             print(f"  {r['variant_key']:<10s} "
-                  f"{r['t_solve']:>10.2f} "
-                  f"{r['clingo_total']:>10.2f} "
-                  f"{r['n_returned']:>8d} "
-                  f"{r['n_optimal']:>8d} "
-                  f"{n_sol:>7d} "
+                  f"{r['t_solve']:>9.2f} "
+                  f"{f_pre:>5.0%} {f_desc:>5.0%} {f_prf:>5.0%} "
+                  f"{r.get('n_improving', 0):>6d} "
                   f"{cost_str:>20s} "
                   f"{r['choices']:>10,d} "
                   f"{r['conflicts']:>10,d} "
-                  f"{r['ground_minimize']:>9d} "
+                  f"{c_per_ch:>6.2f} "
+                  f"{r.get('lemmas', 0):>9,d} "
                   f"{note:>5s}",
                   flush=True)
 

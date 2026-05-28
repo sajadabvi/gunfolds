@@ -3,6 +3,17 @@
 Short summaries of code and documentation changes made via Cursor AI sessions.
 
 
+## 2026-05-28  (branch: current)
+
+### Fixed clingo stats reporting (always 0) + new solve-phase fingerprint; solver-strategy axis closed
+
+`benchmark_density_encoding.py` read `solving.solvers[0]` for CDCL counters, but clingo 5.7.1 puts aggregates on `solving.solvers.{choices,conflicts,restarts}` (per-thread is `solving.solver[i]`, singular). `_sg` swallowed the `TypeError`/`KeyError`, so every run printed `choices=0 conflicts=0 restarts=0` — a reporting glitch only; all prior costs/timings were correct. Fixed the path, added `--stats=2` and `extra.{lemmas,domain_choices}`, and added a trajectory **phase fingerprint** (`pre_first/descent/proof_tail` + rates) with new result fields and summary columns.
+
+Using the fixed counters: default `bb,lin` beats every alternative; `bb,hier`/`bb,dec` slower; `usc,oll` times out with **0 bound improvement** at both 10-thread *and* single-thread (8 M / 476 K conflicts, no feasible model) — re-confirms the prior USC rejection and makes its failure mode visible for the first time. The ~70–90 % proof tail at N=10 is intrinsic; **no clasp flag helps**. Remaining levers are encoding-level (todo #6/#7) or structural (todo #3), to be decided by running the fingerprint at N=14/20. todo item #2 → Done.
+
+**Files:** `gunfolds/scripts/tests/benchmark_density_encoding.py`, `todo.md`.
+
+
 ## 2026-05-27  (branch: current)
 
 ### runtime_scaling: stable-matrix sampling strategies + large-N resubmit script

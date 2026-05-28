@@ -6,6 +6,48 @@ A running list of things to investigate or implement when time allows. Add to th
 
 ## Open
 
+### 9. Per-subject solution selection + parallel U-rate sweep + N=20 ICA run (NEXT)
+
+**The immediate next thing to do.** Three coupled pieces:
+
+1. **Per-subject solution retention.** For each subject, decide *which* clingo
+   solutions to keep for downstream analysis rather than collapsing to a single
+   point estimate. Open questions: keep only the cost-optimal model, or the
+   top-k within a delta of the optimum? Keep one-per-U-rate, or pool across U?
+   How do we represent/store the retained set so later analysis (group stats,
+   stability across subjects) can consume it? Define the selection rule
+   explicitly before scaling up.
+
+2. **Parallel U-rate sweep.** Split the clingo runs by undersampling rate so
+   different U values run in parallel (one process / cluster task per U),
+   instead of looping U sequentially inside one solve. Then merge: keep the
+   best solution(s) per U and decide how to combine across U for a subject
+   (ties to piece 1's retention rule). *Think through how:* job fan-out
+   (SLURM array over U), result collection, and the comparison that picks the
+   winner(s). Watch the cost-vector comparability across different U (is
+   `[edge@1, density@0]` directly comparable between U rates, or does the
+   density target shift per U?).
+
+3. **Run for 20 ICA components.** Execute the full pipeline at N=20. Re-derive
+   the best-20 ICA component selection from scratch — do **not** assume the
+   N=10 picks are a subset; re-run the component-ranking step and confirm the
+   chosen 20 are the right ones for this analysis. N=20 default PCMCI alpha is
+   already wired (0.05, `DEFAULT_PCMCI_ALPHA_BY_N`).
+
+**Action items.**
+
+- Decide and write down the per-subject solution-retention rule (top-k vs.
+  optimal-only; per-U vs. pooled).
+- Build the parallel U-rate fan-out (SLURM array or process pool), with a
+  collector that keeps best-per-U and applies the retention rule.
+- Re-run the best-20 ICA component selection; verify the picks.
+- Run the N=20 pipeline end-to-end with the parallel U sweep and retained
+  solutions.
+
+**Reference:** logged 2026-05-28.
+
+---
+
 ### 8. Re-run the H-frequency test experiment with the new bug fixes and recreate the paper figure
 
 **What:** Re-run the experiment that produced the H-frequency test figure in the paper, now with two bugs fixed that silently corrupted the simulation pipeline:
@@ -245,59 +287,35 @@ GPUs need (a) regular memory access, (b) high arithmetic intensity, (c) the same
 
 ---
 
-### 2. Why does clingo report `choices = 0`, `conflicts = 0`, `restarts = 0` in every run?
+## Done
 
-**Where:** `gunfolds/scripts/tests/benchmark_density_encoding.py` (the `_sg(...)` stats extraction in `run_variant`), and any other script that reads `ctrl.statistics["solving"]["solvers"]…`.
+### 2. Clingo `choices/conflicts/restarts` always 0 — **resolved 2026-05-28: wrong stats path + new phase fingerprint**
 
-**Symptom:** Every single benchmark run prints `choices=0  conflicts=0  restarts=0`, even when the solver clearly did substantial work (35+ improving models found, optimality proven, etc.). These are core CDCL solver counters — seeing zero is impossible if solving happened.
+**Root cause.** `run_variant` read `_sg(solvers, 0, _sg(solvers, "0", {}))`. In clingo 5.7.1 the stats tree puts the *aggregate* CDCL counters directly on `solving.solvers.{choices,conflicts,restarts}`, and the *per-thread* breakdown on `solving.solver[i]` (singular `solver`, an array). Both `solvers[0]` (int key → `TypeError`) and `solvers["0"]` (missing key → `KeyError`) were silently swallowed by `_sg`, returning the `0` default. So the solver was always working fine — purely a reporting glitch, not a correctness bug. All prior costs/timings stand; only the printed counters were wrong.
 
-**Hypothesis:** The stats extraction path is wrong for multi-threaded runs. With `-t {pnum},split`, clasp arranges the stats tree as:
+**Fix.** Read `solving.solvers.{choices,conflicts,restarts}` directly; also pull `extra.{lemmas,lemmas_deleted,domain_choices}`. Added `--stats=2` so the `extra` subtree populates. Added a trajectory-based **phase fingerprint**: record `(t, cost)` per yielded model, split wall time into `pre_first / descent / proof_tail`, and print derived rates (`choices/s`, `conflicts/s`, `conflicts/choice`, `lemmas/conflict`). New result-dict fields + new summary-table columns. **Files:** `gunfolds/scripts/tests/benchmark_density_encoding.py`.
 
-```
-solving:
-  solvers:
-    choices:    <aggregate sum across threads>
-    conflicts:  <aggregate>
-    restarts:   <aggregate>
-    0:                       ← per-thread node
-      choices: ...
-      ...
-    1: { ... }
-    ...
-```
+**What the fixed counters revealed (FBIRN N=10 subject 0, variant C):**
 
-The current code does `_sg(solvers, 0, _sg(solvers, "0", {}))` then reads `.choices` from that — likely throwing an exception silently caught by `_sg`, returning the `0` default. The aggregate counters at `solving.solvers.choices` (one level up from the per-thread node) are probably what we want.
+| Strategy | Threads | Solve | Proof tail | Conflicts | Optimum |
+|---|---|---|---|---|---|
+| `bb,lin` (default) | 10 | **2.0 s** | 70 % | 390 K | `[178,400]` |
+| `bb,lin` (default) | 1 | 3.2 s | 78 % | 179 K | `[178,400]` |
+| `bb,hier` | 10 | 2.6 s | 90 % | 517 K | `[178,400]` |
+| `bb,dec` | 10 | 4.3 s | 92 % | 1.23 M | `[178,400]` |
+| `usc,oll` | 10 (forced compete) | **120 s T/O** | — | 8.07 M | none `[inf,inf]` |
+| `usc,oll` | 1 | **45 s T/O** | — | 476 K | none `[inf,inf]` |
 
-**Why it matters:**
+**Conclusions.**
 
-- Without correct counters we cannot empirically attribute speed differences between variants A/C/D/E to grounding size vs search-tree size vs conflict learning.
-- USC's failure mode (high conflicts, slow bound improvement) is invisible.
-- Plateau-enumeration cost (many choices, ~0 conflicts) is invisible.
-- Any future paper claiming "X is faster because Y" needs these numbers to back it up.
+1. **Solver-strategy axis is exhausted.** Default `bb,lin` wins; every alternative is slower or broken. The ~70–90 % proof tail is *intrinsic* to the instance (cost of proving no graph beats edge-cost 178) — no clasp flag shrinks it.
+2. **USC re-confirmed dead, now with the mechanism visible.** The counter fix exposed exactly the failure this item predicted ("USC's failure mode = high conflicts, slow bound improvement, invisible"): 8 M conflicts, **0** bound improvement, no feasible model — at both 10-thread and single-thread, so it is *not* a compete-mode artifact. Mechanism: core-guided USC peels weighted cores worth the full optimum (178 units at `MAXCOST=20`) and never constructs a feasible model. Joins the prior USC rejection (2026-04-13, `clingo_clasp_optimization_flags_benchmark.md`).
+3. **The phase fingerprint is a branch-and-bound instrument.** Core-guided search emits no streaming improving models by design, so the trajectory/fingerprint goes blind under USC (`improving=0` is partly inherent, not just failure).
+4. **N=10 is too small to optimize** (2–3 s total). The fingerprint's real job is the N=14/20 runs that hit 800 s timeouts. The proof-vs-descent balance there decides the lever: if **proof dominates** → encoding-level (item #6 drop weight-0 facts, item #7 weight calibration shrink the core to be proven); if **descent dominates** → structural (item #3 per-SCC decomposition). Either way, **not** solver flags.
 
-**Action items:**
-
-- Dump the full stats tree from one run to see where choices/conflicts actually live:
-  ```python
-  import json
-  def _dump(s):
-      if hasattr(s, "keys"):
-          return {k: _dump(s[k]) for k in s.keys()}
-      if hasattr(s, "__len__") and not isinstance(s, str):
-          try: return [_dump(s[i]) for i in range(len(s))]
-          except Exception: return str(s)
-      return s
-  print(json.dumps(_dump(ctrl.statistics), indent=2)[:5000])
-  ```
-- Replace the per-thread lookup with the aggregate path: `solvers.choices`, `solvers.conflicts`, `solvers.restarts`.
-- Optionally also report per-thread breakdown by iterating numeric keys under `solvers`.
-- Re-run the existing benchmarks once fixed and back-fill the proper numbers in `gunfolds/scripts/papers/clingo_drasl_encoding_improvements.md`.
-
-**Reference:** flagged in the analytical review of the 10-subject Variant E run (2026-04-27) — explicitly noted as "unfixed" in §4.7 of the encoding-improvements paper.
+**Reference:** flagged in the 10-subject Variant E review (2026-04-27), §4.7 of the encoding-improvements paper. Diagnosed and fixed 2026-05-28.
 
 ---
-
-## Done
 
 ### 1. Investigate the cycle in `dag/3` facts emitted by `encode_list_sccs` — **resolved 2026-05-04: rename + acyclic-quotient via back-edge dropping**
 
