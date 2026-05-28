@@ -61,6 +61,7 @@ from gunfolds.scripts.real_data.component_config import (
 CLINGO_LIMIT = 64
 MAXCOST = 20
 DEFAULT_GT_DENSITY_BY_N = {10: 35, 20: 22, 53: 13}
+DEFAULT_PCMCI_ALPHA_BY_N = {10: 0.08, 20: 0.05, 53: 0.05}  # swept per-N (pcmci_alpha_sweep.py); N not in table -> 0.05
 
 ALL_CONFIGS = ["frumpy", "jumpy", "tweety", "handy", "crafty", "trendy",
                "auto", "many"]
@@ -390,12 +391,16 @@ def main():
     p.add_argument("--capsize", type=int, default=0)
     p.add_argument("--pcmci_method", default="pcmci")
     p.add_argument("--pcmci_tau_max", type=int, default=1)
-    p.add_argument("--pcmci_alpha", type=float, default=0.05)
+    p.add_argument("--pcmci_alpha", type=float, default=None,
+                   help="PCMCI significance level. Omit to use the swept "
+                        "per-N default (DEFAULT_PCMCI_ALPHA_BY_N).")
     p.add_argument("--pcmci_fdr", default="none")
     p.add_argument("--grounding_interval", type=float, default=5.0)
     p.add_argument("--only", type=str, default="",
                    help="Comma-separated config names to run (e.g. 'crafty,jumpy,trendy')")
     args = p.parse_args()
+    if args.pcmci_alpha is None:
+        args.pcmci_alpha = DEFAULT_PCMCI_ALPHA_BY_N.get(args.n_components, 0.05)
 
     subject_indices = [int(x.strip()) for x in args.subject_idx.split(",")]
     gt_density = args.gt_density

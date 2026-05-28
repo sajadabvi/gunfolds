@@ -59,6 +59,20 @@ DEFAULT_GT_DENSITY_BY_N = {
     53: 13,    # 10–15
 }
 
+# Default PCMCI alpha (run_pcmci significance) per N, when --pcmci_alpha is omitted.
+# Chosen by the PCMCI-only alpha sweep (pcmci_alpha_sweep.py) maximising the
+# Exp 4 composite (0.6·cross-subject Jaccard + 0.4·density proximity to the
+# N-specific GT target). N=20 from the Exp 4 grid; N=10 and N=53 from the
+# 2026-05-27 sweep over 311 FBIRN subjects.
+DEFAULT_PCMCI_ALPHA_BY_N = {
+    10: 0.08,
+    20: 0.05,
+    53: 0.05,
+}
+
+# Fallback alpha for any N not in the table above (e.g. ad-hoc component counts).
+_PCMCI_ALPHA_FALLBACK = 0.05
+
 
 def resolve_fixed_gt_density(n_components: int, explicit: Optional[int]) -> int:
     """
@@ -74,6 +88,19 @@ def resolve_fixed_gt_density(n_components: int, explicit: Optional[int]) -> int:
             "pass --gt_density explicitly."
         )
     return DEFAULT_GT_DENSITY_BY_N[n_components]
+
+
+def resolve_pcmci_alpha(n_components: int, explicit: Optional[float]) -> float:
+    """
+    Return the PCMCI alpha to use.
+
+    If ``explicit`` is None, use the swept default for ``n_components``
+    (DEFAULT_PCMCI_ALPHA_BY_N), falling back to ``_PCMCI_ALPHA_FALLBACK``
+    for component counts not in the table.
+    """
+    if explicit is not None:
+        return explicit
+    return DEFAULT_PCMCI_ALPHA_BY_N.get(n_components, _PCMCI_ALPHA_FALLBACK)
 
 
 # ---------------------------------------------------------------------------
@@ -130,8 +157,10 @@ def parse_arguments():
                    help="PCMCI variant: pcmciplus (more stable, recommended) or pcmci")
     p.add_argument("--pcmci_tau_max", default=1, type=int,
                    help="Max lag for PCMCI (default 2; higher = more stable but slower)")
-    p.add_argument("--pcmci_alpha", default=0.01, type=float,
-                   help="Significance level for PCMCI (only affects run_pcmci)")
+    p.add_argument("--pcmci_alpha", default=None, type=float,
+                   help="Significance level for PCMCI run_pcmci. When omitted, "
+                        "uses the swept per-N default (DEFAULT_PCMCI_ALPHA_BY_N: "
+                        "0.08 for N=10, 0.05 for N=20/53).")
     p.add_argument("--pcmci_pc_alpha", default=0.01, type=float,
                    help="PC skeleton alpha (0.01 for pcmciplus, None=auto for pcmci)")
     p.add_argument("--pcmci_fdr", default="none",
@@ -320,8 +349,7 @@ def run_rasl_subject(ts_2d, args, comp_indices, scc_members_override=None,
         edge_weights=priority,
         pnum=args.PNUM,
         optim="optN",
-        selfloop=False,
-        extra_clingo_args=["--opt-heuristic=1"],
+        selfloop=None,
     )
 
     kept = select_top_solutions(
@@ -732,6 +760,10 @@ if __name__ == "__main__":
     comp_indices = get_comp_indices(args.n_components)
     comp_names = get_comp_names(comp_indices)
 
+    # Resolve PCMCI alpha from the swept per-N default unless given explicitly.
+    pcmci_alpha_explicit = args.pcmci_alpha is not None
+    args.pcmci_alpha = resolve_pcmci_alpha(args.n_components, args.pcmci_alpha)
+
     print("=" * 80)
     print("FMRI EXPERIMENT CONFIGURATION")
     print("=" * 80)
@@ -764,7 +796,12 @@ if __name__ == "__main__":
         print(f"  PCMCI variant:   {args.pcmci_method}")
         print(f"  PCMCI tau_max:   {args.pcmci_tau_max}")
         if args.pcmci_method == "pcmci":
-            print(f"  PCMCI alpha:     {args.pcmci_alpha}")
+            alpha_src = (
+                "explicit --pcmci_alpha"
+                if pcmci_alpha_explicit
+                else f"swept default for N={args.n_components} (DEFAULT_PCMCI_ALPHA_BY_N)"
+            )
+            print(f"  PCMCI alpha:     {args.pcmci_alpha} ({alpha_src})")
             print(f"  PCMCI FDR:       {args.pcmci_fdr}")
     print("=" * 80)
 

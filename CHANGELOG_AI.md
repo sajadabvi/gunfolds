@@ -3,7 +3,104 @@
 Short summaries of code and documentation changes made via Cursor AI sessions.
 
 
+## 2026-05-28  (branch: current)
+
+### Fixed clingo stats reporting (always 0) + new solve-phase fingerprint; solver-strategy axis closed
+
+`benchmark_density_encoding.py` read `solving.solvers[0]` for CDCL counters, but clingo 5.7.1 puts aggregates on `solving.solvers.{choices,conflicts,restarts}` (per-thread is `solving.solver[i]`, singular). `_sg` swallowed the `TypeError`/`KeyError`, so every run printed `choices=0 conflicts=0 restarts=0` — a reporting glitch only; all prior costs/timings were correct. Fixed the path, added `--stats=2` and `extra.{lemmas,domain_choices}`, and added a trajectory **phase fingerprint** (`pre_first/descent/proof_tail` + rates) with new result fields and summary columns.
+
+Using the fixed counters: default `bb,lin` beats every alternative; `bb,hier`/`bb,dec` slower; `usc,oll` times out with **0 bound improvement** at both 10-thread *and* single-thread (8 M / 476 K conflicts, no feasible model) — re-confirms the prior USC rejection and makes its failure mode visible for the first time. The ~70–90 % proof tail at N=10 is intrinsic; **no clasp flag helps**. Remaining levers are encoding-level (todo #6/#7) or structural (todo #3), to be decided by running the fingerprint at N=14/20. todo item #2 → Done.
+
+**Files:** `gunfolds/scripts/tests/benchmark_density_encoding.py`, `todo.md`.
+
+
+## 2026-05-27  (branch: current)
+
+### runtime_scaling: stable-matrix sampling strategies + large-N resubmit script
+
+Diagnosed the `Could not find stable matrix after 1,000,000 tries` failure: ρ(random sparse W) grows like √(N·density), so the post-`0.99/ρ` rescale shrinks entries as 1/√N and the path-strength filter rejects nearly every draw at large N.
+
+Added five composable strategies to `create_stable_weighted_matrix` in `runtime_scaling.py`: `scale_aware` (σ = 1/√⟨in-deg⟩, on by default), `bias_magnitudes`, `auto_threshold`, configurable `powers`, and a new deterministic `construct_stable_matrix_from_sccs(A, partition)` (block-triangular, zero rejection, ρ < 1 by construction). Plus `get_stable_weighted_matrix(...)` dispatcher and CLI flags `--w_strategy`, `--w_threshold`, `--w_powers`, `--w_scale_aware`/`--w_no_scale_aware`, `--w_bias_magnitudes`, `--w_auto_threshold`. All strategies succeed in < 3 ms at N=24, 36, 54 in standalone tests.
+
+New `submit_runtime_scaling_large.sh`: one instance each at N=30/42/54 with max walltime `5-08:00:00`, `--timeout_hours=127`, `--w_bias_magnitudes`. Memory + CPUs sized so `mem/cpu ≤ 15 GB` (qTRDGPU MaxMemPerCPU), avoiding the silent CPU bump the old N=54 run hit: N=30 → 160 GB/11 cpus, N=42 → 256 GB/18 cpus, N=54 → 480 GB/32 cpus.
+
+**Files:** `gunfolds/scripts/experiments/runtime_scaling.py`, `gunfolds/scripts/experiments/submit_runtime_scaling_large.sh` (new).
+
+
+## 2026-05-07  (branch: current)
+
+### New experiment + three library-bug workarounds + checklist updates
+
+**New experiment** in `gunfolds/scripts/experiments/`: `runtime_scaling.py` (one job per `(N, instance_id)`: build multi-SCC ring G¹ → VAR + BOLD → PCMCI `tau_max=1,alpha=0.05` → drasl with `threading.Timer` interrupt → F1), `submit_runtime_scaling.sh` (100 jobs, skip-if-completed/queued guards), `aggregate_results.py`, `check_status.sh`. SCC compositions: `N=8→[6,2], 10→[6,4], 12→[6,6], 14→[6,4,4], 18→[6,6,6], 20→[6,6,4,4], 24..54=[6]*k`. Headline medians: N=8 → 0.2 s, N=10 → 2.9 s, N=12 → 1.6 min, N=14 → 1.4 min, N=18 → 50 min, N=20 → 8.9 h.
+
+**Three caller-side workarounds for gunfolds bugs** (upstream issues filed):
+
+1. `gk.randomDAG` infinite-loops for `N ≤ 2` (`remove_tril_singletons` off-by-one); replaced with a hand-rolled `nx.DiGraph` chain in `make_multi_scc_ring`.
+2. `simulate_bold` ignored `u_rate` because `end_time=100` was fixed; now passes `end_time=100*u_rate`.
+3. `compute_bold_signals` returns a ragged 1-D object array when scipy `vode` fails on one node; detect `ndim == 1` and retry with tighter input rescaling.
+
+**Cluster-ops lessons:** `sbatch --wrap` runs under `/bin/sh` (dash) so `source` must be `.` or prepend `#!/bin/bash`; `qTRDGPU` enforces `MaxMemPerCPU≈15.2 GB` and silently bumps `--cpus-per-task` to satisfy the ratio; `clingo -n 1 --opt-mode=opt` returns the first feasible model, not the optimum — use `-n 0`.
+
+**Checklist skill updates** (`~/.claude/skills/checklist/SKILL.md`): item 16 (`simulate_bold` end_time scaling), item 17 (never call `gk.randomDAG` when `num_sccs ≤ 2`), mandatory `_assert_glag2cg_direction()` sanity check under item 2.
+
+**Files:** `gunfolds/scripts/experiments/{runtime_scaling.py,submit_runtime_scaling.sh,aggregate_results.py,check_status.sh}` (all new); `~/.claude/skills/checklist/SKILL.md`.
+
+
 ## 2026-05-04  (branch: current)
+
+### SCC quotient back-edge selection: weighted MFAS via igraph `exact_ip` (Option C)
+
+Replaces the class-index-ordering criterion in `_acyclic_quotient_edges` (introduced in `0079ca60`) with a principled minimum-weight feedback arc set (MFAS) using exact integer programming via `python-igraph`'s `Graph.feedback_arc_set(method='exact_ip')`.
+
+**Edge weight definition** (uses *all* available PCMCI signal, per the user's design ask). For each candidate cross-class arrow `K → L`:
+
+```
+w(K → L) = pos(K → L) + neg(L → K)
+```
+
+where `pos(K → L)` is the total `hdirected` weight summed across `(X ∈ K, Y ∈ L)` node pairs that PCMCI judges present, and `neg(L → K)` is the total `no_hdirected` weight summed across `(Y ∈ L, X ∈ K)` node pairs that PCMCI judges absent. The first term penalises dropping arrows that PCMCI directly supports; the second penalises drops that would force the encoding into the reverse direction, which `no_hdirected` facts contradict. The minimum-weight feedback arc set returned by igraph's exact ILP solver is the principled drop set: minimum number of edges (NP-hard in general, trivial at our 7-node quotient size) and minimum total PCMCI evidence cost.
+
+**Headline result on FBIRN N=10 subject 0** (NeuroMark domain partition → cyclic 7-class quotient with 22 internal edges): class-index fallback dropped 14 back-edges keeping 8 quotient edges; weighted MFAS drops only **5 back-edges keeping 17** (77% retention) with a total evidence cost of 142. The number of dropped edges is provably minimum at this scale; the choice of *which* 5 minimises lost PCMCI evidence.
+
+**Empirical impact on subject 1 N=10 baseline:** solve time effectively unchanged (0.04 s vs prior 0.03 s). Optimum cost descends from `[452, 350]` to `[423, 350]` — expected and correct: keeping 17 quotient edges instead of 8 gives the solver more freedom (the SCC integrity constraints fire less often), so a lower-cost graph becomes reachable. The encoding is *less* restrictive than the class-index fallback but *more principled* — it only drops the cycle-creating back-edges that are necessary, weighted by PCMCI confidence. Compared to the original cyclic encoding (which optimum was `[340, 350]`, an unsound phantom), this 423 is sound modulo the speed-vs-soundness lever already documented (we still drop *some* valid cross-class arrows; just the minimum-evidence-cost subset).
+
+**Backward compatibility.** When `dm` is not supplied to `encode_list_sccs` (legacy callers), `_acyclic_quotient_edges` falls back to the class-index ordering. `drasl_command` always has `dm` available and now passes it through.
+
+**Logged for future.** Bayesian log-likelihood-ratio weights (Option D from the design discussion) requires calibrating DD weights against actual probability scales and is captured in `todo.md` item #7. Suggestion #9 ground-reduction trick (drop weight-0 facts) is captured in `todo.md` item #6 — to measure first before implementing.
+
+**Files:** `gunfolds/conversions.py` (`_acyclic_quotient_edges` gains `dm` parameter and weighted-MFAS path; `encode_list_sccs` plumbs `dm` through; updated docstrings). `gunfolds/solvers/clingo_rasl.py` (passes `dm` to `encode_list_sccs`). `gunfolds/scripts/papers/scc_quotient_edge_dropping_research.md` (new — local-only research doc with literature review, weight-function options A–D, and the Option C derivation). `todo.md` (items 6 and 7 added).
+
+---
+
+### SCC encoding fix: `dag/3` → `scc_edge/3` rename + acyclic-quotient via back-edge dropping (todo item #1)
+
+**Two-part change in `gunfolds/conversions.py`.**
+
+1. **Rename `dag/3` → `scc_edge/3`** in the three sites that emit/consume the predicate inside `encode_sccs` and `encode_list_sccs`. The old name was misleading because the relation is the SCC quotient digraph of the measured graph, not a DAG in general.
+
+2. **Acyclic-quotient enforcement via back-edge dropping (no class merging).** When `scc_members` is supplied (the production path with `--scc_strategy=domain` / `correlation`), the partition is hand-specified by NeuroMark domain or correlation cluster and may *split* a real SCC across multiple classes — producing a cyclic quotient. New helper `_acyclic_quotient_edges(glist, partition)` builds the quotient over the union of `glist`, finds its SCCs, and **drops only the back-edges within each cyclic SCC of the quotient** (sorted by class index for a deterministic forward direction). Every input class is preserved as its own SCC in the encoding. `encode_sccs` now accepts an optional `quotient_edges` override that bypasses NetworkX's `condensation` and emits the precomputed acyclic edge set verbatim.
+
+**Why this design over the merge alternative.** Merging classes within each cyclic quotient-SCC is theoretically sounder (it gives a true SCC coarsening), but on real fMRI data every NeuroMark domain pair has bidirectional flow at PCMCI alpha=0.05, so the merge collapses the 7-class partition to a single SCC and the SCC integrity constraints become vacuous (no class-distinct pairs to constrain). The user explicitly opted for the speed-vs-soundness lever: keep the partition, drop back-edges, accept that the constraint may now reject some valid causal graphs whose arrows go in dropped directions. This preserves per-SCC pruning power and keeps per-SCC decomposition meaningful as a future speedup.
+
+**Empirical results (FBIRN N=10 subject 1, `--optim opt`, `density_mode='hard_soft0'`).**
+
+| Variant | Solve time | Optimum | Sound? |
+|---|---|---|---|
+| Original cyclic encoding | 1.43 s | `[340, 350]` | ❌ — cycles let invalid arrows pass |
+| Merge cyclic classes | 120 s timeout (descending past `[302, 350]`) | < `[302, 350]` | ✅ but vacuous on fMRI |
+| **Drop back-edges (this fix)** | **0.03 s** | `[452, 350]` | ⚠️ technically unsound (drops valid arrows) |
+
+Subject 0 N=10 domain partition `[{1,2}, {3}, {4}, {5}, {6,7}, {8,9}, {10}]` is preserved; the fix drops 14 back-edges out of 22 quotient edges and emits the remaining 8 forward arrows. Synthetic `[{1}, {2,3}, {4}]` over `1→2→3→1, 4→3` similarly preserves all 3 classes and drops 1 back-edge.
+
+The reported optimum cost rises from `[340, 350]` to `[452, 350]` because the new encoding is *more* restrictive than the original. The original's lower 340 was a phantom: cycles in the old `dag/3` quotient allowed cross-class arrows that should have been forbidden — so half the prior "optima" violated the SCC invariant. **All prior fMRI optimization numbers measured against `--scc_strategy=domain` should be regenerated** before being cited.
+
+**Per-SCC decomposition (future).** With the partition now preserved, per-SCC decomposition becomes a meaningful next-step speedup: solve each SCC's sub-problem independently in Python, then combine. Not implemented in this change.
+
+**Out-of-scope finding.** `clingo_rasl.py:425` emits a `dagl(N-1)` fact never consumed by any rule. Pure dead code. Left for a separate cleanup PR.
+
+**Files:** `gunfolds/conversions.py` (rename + new `_acyclic_quotient_edges` helper + `quotient_edges` parameter on `encode_sccs` + updated docstrings); `gunfolds/scripts/papers/example_clingo.md` (predicate name updated to match emitter); `todo.md` (item 1 moved to Done).
+
+---
 
 ### Domain heuristic + PCMCI-prior `#heuristic` directives — tested and REJECTED (suggestion #4)
 

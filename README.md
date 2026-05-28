@@ -20,7 +20,7 @@ Key contributions I built:
 - **RnR** — A meta-solver that refines the output of *any* causal discovery
   algorithm by modeling undersampling effects via ASP. Improves F1 by 45%
   over SOTA baselines (PCMCI, FASK, MVGC, GIMME) on real fMRI data.
-  Under review at ICML 2026.
+  Under review at NeurIPS 2026.
 
 - **ION-C** — Causal learning from overlapping datasets with non-co-measured
   variables. Proved soundness and completeness; scales from 4–6 nodes
