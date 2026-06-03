@@ -181,6 +181,18 @@ def main():
           f"u-rates(split)={rates}  pnum={args.pnum}  timeout={args.timeout_sec}s")
     print("=" * 96)
 
+    # Incremental CSV: write the header now and append each graph's row as soon
+    # as it finishes, so a SLURM walltime kill still leaves partial results.
+    csv_f = csv_w = None
+    if args.out:
+        csv_f = open(args.out, "w", newline="")
+        csv_w = csv.writer(csv_f)
+        csv_w.writerow(["inst", "n_nodes", "combined_sec", "combined_timeout",
+                        "split_critical_sec", "split_total_sec", "split_timeout",
+                        "a_best_cost", "b_best_cost", "speedup_critical",
+                        "speedup_total"])
+        csv_f.flush()
+
     rows = []
     for inst in range(args.n_graphs):
         print(f"\n[graph {inst}] building input (seed from N={args.n_nodes}, inst={inst}) …",
@@ -219,6 +231,14 @@ def main():
               f"|  crit speedup {sp_crit:.2f}x  [{verdict}]"
               f"{'  best-cost MISMATCH' if best_cost(ma) != b_best else ''}", flush=True)
 
+        if csv_w is not None:
+            csv_w.writerow([inst, P['n_nodes'], f"{ta:.4f}", toa,
+                            f"{crit:.4f}", f"{tot:.4f}", any_to,
+                            best_cost(ma), b_best,
+                            f"{sp_crit:.4f}" if sp_crit else "",
+                            f"{sp_tot:.4f}" if sp_tot else ""])
+            csv_f.flush()
+
     # ── summary ──────────────────────────────────────────────────────────────
     print("\n" + "=" * 96)
     print(f"{'graph':>5} {'combined':>10} {'split_crit':>11} {'split_sum':>10} "
@@ -239,19 +259,8 @@ def main():
               f"({faster}/{len(crit_x)} graphs faster split)   "
               f">1 = split wins on wall-clock")
 
-    if args.out:
-        with open(args.out, "w", newline="") as f:
-            w = csv.writer(f)
-            w.writerow(["inst", "n_nodes", "combined_sec", "combined_timeout",
-                        "split_critical_sec", "split_total_sec", "split_timeout",
-                        "a_best_cost", "b_best_cost", "speedup_critical",
-                        "speedup_total"])
-            for r in rows:
-                w.writerow([r["inst"], r["n"], f"{r['combined']:.4f}", r["a_to"],
-                            f"{r['crit']:.4f}", f"{r['total']:.4f}", r["b_to"],
-                            r["a_best"], r["b_best"],
-                            f"{r['sp_crit']:.4f}" if r["sp_crit"] else "",
-                            f"{r['sp_tot']:.4f}" if r["sp_tot"] else ""])
+    if csv_f is not None:
+        csv_f.close()
         print(f"\nWrote {args.out}")
 
 
