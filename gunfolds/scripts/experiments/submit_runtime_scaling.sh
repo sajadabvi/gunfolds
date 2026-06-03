@@ -40,13 +40,14 @@ TIMEOUT_HOURS=35
 declare -A MEM_BY_N=(
     [8]="8g"   [10]="8g"
     [12]="32g" [14]="32g"
+    [16]="64g"
     [18]="64g" [20]="64g"
     [24]="128g" [30]="128g"
     [42]="192g"
     [54]="256g"
 )
 
-N_VALUES=(8 10 12 14 18 20 24 30 42 54)
+N_VALUES=(16)
 INSTANCES_PER_N=10
 
 # Set FORCE=1 to disable both skip guards and resubmit everything.

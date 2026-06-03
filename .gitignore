@@ -108,3 +108,6 @@ gunfolds/scripts/save_sz_data.py
 # Generated files
 *.tex.tex
 *.png
+
+# local-only test scratch
+tests/interview.py

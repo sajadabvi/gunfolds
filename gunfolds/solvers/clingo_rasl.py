@@ -166,11 +166,12 @@ def rate(u, uname='u'):
     return s
 
 
-def drate(u, gnum, weighted=False):
+def drate(u, gnum, weighted=False, fixed=False):
     """
     Replaces ``rate`` if there are multiple under sampled inputs
 
-    :param u: maximum under sampling rate
+    :param u: maximum under sampling rate (or, when ``fixed`` is ``True``,
+        the single under sampling rate to force)
     :type u: integer
 
     :param gnum: number of under sampled inputs
@@ -181,10 +182,23 @@ def drate(u, gnum, weighted=False):
         all weights are set to `1`
     :type weighted: boolean
 
+    :param fixed: when ``True``, force the under sampling rate of input
+        ``gnum`` to be exactly ``u`` (a single forced atom) instead of a
+        choice over the range ``[int(weighted)+1, u]``.  Used by the
+        per-u splitting feature (see :func:`drasl_command`'s ``fix_urate``)
+        where one clingo job is launched per candidate rate.
+    :type fixed: boolean
+
     :returns: ``clingo`` code for under sampling with multiple under sampled inputs
     :rtype: string
     """
-    s = f"1 {{u({int(weighted)+1}..{u}, {gnum})}} 1."
+    if fixed:
+        # Force the undersampling rate to exactly ``u``.  ``1 {u(u, gnum)} 1.``
+        # is logically equivalent to the fact ``u(u, gnum).`` but keeps the
+        # same cardinality-rule shape as the unfixed branch.
+        s = f"1 {{u({u}, {gnum})}} 1."
+    else:
+        s = f"1 {{u({int(weighted)+1}..{u}, {gnum})}} 1."
     return s
 
 
@@ -267,7 +281,7 @@ def _compute_directed_density_pct(g):
     return int(round(100.0 * n_dir / (n * n)))
 
 
-def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=None, dm=None, bdm=None, edge_weights=[1, 1, 1, 1, 1], GT_density=None, selfloop=False, density_weight=50, density_mode='soft', tol=5, tol_low=None, tol_high=None):
+def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=None, dm=None, bdm=None, edge_weights=[1, 1, 1, 1, 1], GT_density=None, selfloop=False, density_weight=50, density_mode='soft', tol=5, tol_low=None, tol_high=None, fix_urate=None):
     """
     Given a list of graphs generates ``clingo`` codes
 
@@ -342,6 +356,19 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
         symmetric ``tol`` is used.
     :type tol_high: integer or None
 
+    :param fix_urate: when set to an integer ``k``, force *every* input
+        graph's under sampling rate to be exactly ``k`` rather than letting
+        clingo search the whole range ``1..max_urate``.  This is the
+        "per-u splitting" primitive: launching one clingo job per candidate
+        rate ``k`` lets the otherwise-monolithic search be parallelised
+        (e.g. across a SLURM cluster) and the per-rate solution sets pooled
+        afterwards.  The candidate-rate facts are restricted to ``uk(1..k)``
+        (only ``K < k`` are consulted by the minimality rules), which both
+        preserves the exact minimal-rate semantics — so the per-``k`` jobs
+        partition the original search space — and shrinks grounding for
+        small ``k``.  ``None`` (default) keeps the original combined search.
+    :type fix_urate: integer or None
+
     :returns: clingo code as a string
     :rtype: string
     """
@@ -354,6 +381,24 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
 
     if not max_urate:
         max_urate = 1+3*len(g_list[0])
+
+    # Per-u splitting validation.  ``fix_urate`` forces a single rate; for
+    # weighted inputs the smallest meaningful rate is 2 (rate 1 = the causal
+    # graph itself, which weighted encodings exclude via ``int(weighted)+1``).
+    if fix_urate is not None:
+        if int(fix_urate) != fix_urate or fix_urate < 1:
+            raise ValueError(f"fix_urate must be a positive integer; got {fix_urate!r}")
+        fix_urate = int(fix_urate)
+        if weighted and fix_urate < 2:
+            raise ValueError(
+                f"fix_urate={fix_urate} is invalid for weighted inputs "
+                f"(weighted under sampling rates start at 2)."
+            )
+        if fix_urate > max_urate:
+            # uk/drate below are driven by fix_urate, so keep max_urate in
+            # sync to avoid surprising callers that also read it downstream.
+            max_urate = fix_urate
+
     n = len(g_list)
     command = clingo_preamble(g_list[0])
 
@@ -423,8 +468,15 @@ def drasl_command(g_list, max_urate=0, weighted=False, scc=False, scc_members=No
         command += encode_list_sccs(g_list, scc_members, dm=dm)
     command += f"dagl({len(g_list[0])-1}). "
     command += glist2str(g_list, weighted=weighted, dm=dm, bdm=bdm) + ' '   # generate all graphs
-    command += 'uk(1..'+str(max_urate)+').' + ' '
-    command += ' '.join([drate(max_urate, i+1, weighted=weighted) for i in range(n)]) + ' '
+    if fix_urate is not None:
+        # Per-u splitting: candidate rates restricted to 1..k (only K < k are
+        # consulted by the minimality rules) and every input forced to u=k.
+        command += 'uk(1..'+str(fix_urate)+').' + ' '
+        command += ' '.join([drate(fix_urate, i+1, weighted=weighted, fixed=True)
+                             for i in range(n)]) + ' '
+    else:
+        command += 'uk(1..'+str(max_urate)+').' + ' '
+        command += ' '.join([drate(max_urate, i+1, weighted=weighted) for i in range(n)]) + ' '
     command += weighted_drasl_program(edge_weights[0], edge_weights[1],edge_weights[2], edge_weights[3]) if weighted else drasl_program
     # command += f":- M = N, {{u(M, 1..{n}); u(N, 1..{n})}} == 2, u(M, _), u(N, _). "
     if selfloop is not None:
@@ -444,7 +496,7 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
           bdm=None, pnum=PNUM, GT_density=None, edge_weights=[1, 1, 1, 1, 1], configuration="crafty", optim='optN',
           multi_individual=False, selfloop=False, density_weight=50,
           density_mode='adaptive', tol=None, tol_low=15, tol_high=5, tol_widen=10,
-          verbose=True):
+          fix_urate=None, verbose=True):
     """
     Compute all candidate causal time-scale graphs that could have
     generated all undersampled graphs at all possible undersampling
@@ -611,6 +663,7 @@ def drasl(glist, capsize=CAPSIZE, timeout=0, urate=0, weighted=False, scc=False,
             edge_weights=edge_weights, GT_density=effective_GT_density,
             selfloop=selfloop, density_weight=density_weight,
             density_mode=mode, tol_low=t_low, tol_high=t_high,
+            fix_urate=fix_urate,
         )
         return clingo(cmd, capsize=capsize, convert=drasl_jclingo2g,
                       configuration=configuration, timeout=timeout,
