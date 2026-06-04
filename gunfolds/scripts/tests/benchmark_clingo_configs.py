@@ -60,7 +60,7 @@ from gunfolds.scripts.real_data.component_config import (
 
 CLINGO_LIMIT = 64
 MAXCOST = 20
-DEFAULT_GT_DENSITY_BY_N = {10: 35, 20: 22, 53: 13}
+DEFAULT_GT_DENSITY_BY_N = {10: 35, 13: 32, 20: 22, 53: 13}
 DEFAULT_PCMCI_ALPHA_BY_N = {10: 0.08, 20: 0.05, 53: 0.05}  # swept per-N (pcmci_alpha_sweep.py); N not in table -> 0.05
 
 ALL_CONFIGS = ["frumpy", "jumpy", "tweety", "handy", "crafty", "trendy",
@@ -375,7 +375,7 @@ def build_asp_command(data, labels, subject_idx, comp_indices, comp_names,
 def main():
     p = argparse.ArgumentParser(
         description="Benchmark clingo configurations on fMRI data")
-    p.add_argument("--n_components", type=int, default=10, choices=[10, 20, 53])
+    p.add_argument("--n_components", type=int, default=10, choices=[10, 13, 20, 53])
     p.add_argument("--subject_idx", type=str, default="0",
                    help="Comma-separated subject indices (e.g. '0,1,2')")
     p.add_argument("--data_path", type=str, default="../fbirn/fbirn_sz_data.npz")

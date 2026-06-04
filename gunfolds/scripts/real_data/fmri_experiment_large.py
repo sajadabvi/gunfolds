@@ -2,7 +2,7 @@
 fMRI experiment: RASL / PCMCI / GCM causal discovery on FBIRN ICA data.
 
 Supports:
-  - Variable component counts (10, 20, 53) via NeuroMark subsets
+  - Variable component counts (10, 13, 20, 53) via NeuroMark subsets
   - Multiple SCC strategies for RASL (domain, correlation, estimated, none)
   - Three methods: RASL (undersampling-aware), PCMCI-only, GCM (baselines)
   - Single-subject mode for SLURM array jobs (--subject_idx)
@@ -55,6 +55,7 @@ PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
 # Midpoints of recommended ranges in ground_truth_connectivity_estimates.md §7.
 DEFAULT_GT_DENSITY_BY_N = {
     10: 35,    # 30–40 (moderate tier, hub-centric N=10)
+    13: 32,    # 28–38 (N=10 hubs + 3 PFC hubs IFG/rDLPFC/VMPFC; stays dense)
     20: 22,    # 18–25
     53: 13,    # 10–15
 }
@@ -70,7 +71,8 @@ DEFAULT_PCMCI_ALPHA_BY_N = {
     53: 0.05,
 }
 
-# Fallback alpha for any N not in the table above (e.g. ad-hoc component counts).
+# Fallback alpha for any N not in the table above (e.g. N=13 and other ad-hoc
+# component counts for which no dedicated alpha sweep was run).
 _PCMCI_ALPHA_FALLBACK = 0.05
 
 
@@ -112,7 +114,7 @@ def parse_arguments():
         description="fMRI causal discovery experiment (RASL / PCMCI / GCM)."
     )
     # Experiment configuration
-    p.add_argument("--n_components", type=int, default=10, choices=[10, 20, 53],
+    p.add_argument("--n_components", type=int, default=10, choices=[10, 13, 20, 53],
                    help="Number of ICA components to use")
     p.add_argument("--scc_strategy", type=str, default="domain",
                    choices=["domain", "correlation", "estimated", "none"],
@@ -796,11 +798,14 @@ if __name__ == "__main__":
         print(f"  PCMCI variant:   {args.pcmci_method}")
         print(f"  PCMCI tau_max:   {args.pcmci_tau_max}")
         if args.pcmci_method == "pcmci":
-            alpha_src = (
-                "explicit --pcmci_alpha"
-                if pcmci_alpha_explicit
-                else f"swept default for N={args.n_components} (DEFAULT_PCMCI_ALPHA_BY_N)"
-            )
+            if pcmci_alpha_explicit:
+                alpha_src = "explicit --pcmci_alpha"
+            elif args.n_components in DEFAULT_PCMCI_ALPHA_BY_N:
+                alpha_src = (f"swept default for N={args.n_components} "
+                             f"(DEFAULT_PCMCI_ALPHA_BY_N)")
+            else:
+                alpha_src = (f"fallback default {_PCMCI_ALPHA_FALLBACK} "
+                             f"(no per-N sweep for N={args.n_components})")
             print(f"  PCMCI alpha:     {args.pcmci_alpha} ({alpha_src})")
             print(f"  PCMCI FDR:       {args.pcmci_fdr}")
     print("=" * 80)

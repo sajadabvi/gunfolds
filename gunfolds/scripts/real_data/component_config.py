@@ -1,7 +1,7 @@
 """
 NeuroMark ICA component configuration for fMRI experiments.
 
-Defines component subsets (N=10, 20, 53), domain mappings based on the
+Defines component subsets (N=10, 13, 14, 20, 53), domain mappings based on the
 NeuroMark paper (Du et al., 2020), and SCC-grouping strategies (domain-based
 and correlation-based) for use with RASL/DRASL.
 
@@ -77,6 +77,38 @@ COMP_SET_10 = [
     49,  # CB  Cerebellum
 ]
 
+# N=13: COMP_SET_10 plus three prefrontal association hubs (fronto-limbic
+# extension).  Each added region is mapped to its NeuroMark ICN by anatomy +
+# hemisphere (X-sign) from ICN_coordinates.csv / Du et al. 2020 Table 2:
+#   IFG        -> idx 28 "IFG"   (IC 70, MNI -48.5, 34.5,  -0.5; left)    -> CC
+#                 left inferior frontal gyrus (Broca / language), the canonical
+#                 NeuroMark IFG; complements the STG language node in N=10.
+#   rDLPFC     -> idx 35 "MiFG2" (IC 88, MNI  30.5, 41.5,  28.5; right)   -> CC
+#                 right dorsolateral PFC = right middle frontal gyrus (BA 9/46);
+#                 the only right-hemisphere dorsal MiFG in the parcellation.
+#   mPFC/VMPFC -> idx 46 "ACC2"  (IC 17, MNI  -9.5, 46.5, -10.5; ventral) -> DM
+#                 ventromedial PFC = ventral anterior medial cingulate; the
+#                 ventral (Z<0) anterior DM node, distinct from N=10's ACC (44).
+# Domain composition: SC2 AU1 SM1 VI1 CC4 DM3 CB1.  Largest domain SCC = 4 (CC),
+# well under get_correlation_sccs' max_cluster_size=8.  Anatomical NeuroMark
+# labels are kept in COMP_LABELS_53 (shared with N=20/53); the rDLPFC / VMPFC
+# functional aliases are documented here only.
+COMP_SET_13 = [
+    0,   # SC  Caudate
+    4,   # SC  Thalamus
+    5,   # AU  STG
+    7,   # SM  PoCG
+    16,  # VI  CalcarineG
+    25,  # CC  IPL
+    26,  # CC  Insula
+    28,  # CC  IFG        (added: left inferior frontal gyrus / language)
+    35,  # CC  rDLPFC     (added: right MiFG, dorsolateral PFC)
+    44,  # DM  ACC
+    45,  # DM  PCC
+    46,  # DM  mPFC/VMPFC (added: ventromedial PFC / ventral ACC)
+    49,  # CB  Cerebellum
+]
+
 # N=14: exactly 2 per domain (7 domains × 2). Superset of COMP_SET_10,
 # subset of COMP_SET_20 — chosen so any sweep across N=10/14/20 only adds
 # components, never swaps them.
@@ -120,6 +152,7 @@ COMP_SET_53 = list(range(53))
 
 COMP_SETS = {
     10: COMP_SET_10,
+    13: COMP_SET_13,
     14: COMP_SET_14,
     20: COMP_SET_20,
     53: COMP_SET_53,

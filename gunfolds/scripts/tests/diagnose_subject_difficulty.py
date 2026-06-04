@@ -58,7 +58,7 @@ from gunfolds.scripts.real_data.component_config import (
 )
 
 MAXCOST = 20
-DEFAULT_GT_DENSITY_BY_N = {10: 35, 14: 30, 20: 22, 53: 13}
+DEFAULT_GT_DENSITY_BY_N = {10: 35, 13: 32, 14: 30, 20: 22, 53: 13}
 DEFAULT_PCMCI_ALPHA_BY_N = {10: 0.08, 20: 0.05, 53: 0.05}  # swept per-N (pcmci_alpha_sweep.py); N not in table -> 0.05
 
 
@@ -192,7 +192,7 @@ def analyze_subject(subject_idx, data, comp_indices, n_nodes, gt_density,
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--n_components", type=int, default=10,
-                   choices=[10, 14, 20, 53])
+                   choices=[10, 13, 14, 20, 53])
     p.add_argument("--subjects", type=str, default="0,1",
                    help="Comma-separated subject indices to compare")
     p.add_argument("--data_path", type=str, default="../fbirn/fbirn_sz_data.npz")

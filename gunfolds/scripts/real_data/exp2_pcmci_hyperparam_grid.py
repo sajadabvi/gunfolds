@@ -89,7 +89,7 @@ def get_labels(npz):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--n_components", type=int, default=10, choices=[10, 20, 53])
+    parser.add_argument("--n_components", type=int, default=10, choices=[10, 13, 20, 53])
     parser.add_argument("--n_subjects", type=int, default=None,
                         help="Limit subjects (None=all)")
     parser.add_argument("--data_path", type=str, default="../fbirn/fbirn_sz_data.npz")

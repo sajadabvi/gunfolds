@@ -40,7 +40,7 @@ def parse_args():
     p.add_argument("--alpha", type=float, required=True,
                    help="PCMCI alpha (used for both alpha_level and pc_alpha)")
     p.add_argument("--n_components", type=int, required=True,
-                   choices=[10, 20, 53])
+                   choices=[10, 13, 20, 53])
     p.add_argument("--data_path", type=str,
                    default="../fbirn/fbirn_sz_data.npz")
     p.add_argument("--output_dir", type=str,

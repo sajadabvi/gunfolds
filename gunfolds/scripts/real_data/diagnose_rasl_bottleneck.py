@@ -354,7 +354,7 @@ def run_pcmci_timed(ts_2d, pcmci_method="pcmci", tau_max=1,
 def main():
     p = argparse.ArgumentParser(
         description="Diagnose RASL/clingo bottleneck on fMRI data")
-    p.add_argument("--n_components", type=int, default=20, choices=[10, 20, 53])
+    p.add_argument("--n_components", type=int, default=20, choices=[10, 13, 20, 53])
     p.add_argument("--subject_idx", type=int, default=0)
     p.add_argument("--data_path", type=str, default="../fbirn/fbirn_sz_data.npz")
     p.add_argument("--scc_strategy", type=str, default="domain",

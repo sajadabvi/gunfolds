@@ -27,7 +27,7 @@ from itertools import combinations
 import numpy as np
 
 
-TARGET_DENSITY = {10: 0.35, 20: 0.22, 53: 0.13}
+TARGET_DENSITY = {10: 0.35, 13: 0.32, 20: 0.22, 53: 0.13}
 
 
 def parse_args():
@@ -35,7 +35,7 @@ def parse_args():
     p.add_argument("--input_dir", required=True,
                    help="Directory containing alpha_*.json files")
     p.add_argument("--n_components", type=int, required=True,
-                   choices=[10, 20, 53])
+                   choices=[10, 13, 20, 53])
     p.add_argument("--max_pairs", type=int, default=10000,
                    help="Cap on Jaccard pairs (full N=311 → 48k pairs; sample if larger)")
     p.add_argument("--output_csv", type=str, default=None,
