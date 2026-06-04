@@ -3,6 +3,17 @@
 Short summaries of code and documentation changes made via Cursor AI sessions.
 
 
+## 2026-06-04  (branch: per-u-clingo-split)
+
+### Per-U splitting of DRASL: built, benchmarked, found NOT faster
+
+Added a `fix_urate=k` parameter to `drasl_command`/`drate`/`drasl` that forces a single undersampling rate (`uk(1..k)` + forced `u(k)`) instead of searching `uk(1..max_urate)`. The per-`k` answer sets are an exact partition of the combined search space by minimal rate (enumeration-verified on 10 graphs), so pooling loses no solution. Built prep-once/solve-per-u/aggregate scaffolding for both the runtime-scaling experiment (`runtime_scaling_per_u.py`, `aggregate_per_u.py`, `submit_runtime_scaling_per_u.sh`) and the fMRI experiment (`fmri_experiment_per_u.py`, `aggregate_fmri_per_u.py`, `submit_fmri_experiment_per_u.sh`; aggregator re-emits the original `result.zkl` format), plus a controlled A/B harness (`bench_per_u_vs_combined.py` + `slurm_bench_per_u.sh`) and a comparison tool (`compare_per_u_vs_combined.py`).
+
+**Finding (negative):** splitting is correctness-preserving but generally not faster — often far slower (combined N=14 inst0 finishes in 171 s while the `u=2` job alone does not finish in 1 h). The combined search prunes hard rates via its incumbent cost bound; fixing the lowest rate removes that pruning and `u=2` dominates the critical path. Also documented a lexicographic-vs-`sum(cost)` ranking divergence (`aggregate_per_u.py --rank {sum,lex}`). Full write-up: `gunfolds/scripts/papers/per_u_split_results.md`.
+
+**Files:** `gunfolds/solvers/clingo_rasl.py`, `gunfolds/scripts/experiments/{runtime_scaling_per_u,aggregate_per_u,bench_per_u_vs_combined,compare_per_u_vs_combined}.py`, `gunfolds/scripts/experiments/{submit_runtime_scaling_per_u,slurm_bench_per_u}.sh`, `gunfolds/scripts/real_data/{fmri_experiment_per_u,aggregate_fmri_per_u}.py`, `gunfolds/scripts/cluster/submit_fmri_experiment_per_u.sh`, `todo.md`, `gunfolds/scripts/papers/per_u_split_results.md` (new).
+
+
 ## 2026-05-28  (branch: current)
 
 ### Fixed clingo stats reporting (always 0) + new solve-phase fingerprint; solver-strategy axis closed
