@@ -46,6 +46,34 @@ A running list of things to investigate or implement when time allows. Add to th
 
 **Reference:** logged 2026-05-28.
 
+**RESULTS — parallel U-rate sweep tested (2026-06-04, branch `per-u-clingo-split`).**
+Piece 2 (parallel U sweep) is **built and benchmarked; the speedup hypothesis did
+not pan out.** Added a `fix_urate` primitive to `drasl_command`/`drate`/`drasl`
+(forces `uk(1..k)` + `u(k)`), plus prep-once / solve-per-u / aggregate scripts
+(`runtime_scaling_per_u.py`, `aggregate_per_u.py`, `submit_runtime_scaling_per_u.sh`)
+and an fMRI port (`fmri_experiment_per_u.py`, `aggregate_fmri_per_u.py`,
+`submit_fmri_experiment_per_u.sh`).
+
+- **Correctness:** the per-`k` sets are an *exact partition* of the combined
+  search space by minimal undersampling rate (enumeration-verified on 10 graphs);
+  pooling loses no solution.
+- **Speed (negative):** controlled A/B on identical inputs
+  (`bench_per_u_vs_combined.py`) shows splitting is generally **not faster, often
+  far slower** (N=8 sandbox: 0.10×–1.84×; N=14 cluster: combined 171 s vs the
+  `u=2` job not finishing in 1 h). The combined search wins by using its incumbent
+  cost bound to *prune the hard rates*; fixing the lowest rate (`u=2`) in its own
+  job removes that pruning, and `u=2` then dominates the critical path.
+- **Cost-comparability gotcha (answers the open question in piece 2):** clingo
+  optimises the cost vector *lexicographically*, but our scripts rank by
+  `sum(cost)` — these diverge, so `[edge@1, density@0]` is **not** trivially
+  comparable across U. `aggregate_per_u.py` exposes `--rank {sum,lex}` (lex
+  reproduces the combined optimum exactly).
+- Full write-up + tables: `gunfolds/scripts/papers/per_u_split_results.md`.
+
+**Still open:** the retention rule (piece 1 — currently top_k / top-30 %) and the
+N=20 ICA end-to-end run (piece 3). The U-split scaffolding is ready for the N=20
+run, but plain combined search remains the faster solve.
+
 ---
 
 ### 8. Re-run the H-frequency test experiment with the new bug fixes and recreate the paper figure
