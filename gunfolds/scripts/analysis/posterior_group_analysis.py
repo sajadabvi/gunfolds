@@ -47,11 +47,8 @@ from collections import defaultdict
 import numpy as np
 from scipy.stats import mannwhitneyu, fisher_exact, chi2_contingency
 
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import StratifiedKFold, cross_val_predict
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import make_pipeline
-from sklearn.metrics import roc_auc_score
+# NOTE: sklearn is imported lazily inside classifier_two_sample() so the rest of
+# the pipeline (edge tests, blocks, MMD, biomarkers) runs without it installed.
 
 # Make the repo importable when invoked as a script (script dir, not cwd, is on
 # sys.path for `python file.py`).  analysis -> scripts -> gunfolds -> repo root.
@@ -283,7 +280,21 @@ def block_level_tests(P_by_group, domains, alpha=0.05, correction="bonferroni"):
 # ---------------------------------------------------------------------------
 
 def classifier_two_sample(X, y, n_perm=200, seed=0):
-    """CV-AUC of HC-vs-SZ classifier + label-permutation p-value."""
+    """CV-AUC of HC-vs-SZ classifier + label-permutation p-value.
+
+    Returns (None, None, None) if scikit-learn is not installed (the rest of the
+    pipeline still runs; only this omnibus test is skipped).
+    """
+    try:
+        from sklearn.linear_model import LogisticRegression
+        from sklearn.model_selection import StratifiedKFold, cross_val_predict
+        from sklearn.preprocessing import StandardScaler
+        from sklearn.pipeline import make_pipeline
+        from sklearn.metrics import roc_auc_score
+    except ImportError:
+        print("  [omnibus] scikit-learn not installed -> skipping classifier "
+              "two-sample test (pip install scikit-learn to enable)")
+        return None, None, None
     rng = np.random.RandomState(seed)
     clf = make_pipeline(StandardScaler(),
                         LogisticRegression(max_iter=2000, C=1.0))

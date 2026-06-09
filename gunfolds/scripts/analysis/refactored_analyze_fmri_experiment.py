@@ -89,10 +89,123 @@ def load_config(config_dir):
 
 
 # ---------------------------------------------------------------------------
+# "Middle ground": prevalence pre-filter + graded confidence tiers
+# ---------------------------------------------------------------------------
+
+def _bh_mask(pv_flat, q):
+    """Benjamini-Hochberg mask at level q over a 1-D p-vector."""
+    m = pv_flat.size
+    if m == 0:
+        return np.zeros(0, dtype=bool)
+    order = np.argsort(pv_flat)
+    thr = q * np.arange(1, m + 1) / m
+    below = np.where(pv_flat[order] <= thr)[0]
+    flat = np.zeros(m, dtype=bool)
+    if len(below):
+        flat[order[:below[-1] + 1]] = True
+    return flat
+
+
+def weighted_sig_mask(subjects, tau, p_thresh=0.05):
+    """NxN bool mask of edges with subject-as-unit MWU p < p_thresh (weighted).
+
+    Used to derive an independent hypothesis set from one config (e.g. PCMCI)
+    to restrict another config's testing (legitimate multiplicity reduction).
+    """
+    groups = sorted({s["group"] for s in subjects})[:2]
+    reps = {g: [] for g in groups}
+    for info in subjects:
+        if info["group"] in reps:
+            reps[info["group"]].append(subject_posteriors(info, tau=tau)["P_weighted"])
+    A, B = np.stack(reps[groups[0]]), np.stack(reps[groups[1]])
+    n = A.shape[1]
+    mask = np.zeros((n, n), dtype=bool)
+    for i in range(n):
+        for j in range(n):
+            if i == j:
+                continue
+            x, y = A[:, i, j], B[:, i, j]
+            if np.allclose(x, x[0]) and np.allclose(y, y[0]) and x[0] == y[0]:
+                continue
+            try:
+                if mannwhitneyu(x, y, alternative="two-sided")[1] < p_thresh:
+                    mask[i, j] = True
+            except Exception:
+                pass
+    return mask
+
+
+def tiered_edge_analysis(P_by, names, present_thresh, min_prevalence, effect_min,
+                         restrict_mask=None):
+    """
+    Subject-as-unit edge testing with (1) a LABEL-BLIND prevalence pre-filter
+    that only tests edges present in >= min_prevalence of ALL subjects (pooling
+    both groups, so it is independent of the group-difference statistic -> not
+    double-dipping), and (2) graded confidence tiers instead of a single cutoff.
+
+    Tiers (all subject-as-unit; correction only over the pre-filtered edges):
+      confirmatory : BH-FDR q = 0.05
+      exploratory  : BH-FDR q = 0.10
+      suggestive   : uncorrected p < 0.05 AND |mean(SZ)-mean(HC)| >= effect_min
+    """
+    groups = sorted(P_by.keys())
+    g0, g1 = groups
+    A, B = P_by[g0], P_by[g1]                 # (n_subj, N, N) posteriors
+    n = A.shape[1]
+    allP = np.concatenate([A, B], axis=0)
+
+    # label-blind prevalence: fraction of ALL subjects with posterior >= thresh
+    prevalence = (allP >= present_thresh).mean(axis=0)
+    testable = (prevalence >= min_prevalence) & (~np.eye(n, dtype=bool))
+    if restrict_mask is not None:                # independent hypothesis set
+        testable = testable & restrict_mask
+
+    pv = np.full((n, n), np.nan)
+    eff = np.full((n, n), np.nan)
+    for i in range(n):
+        for j in range(n):
+            if not testable[i, j]:
+                continue
+            x, y = A[:, i, j], B[:, i, j]
+            if np.allclose(x, x[0]) and np.allclose(y, y[0]) and x[0] == y[0]:
+                continue
+            try:
+                _, p = mannwhitneyu(x, y, alternative="two-sided")
+                pv[i, j] = p
+                eff[i, j] = y.mean() - x.mean()
+            except Exception:
+                pass
+
+    vmask = ~np.isnan(pv)
+    vp = pv[vmask]
+
+    def mask_from_flat(flat):
+        out = np.zeros((n, n), dtype=bool)
+        out[vmask] = flat
+        return out
+
+    conf = mask_from_flat(_bh_mask(vp, 0.05))
+    expl = mask_from_flat(_bh_mask(vp, 0.10))
+    sugg = vmask & (pv < 0.05) & (np.abs(eff) >= effect_min)
+
+    return {
+        "present_thresh": present_thresh, "min_prevalence": min_prevalence,
+        "effect_min": effect_min,
+        "n_edges_total": int(n * (n - 1)),
+        "n_testable": int(testable.sum()), "n_tested": int(vmask.sum()),
+        "confirmatory_fdr05": edge_list(names, conf, pv, eff),
+        "exploratory_fdr10": edge_list(names, expl, pv, eff),
+        "suggestive_uncorr05": edge_list(names, sugg, pv, eff),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Per-config analysis
 # ---------------------------------------------------------------------------
 
-def analyze_config(subjects, tau, alpha, correction, n_perm):
+def analyze_config(subjects, tau, alpha, correction, n_perm,
+                   present_thresh=0.1, min_prevalence=0.05, effect_min=0.0,
+                   restrict_mask=None):
     """Run the full new pipeline + legacy A/B on one config's subjects."""
     names = subjects[0]["comp_names"]
     comp_idx = subjects[0].get("comp_indices", list(range(len(names))))
@@ -135,11 +248,21 @@ def analyze_config(subjects, tau, alpha, correction, n_perm):
     # NEW subject-as-unit, three weightings
     out["new"] = {}
     new_sig = {}
+    effs = {}
     for rep in ["uniform", "weighted", "map"]:
         p, sig, eff = subject_unit_edge_tests(P_by[rep], alpha, correction)
         new_sig[rep] = (p, sig)
+        effs[rep] = eff
         out["new"][rep] = {"n_sig": int(sig.sum()),
                            "edges": edge_list(names, sig, p, eff)}
+    out["_pmat_w"] = new_sig["weighted"][0]      # full p-matrix (for plots)
+    out["_effmat_w"] = effs["weighted"]
+
+    # MIDDLE-GROUND: prevalence pre-filter + graded tiers (weighted, subject-unit)
+    out["tiered"] = tiered_edge_analysis(
+        P_by["weighted"], names, present_thresh, min_prevalence, effect_min,
+        restrict_mask=restrict_mask)
+    out["tiered"]["restricted_to_hypothesis_set"] = restrict_mask is not None
 
     # block-level (weighted)
     dom_names, bp, bsig, beff = block_level_tests(P_by["weighted"], domains,
@@ -208,32 +331,153 @@ def analyze_config(subjects, tau, alpha, correction, n_perm):
 
 
 # ---------------------------------------------------------------------------
-# Plot
+# Plots  (each figure is self-explanatory: titles/labels carry the takeaway)
 # ---------------------------------------------------------------------------
 
-def plot_posterior_diff(res, names, domains, outpath):
-    P = res["_P_by"]["weighted"]
+def _glabel(g):
+    return {0: "HC (0)", 1: "SZ (1)"}.get(g, f"group {g}")
+
+
+def _domain_dividers(ax, domains):
+    for k in range(1, len(domains)):
+        if domains[k] != domains[k - 1]:
+            ax.axhline(k - .5, color="0.4", lw=.6)
+            ax.axvline(k - .5, color="0.4", lw=.6)
+
+
+def plot_posterior_heatmap(res, P_by, names, domains, cfg, outpath):
+    """SZ-HC cost-weighted edge posterior; exploratory edges boxed; domain blocks."""
     g0, g1 = res["groups"]
-    diff = P[g1].mean(0) - P[g0].mean(0)        # SZ - HC posterior edge prob
+    Pw = P_by["weighted"]
+    diff = Pw[g1].mean(0) - Pw[g0].mean(0)
     n = len(names)
-    fig, ax = plt.subplots(figsize=(max(6, n * 0.6), max(5, n * 0.6)))
-    vmax = np.abs(diff).max() or 1.0
+    fig, ax = plt.subplots(figsize=(max(7, n * 0.62), max(6, n * 0.62)))
+    vmax = max(float(np.abs(diff).max()), 1e-6)
     im = ax.imshow(diff, cmap="RdBu_r", vmin=-vmax, vmax=vmax)
     ax.set_xticks(range(n)); ax.set_xticklabels(names, rotation=90, fontsize=7)
     ax.set_yticks(range(n)); ax.set_yticklabels(names, fontsize=7)
-    ax.set_xlabel("target"); ax.set_ylabel("source")
-    ax.set_title("SZ - HC  cost-weighted edge posterior")
-    # mark subject-as-unit significant edges
-    for e in res["new"]["weighted"]["edges"]:
+    ax.set_xlabel("target node   (arrow: source row → target col)")
+    ax.set_ylabel("source node")
+    for e in res["tiered"]["exploratory_fdr10"]:
         i, j = _edge_idx(names, e["edge"])
         ax.add_patch(plt.Rectangle((j - .5, i - .5), 1, 1, fill=False,
-                                   edgecolor="black", lw=2))
-    # domain dividers
-    for k in range(1, n):
-        if domains[k] != domains[k - 1]:
-            ax.axhline(k - .5, color="gray", lw=.5); ax.axvline(k - .5, color="gray", lw=.5)
-    fig.colorbar(im, ax=ax, fraction=0.046)
-    os.makedirs(os.path.dirname(outpath), exist_ok=True)
+                                   edgecolor="k", lw=2.4))
+    _domain_dividers(ax, domains)
+    cb = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    cb.set_label(f"{_glabel(g1)} − {_glabel(g0)}   edge-posterior prob.")
+    rtag = " (restricted to PCMCI hypothesis set)" if \
+        res["tiered"].get("restricted_to_hypothesis_set") else ""
+    ax.set_title(f"{cfg} — group difference in causal edge posterior\n"
+                 f"red = stronger in SZ, blue = stronger in HC; "
+                 f"black box = exploratory edge (FDR.10{rtag})", fontsize=9)
+    fig.savefig(outpath, dpi=150, bbox_inches="tight"); plt.close(fig)
+
+
+def plot_story(res, feat_rows, cfg, outpath):
+    """One 1x3 'story' figure: (A) why edges shrink, (B) the edges, (C) the biomarker."""
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4.6))
+    g0, g1 = res["groups"]
+
+    # ---- A: unit-of-analysis effect on edge count ----
+    ax = axes[0]
+    leg = res["legacy"]["n_sig"]
+    new_all = res["new"]["weighted"]["n_sig"]
+    expl = len(res["tiered"]["exploratory_fdr10"])
+    bars = ["legacy\n(per-solution,\ninflated N)", "subject-unit\n(all 90 edges)",
+            "subject-unit\n(hypothesis set,\nFDR.10)"]
+    vals = [leg, new_all, expl]
+    cols = ["#c0392b", "#7f8c8d", "#27ae60"]
+    ax.bar(bars, vals, color=cols)
+    for i, v in enumerate(vals):
+        ax.text(i, v + max(vals) * 0.02 + 0.1, str(v), ha="center", fontweight="bold")
+    ax.set_ylabel("# significant directed edges")
+    ax.set_title("A. Why the count shrinks\n(pseudo-replication removed)", fontsize=10)
+
+    # ---- B: exploratory edges forest (effect + p) ----
+    ax = axes[1]
+    edges = res["tiered"]["exploratory_fdr10"]
+    if edges:
+        edges = sorted(edges, key=lambda e: e["effect_SZminusHC"])
+        ys = np.arange(len(edges))
+        effs = [e["effect_SZminusHC"] for e in edges]
+        cols = ["#27ae60" if e > 0 else "#2980b9" for e in effs]
+        ax.barh(ys, effs, color=cols)
+        ax.set_yticks(ys)
+        ax.set_yticklabels([e["edge"] for e in edges], fontsize=8)
+        for y, e in zip(ys, edges):
+            ax.text(e["effect_SZminusHC"], y, f"  p={e['p']:.3f}",
+                    va="center", fontsize=7,
+                    ha="left" if e["effect_SZminusHC"] >= 0 else "right")
+        ax.axvline(0, color="k", lw=.8)
+        ax.set_xlabel(f"posterior diff  ({_glabel(g1)} − {_glabel(g0)})")
+    else:
+        ax.text(0.5, 0.5, "no exploratory edges", ha="center", va="center")
+        ax.set_xticks([]); ax.set_yticks([])
+    ax.set_title("B. Surviving edges (green=SZ>HC,\nblue=HC>SZ)", fontsize=10)
+
+    # ---- C: the most significant biomarker, HC vs SZ ----
+    ax = axes[2]
+    udet = res["underdetermination"]
+    best_k = min(udet, key=lambda k: udet[k]["p"])
+    x0 = [f[best_k] for f in feat_rows if f["group"] == g0]
+    x1 = [f[best_k] for f in feat_rows if f["group"] == g1]
+    parts = ax.violinplot([x0, x1], showmeans=True, showextrema=False)
+    for b, c in zip(parts["bodies"], ["#3498db", "#e74c3c"]):
+        b.set_facecolor(c); b.set_alpha(.6)
+    ax.set_xticks([1, 2]); ax.set_xticklabels([_glabel(g0), _glabel(g1)])
+    ax.set_ylabel(best_k)
+    ax.set_title(f"C. Where RASL's signal lives:\n{best_k}  (p={udet[best_k]['p']:.4f})",
+                 fontsize=10)
+
+    fig.suptitle(f"{cfg}  —  subjects: {sum(res['group_counts'].values())} "
+                 f"({_glabel(g0)}={res['group_counts'][g0]}, "
+                 f"{_glabel(g1)}={res['group_counts'][g1]})", fontsize=11, y=1.02)
+    fig.savefig(outpath, dpi=150, bbox_inches="tight"); plt.close(fig)
+
+
+def plot_pvalue_qq(res, pmat_w, cfg, outpath):
+    """QQ of subject-unit edge p-values vs uniform null: points above line = signal."""
+    n = pmat_w.shape[0]
+    p = pmat_w[~np.eye(n, dtype=bool)]
+    p = np.sort(p[~np.isnan(p)])
+    if p.size == 0:
+        return
+    m = p.size
+    expected = (np.arange(1, m + 1) - 0.5) / m
+    fig, ax = plt.subplots(figsize=(5, 5))
+    ax.scatter(-np.log10(expected), -np.log10(p), s=14, color="#34495e")
+    lim = max(-np.log10(p).max(), -np.log10(expected).min(), 1) * 1.05
+    ax.plot([0, lim], [0, lim], "r--", lw=1, label="null (no group difference)")
+    ax.set_xlabel("expected  −log10(p)")
+    ax.set_ylabel("observed  −log10(p)")
+    ax.set_title(f"{cfg} — edge p-value enrichment\n"
+                 f"points above the red line = real (but possibly weak) signal",
+                 fontsize=9)
+    ax.legend(fontsize=8)
+    fig.savefig(outpath, dpi=150, bbox_inches="tight"); plt.close(fig)
+
+
+def plot_cross_config_summary(summary_rows, outpath):
+    """Grouped bars: legacy vs subject-unit(all) vs exploratory, per config."""
+    if not summary_rows:
+        return
+    cfgs = [r["config"] for r in summary_rows]
+    leg = [int(r["legacy_sig_edges"]) for r in summary_rows]
+    newall = [int(r["new_allEdges_FDR"]) for r in summary_rows]
+    expl = [int(r["tier_exploratory_FDR10"]) for r in summary_rows]
+    x = np.arange(len(cfgs)); w = 0.26
+    fig, ax = plt.subplots(figsize=(max(6, len(cfgs) * 2.2), 4.5))
+    ax.bar(x - w, leg, w, label="legacy (per-solution, inflated)", color="#c0392b")
+    ax.bar(x, newall, w, label="subject-unit, all edges (FDR.05)", color="#7f8c8d")
+    ax.bar(x + w, expl, w, label="subject-unit, hypothesis set (FDR.10)", color="#27ae60")
+    for xs, vs in [(x - w, leg), (x, newall), (x + w, expl)]:
+        for xi, v in zip(xs, vs):
+            ax.text(xi, v + 0.1, str(v), ha="center", fontsize=8)
+    ax.set_xticks(x); ax.set_xticklabels(cfgs, fontsize=8)
+    ax.set_ylabel("# significant directed edges")
+    ax.set_title("Significant edges by method & analysis unit\n"
+                 "(legacy counts are inflated by pseudo-replication)", fontsize=10)
+    ax.legend(fontsize=8)
     fig.savefig(outpath, dpi=150, bbox_inches="tight"); plt.close(fig)
 
 
@@ -253,6 +497,21 @@ def parse_args():
                    help="Permutations for omnibus tests (0 to skip).")
     p.add_argument("--plot", action="store_true")
     p.add_argument("--out", default=None, help="Output dir (default <root>/<ts>/analysis_refactored)")
+    # "middle ground": prevalence pre-filter + graded confidence tiers
+    p.add_argument("--present_thresh", default=0.1, type=float,
+                   help="Posterior >= this counts an edge 'present' in a subject "
+                        "(for the prevalence pre-filter).")
+    p.add_argument("--min_prevalence", default=0.05, type=float,
+                   help="Only test edges present in >= this fraction of ALL "
+                        "subjects (label-blind filter; lowers correction burden).")
+    p.add_argument("--effect_min", default=0.0, type=float,
+                   help="Min |mean(SZ)-mean(HC)| posterior diff for the "
+                        "'suggestive' (uncorrected p<0.05) tier.")
+    p.add_argument("--hypothesis_from", default=None,
+                   help="Config name (e.g. N10_domain_PCMCI) whose subject-unit "
+                        "p<0.05 edges form an INDEPENDENT hypothesis set; other "
+                        "configs' edge tiers are restricted to it (legitimate "
+                        "multiplicity reduction -> more power, less p-hacking).")
     return p.parse_args()
 
 
@@ -270,12 +529,29 @@ def main():
     if not configs:
         print("No config dirs found."); sys.exit(1)
 
+    # Optional independent hypothesis set from another config (e.g. PCMCI)
+    hyp_mask = None
+    if a.hypothesis_from:
+        hsubs = load_config(os.path.join(root, a.hypothesis_from))
+        if hsubs:
+            hyp_mask = weighted_sig_mask(hsubs, a.tau)
+            print(f"Hypothesis set from {a.hypothesis_from}: "
+                  f"{int(hyp_mask.sum())} edges (subject-unit p<0.05); "
+                  f"other configs' tiers restricted to these.\n")
+        else:
+            print(f"WARN: --hypothesis_from {a.hypothesis_from} has no subjects.\n")
+
     summary_rows = []
     for cfg in configs:
         subs = load_config(os.path.join(root, cfg))
         if not subs:
             print(f"[{cfg}] no subjects, skipping."); continue
-        res = analyze_config(subs, a.tau, a.alpha, a.correction, a.n_perm)
+        # don't restrict the hypothesis config by its own edges (circular)
+        rmask = hyp_mask if (hyp_mask is not None and cfg != a.hypothesis_from) else None
+        res = analyze_config(subs, a.tau, a.alpha, a.correction, a.n_perm,
+                             present_thresh=a.present_thresh,
+                             min_prevalence=a.min_prevalence,
+                             effect_min=a.effect_min, restrict_mask=rmask)
         if res is None:
             print(f"[{cfg}] <2 groups, skipping."); continue
 
@@ -294,9 +570,23 @@ def main():
         print(f"  HEAD-TO-HEAD: {h2h['survive']}/{h2h['legacy_n']} legacy edges "
               f"survive subject-as-unit (weighted)")
         print(f"  block-level: {bl} sig block-pairs")
+        ti = res["tiered"]
+        rtag = " [restricted to hypothesis set]" if ti.get("restricted_to_hypothesis_set") else ""
+        print(f"  MIDDLE-GROUND{rtag} (prevalence-filtered, {ti['n_testable']}/"
+              f"{ti['n_edges_total']} edges tested): "
+              f"confirmatory(FDR.05)={len(ti['confirmatory_fdr05'])}  "
+              f"exploratory(FDR.10)={len(ti['exploratory_fdr10'])}  "
+              f"suggestive(p<.05)={len(ti['suggestive_uncorr05'])}")
+        if ti["exploratory_fdr10"]:
+            print("    exploratory edges: " +
+                  ", ".join(f"{e['edge']}(p={e['p']:.1e})"
+                            for e in ti["exploratory_fdr10"][:12]))
         if om["cv_auc"] is not None:
             print(f"  OMNIBUS: CV-AUC={om['cv_auc']:.3f} p={om['cv_auc_perm_p']:.4f} "
                   f"(chance {om['chance']:.3f}) | MMD p={om['mmd_perm_p']:.4f}")
+        elif om["mmd_perm_p"] is not None:
+            print(f"  OMNIBUS: MMD p={om['mmd_perm_p']:.4f} "
+                  f"(classifier test skipped — sklearn not installed)")
         sig_feats = [k for k in FEAT_KEYS if res["underdetermination"][k]["p"] < a.alpha]
         print(f"  underdetermination biomarkers sig (p<{a.alpha}): {sig_feats}")
         if res["bootstrap_edges"] is not None:
@@ -307,6 +597,8 @@ def main():
         os.makedirs(cdir, exist_ok=True)
         feat_rows = res.pop("_feat_rows")
         P_by = res.pop("_P_by")
+        pmat_w = res.pop("_pmat_w")
+        res.pop("_effmat_w", None)
         with open(os.path.join(cdir, "result.json"), "w") as jf:
             json.dump(res, jf, indent=2)
         with open(os.path.join(cdir, "subject_features.csv"), "w", newline="") as fc:
@@ -315,15 +607,21 @@ def main():
             for fr in feat_rows:
                 w.writerow(fr)
         if a.plot:
-            res["_P_by"] = P_by
-            plot_posterior_diff(res, res["names"], res["domains"],
-                                os.path.join(cdir, "posterior_diff.png"))
+            plot_story(res, feat_rows, cfg, os.path.join(cdir, "story.png"))
+            plot_posterior_heatmap(res, P_by, res["names"], res["domains"], cfg,
+                                   os.path.join(cdir, "posterior_diff.png"))
+            plot_pvalue_qq(res, pmat_w, cfg, os.path.join(cdir, "pvalue_qq.png"))
 
         summary_rows.append({
             "config": cfg, "n_subjects": sum(res["group_counts"].values()),
-            "legacy_sig_edges": leg, "new_sig_uniform": nu, "new_sig_weighted": nw,
-            "new_sig_map": res["new"]["map"]["n_sig"],
-            "legacy_survive_subject_unit": h2h["survive"],
+            "legacy_sig_edges": leg,
+            "new_allEdges_FDR": nw,                 # strict: FDR over all 90 edges
+            "restricted_to_hypothesis": ti.get("restricted_to_hypothesis_set", False),
+            "edges_tested": ti["n_testable"],
+            "tier_confirmatory_FDR05": len(ti["confirmatory_fdr05"]),
+            "tier_exploratory_FDR10": len(ti["exploratory_fdr10"]),
+            "tier_suggestive_p05": len(ti["suggestive_uncorr05"]),
+            "exploratory_edges": ";".join(e["edge"] for e in ti["exploratory_fdr10"]),
             "block_sig": bl,
             "cv_auc": om["cv_auc"], "cv_auc_p": om["cv_auc_perm_p"],
             "mmd_p": om["mmd_perm_p"],
@@ -335,14 +633,19 @@ def main():
     # combined comparison CSV
     comp_csv = os.path.join(out_dir, "legacy_vs_refactored_comparison.csv")
     with open(comp_csv, "w", newline="") as fc:
-        fields = ["config", "n_subjects", "legacy_sig_edges", "new_sig_uniform",
-                  "new_sig_weighted", "new_sig_map", "legacy_survive_subject_unit",
+        fields = ["config", "n_subjects", "legacy_sig_edges", "new_allEdges_FDR",
+                  "restricted_to_hypothesis", "edges_tested",
+                  "tier_confirmatory_FDR05", "tier_exploratory_FDR10",
+                  "tier_suggestive_p05", "exploratory_edges",
                   "block_sig", "cv_auc", "cv_auc_p", "mmd_p", "biomarkers_sig",
                   "bootstrap_sig_edges"]
         w = csv.DictWriter(fc, fieldnames=fields)
         w.writeheader()
         for r in summary_rows:
             w.writerow(r)
+    if a.plot:
+        plot_cross_config_summary(
+            summary_rows, os.path.join(out_dir, "summary_edge_counts.png"))
     print(f"\nWrote comparison: {comp_csv}")
     print(f"Per-config JSON/CSV{'+plots' if a.plot else ''} under: {out_dir}")
 

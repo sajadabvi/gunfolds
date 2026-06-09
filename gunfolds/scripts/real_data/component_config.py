@@ -129,22 +129,64 @@ COMP_SET_14 = [
     49, 50,
 ]
 
-# N=20: 2-4 per domain
+# N=20: COMP_SET_13 plus 7 regions that complete the major SZ circuits the
+# N=13 set could only partially touch.  N=10 ⊂ N=13 ⊂ N=20 (each a strict
+# superset).  Indices resolved by anatomy + hemisphere from ICN_coordinates.csv
+# / Du et al. 2020 Table 2 (row = 0-based index).  The 7 additions (and why):
+#   2  Putamen   (SC)  Putamen(98), MNI −26.5,1.5,−0.5  — dorsal striatum;
+#                      completes the salience triad (putamen + insula + ACC).
+#   6  MTG_au    (AU)  MTG(56), MNI −42.5,−6.5,10.5 (left) — the *auditory*-
+#                      domain MTG; rounds out the auditory-language loop behind
+#                      the STG→DMN finding.  (Distinct from the VI-domain MTGs.)
+#   13 PreCG     (SM)  PreCG(66), MNI −42.5,−7.5,46.5 — primary motor; the other
+#                      half of the thalamo-sensorimotor finding (N=13 had only
+#                      somatosensory PoCG).
+#   17 MOG       (VI)  MOG(5), MNI −23.5,−93.5,−0.5 (left) — visual association
+#                      (V2/V3), directly up-hierarchy from CalcarineG(16); tests
+#                      whether the cortex→thalamus reversal generalises.
+#   33 SMA       (CC)  SMA(84), MNI −6.5,13.5,64.5 — supplementary motor area.
+#                      NOTE: NeuroMark files SMA under Cognitive Control, NOT
+#                      Sensorimotor, so under --scc_strategy domain it groups
+#                      with CC.  (Chosen over left DLPFC per user, 2026-06-08.)
+#   36 HiPP      (CC)  HiPP(48), MNI 23.5,−9.5,−16.5 (right, anterior — the
+#                      SZ-relevant CA1 region; limbic dysconnectivity +
+#                      treatment-response literature).  NeuroMark has no limbic
+#                      domain — hippocampus is filed under CC, so it groups with
+#                      CC under the domain SCC strategy (not a limbic block).
+#   42 Precuneus (DM)  Precuneus(32), MNI −8.5,−66.5,35.5 — second posteromedial
+#                      DMN hub; confirms the DMN effect is not PCC-specific.
+# Domain composition: SC3 AU2 SM2 VI2 CC6 DM4 CB1.  Largest domain SCC = 6 (CC),
+# under get_correlation_sccs' max_cluster_size=8.
+# (This REDEFINES the old N=20 set, which was NOT a superset of N=13 — prior
+# N=20 results are on a different component set and are not comparable.)
 COMP_SET_20 = [
-    # SC (4)
-    0, 1, 2, 4,
+    # SC (3)
+    0,    # Caudate     (N=13)
+    2,    # Putamen     (added: dorsal striatum / salience)
+    4,    # Thalamus    (N=13)
     # AU (2)
-    5, 6,
-    # SM (3)
-    7, 9, 13,
-    # VI (3)
-    16, 17, 18,
-    # CC (4)
-    25, 26, 27, 35,
-    # DM (3)
-    42, 44, 45,
+    5,    # STG         (N=13)
+    6,    # MTG_au      (added: auditory-language MTG)
+    # SM (2)
+    7,    # PoCG        (N=13)
+    13,   # PreCG       (added: primary motor)
+    # VI (2)
+    16,   # CalcarineG  (N=13)
+    17,   # MOG         (added: visual association)
+    # CC (6)
+    25,   # IPL         (N=13)
+    26,   # Insula      (N=13)
+    28,   # IFG         (N=13)
+    33,   # SMA         (added: supplementary motor — CC domain in NeuroMark)
+    35,   # MiFG2/rDLPFC (N=13)
+    36,   # HiPP        (added: anterior hippocampus — CC domain in NeuroMark)
+    # DM (4)
+    42,   # Precuneus   (added: 2nd posteromedial DMN hub)
+    44,   # ACC         (N=13)
+    45,   # PCC         (N=13)
+    46,   # ACC2/VMPFC  (N=13)
     # CB (1)
-    49,
+    49,   # Cerebellum  (N=13)
 ]
 
 # N=53: all components

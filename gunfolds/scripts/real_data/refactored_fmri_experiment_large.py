@@ -183,6 +183,8 @@ def run_rasl_band(ts_2d, args, comp_indices, scc_members_override):
         dm=[DD], bdm=[BD], scc=use_scc, scc_members=members,
         GT_density=gt_density, edge_weights=priority, pnum=args.PNUM,
         optim="optN", selfloop=None,
+        density_mode=args.density_mode, tol=None,
+        tol_low=args.tol_low, tol_high=args.tol_high,
     )
 
     sols = []
@@ -374,7 +376,9 @@ def parse_arguments():
 
     # RASL
     p.add_argument("-p", "--PNUM", default=PNUM, type=int)
-    p.add_argument("-x", "--MAXU", default=5, type=int)
+    p.add_argument("-x", "--MAXU", default=4, type=int,
+                   help="Max undersampling rate to search (4 matches the "
+                        "runtime_scaling benchmark; drops a u-level vs 5).")
     p.add_argument("-y", "--PRIORITY", default="11112", type=str)
 
     # NEW: cost-band retention + posterior
@@ -403,6 +407,19 @@ def parse_arguments():
                    choices=["none", "fixed", "fraction"])
     p.add_argument("--gt_density", default=None, type=int)
     p.add_argument("--gt_density_fraction", default=1.0, type=float)
+    # Density-window tolerance (tightened from drasl's default tol_low=15 to 5,
+    # matching runtime_scaling.py; narrows the cardinality search -> faster).
+    # density_mode stays 'adaptive' so a too-tight window widens on UNSAT
+    # instead of returning no solutions for a hard subject.
+    p.add_argument("--density_mode", default="adaptive",
+                   choices=["adaptive", "hard_soft0", "hard_soft1", "hard",
+                            "soft", "none"],
+                   help="drasl density encoding mode (adaptive keeps the "
+                        "UNSAT-widen safety net).")
+    p.add_argument("--tol_low", default=5, type=int,
+                   help="Lower density tolerance (tightened from 15).")
+    p.add_argument("--tol_high", default=5, type=int,
+                   help="Upper density tolerance.")
 
     # PCMCI
     p.add_argument("--pcmci_method", default="pcmci", choices=["pcmci", "pcmciplus"])
@@ -434,6 +451,8 @@ if __name__ == "__main__":
     print("=" * 80)
     print(f"  Method:        {args.method}   N={args.n_components}   "
           f"SCC={args.scc_strategy}")
+    print(f"  Solver:        MAXU={args.MAXU}   density_mode={args.density_mode} "
+          f"tol=[-{args.tol_low},+{args.tol_high}]")
     print(f"  Retention:     cost_band delta<={args.delta_band} "
           f"(max_keep={args.max_keep}), tau={args.tau}, map_u_only={args.map_u_only}")
     print(f"  Bootstrap:     {args.bootstrap} reps (block_len={args.block_len})")
