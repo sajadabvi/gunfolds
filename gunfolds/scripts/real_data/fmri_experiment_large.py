@@ -56,6 +56,7 @@ PNUM = int(min(CLINGO_LIMIT, get_process_count(1)))
 DEFAULT_GT_DENSITY_BY_N = {
     10: 35,    # 30–40 (moderate tier, hub-centric N=10)
     13: 32,    # 28–38 (N=10 hubs + 3 PFC hubs IFG/rDLPFC/VMPFC; stays dense)
+    15: 30,    # 26–34 (N=13 + motor PreCG + anterior HiPP; slightly less hub-dense)
     20: 22,    # 18–25
     53: 13,    # 10–15
 }
@@ -114,7 +115,7 @@ def parse_arguments():
         description="fMRI causal discovery experiment (RASL / PCMCI / GCM)."
     )
     # Experiment configuration
-    p.add_argument("--n_components", type=int, default=10, choices=[10, 13, 20, 53],
+    p.add_argument("--n_components", type=int, default=10, choices=[10, 13, 15, 20, 53],
                    help="Number of ICA components to use")
     p.add_argument("--scc_strategy", type=str, default="domain",
                    choices=["domain", "correlation", "estimated", "none"],

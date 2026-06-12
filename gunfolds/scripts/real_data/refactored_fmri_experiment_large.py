@@ -364,7 +364,8 @@ def run_all_subjects(args, data, labels, comp_indices, comp_names):
 def parse_arguments():
     p = argparse.ArgumentParser(description="Refactored fMRI causal-discovery "
                                 "experiment (cost-band retention + posterior).")
-    p.add_argument("--n_components", type=int, default=10, choices=[10, 13, 20, 53])
+    p.add_argument("--n_components", type=int, default=10,
+                   choices=[10, 13, 15, 20, 53])
     p.add_argument("--scc_strategy", default="domain",
                    choices=["domain", "correlation", "estimated", "none"])
     p.add_argument("--method", default="RASL", choices=["RASL", "PCMCI", "GCM"])

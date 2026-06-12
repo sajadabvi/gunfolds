@@ -129,6 +129,38 @@ COMP_SET_14 = [
     49, 50,
 ]
 
+# N=15: COMP_SET_13 plus the 2 highest-priority circuit completers, giving the
+# clean nesting N=10 ⊂ N=13 ⊂ N=15 ⊂ N=20 (N=15 ⊂ N=20 since N=20 also adds
+# 13 & 36).  Indices from ICN_coordinates.csv / Du et al. 2020 Table 2
+# (row = 0-based index):
+#   13 PreCG (SM)  PreCG(66), MNI −42.5,−7.5,46.5 — primary motor; the other half
+#                  of the thalamo-sensorimotor finding (N=13 had only somato-
+#                  sensory PoCG; motor is the Woodward/Cheng counterpart).
+#   36 HiPP  (CC)  HiPP(48), MNI 23.5,−9.5,−16.5 (right, anterior — the SZ-
+#                  relevant CA1 region; closes the hippocampal gap the
+#                  comparison doc flagged).  NeuroMark has no limbic domain, so
+#                  hippocampus is filed under CC and groups with CC under the
+#                  domain SCC strategy (not a limbic block).
+# Domain composition: SC2 AU1 SM2 VI1 CC5 DM3 CB1.  Largest domain SCC = 5 (CC),
+# under get_correlation_sccs' max_cluster_size=8.
+COMP_SET_15 = [
+    0,    # SC  Caudate      (N=13)
+    4,    # SC  Thalamus     (N=13)
+    5,    # AU  STG          (N=13)
+    7,    # SM  PoCG         (N=13)
+    13,   # SM  PreCG        (added: primary motor)
+    16,   # VI  CalcarineG   (N=13)
+    25,   # CC  IPL          (N=13)
+    26,   # CC  Insula       (N=13)
+    28,   # CC  IFG          (N=13)
+    35,   # CC  MiFG2/rDLPFC (N=13)
+    36,   # CC  HiPP         (added: anterior hippocampus — CC domain in NeuroMark)
+    44,   # DM  ACC          (N=13)
+    45,   # DM  PCC          (N=13)
+    46,   # DM  ACC2/VMPFC   (N=13)
+    49,   # CB  Cerebellum   (N=13)
+]
+
 # N=20: COMP_SET_13 plus 7 regions that complete the major SZ circuits the
 # N=13 set could only partially touch.  N=10 ⊂ N=13 ⊂ N=20 (each a strict
 # superset).  Indices resolved by anatomy + hemisphere from ICN_coordinates.csv
@@ -196,6 +228,7 @@ COMP_SETS = {
     10: COMP_SET_10,
     13: COMP_SET_13,
     14: COMP_SET_14,
+    15: COMP_SET_15,
     20: COMP_SET_20,
     53: COMP_SET_53,
 }
