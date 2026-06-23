@@ -77,10 +77,25 @@ def discover_configs(root):
     return out
 
 
-def load_config(config_dir):
+def load_config(config_dir, restrict=None):
+    """Load every subject's result.zkl under config_dir.
+
+    If `restrict` is a set of subject indices, only subject_<idx> dirs whose
+    index is in the set are loaded -- used to match cohorts across configs/runs
+    for a fair comparison. (Pure read-only stats aggregation; no gunfolds
+    solver code is touched -- checklist items 1-17 are about the generation
+    path and do not apply here.)
+    """
     files = sorted(glob.glob(os.path.join(config_dir, "subject_*", "result.zkl")))
     subs = []
     for f in files:
+        if restrict is not None:
+            try:
+                sidx = int(os.path.basename(os.path.dirname(f)).split("_")[-1])
+            except ValueError:
+                sidx = None
+            if sidx not in restrict:
+                continue
         try:
             subs.append(zkl.load(f))
         except Exception as e:
@@ -512,6 +527,13 @@ def parse_args():
                         "p<0.05 edges form an INDEPENDENT hypothesis set; other "
                         "configs' edge tiers are restricted to it (legitimate "
                         "multiplicity reduction -> more power, less p-hacking).")
+    p.add_argument("--restrict_subjects", default=None,
+                   help="Path to a file of subject indices (one per line, or "
+                        "comma/space separated). If given, EVERY config (incl. "
+                        "the --hypothesis_from set) is restricted to exactly "
+                        "these subject_<idx> dirs -- use to match cohorts across "
+                        "configs/runs for a fair comparison (e.g. the 231 "
+                        "subjects an incomplete RASL config actually finished).")
     return p.parse_args()
 
 
@@ -521,10 +543,21 @@ def main():
     out_dir = a.out or os.path.join(root, "analysis_refactored")
     os.makedirs(out_dir, exist_ok=True)
     configs = discover_configs(root)
+
+    # Optional cohort restriction: load only these subject_<idx> dirs in every
+    # config (matched-cohort comparison across runs).
+    restrict = None
+    if a.restrict_subjects:
+        with open(a.restrict_subjects) as fh:
+            restrict = {int(t) for t in fh.read().replace(",", " ").split()}
+
     print("=" * 80)
     print("REFACTORED FMRI ANALYSIS")
     print(f"  root={root}  tau={a.tau}  alpha={a.alpha}  correction={a.correction}")
     print(f"  configs: {configs}")
+    if restrict is not None:
+        print(f"  RESTRICT: {len(restrict)} subject indices from {a.restrict_subjects}")
+    print(f"  out: {out_dir}")
     print("=" * 80)
     if not configs:
         print("No config dirs found."); sys.exit(1)
@@ -532,7 +565,7 @@ def main():
     # Optional independent hypothesis set from another config (e.g. PCMCI)
     hyp_mask = None
     if a.hypothesis_from:
-        hsubs = load_config(os.path.join(root, a.hypothesis_from))
+        hsubs = load_config(os.path.join(root, a.hypothesis_from), restrict=restrict)
         if hsubs:
             hyp_mask = weighted_sig_mask(hsubs, a.tau)
             print(f"Hypothesis set from {a.hypothesis_from}: "
@@ -543,7 +576,7 @@ def main():
 
     summary_rows = []
     for cfg in configs:
-        subs = load_config(os.path.join(root, cfg))
+        subs = load_config(os.path.join(root, cfg), restrict=restrict)
         if not subs:
             print(f"[{cfg}] no subjects, skipping."); continue
         # don't restrict the hypothesis config by its own edges (circular)
