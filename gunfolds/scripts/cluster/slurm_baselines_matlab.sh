@@ -41,7 +41,7 @@ METHOD=${3:-MVGC}
 WORKDIR=${WORKDIR:-baselines_work/$TIMESTAMP}
 RESULTS_ROOT=${RESULTS_ROOT:-fbirn_results_refactored}
 MATLAB_BIN=${MATLAB_BIN:-matlab}
-MATLAB_MODULE=${MATLAB_MODULE:-matlab}
+MATLAB_MODULE=${MATLAB_MODULE:-matlab/R2023a}   # `module avail matlab` to list
 MVGC_TOOLBOX=${MVGC_TOOLBOX:-$HOME/MVGC}
 ALPHA=${ALPHA:-0.05}
 MOMAX=${MOMAX:-5}
@@ -80,7 +80,17 @@ python baselines_fmri_experiment.py \
     --results_root $RESULTS_ROOT --workdir "$WORKDIR"
 
 # ---- 2) MATLAB: compute per-subject significance matrices ----
-module load $MATLAB_MODULE 2>/dev/null || true
+# `module` is a shell function not always defined in non-interactive jobs.
+command -v module >/dev/null 2>&1 || { [ -f /etc/profile.d/modules.sh ] && source /etc/profile.d/modules.sh; }
+if ! command -v "$MATLAB_BIN" >/dev/null 2>&1; then
+    module load "$MATLAB_MODULE" 2>/dev/null || true
+fi
+if ! command -v "$MATLAB_BIN" >/dev/null 2>&1; then
+    echo "ERROR: '$MATLAB_BIN' not on PATH and 'module load $MATLAB_MODULE' did not provide it." >&2
+    echo "       Run 'module avail matlab', then resubmit with e.g. MATLAB_MODULE=matlab/R2023a" >&2
+    exit 2
+fi
+echo "Using MATLAB: $(command -v $MATLAB_BIN)"
 if [ "$METHOD" = "MVGC" ]; then
     MCMD="try, addpath(genpath('${MVGC_TOOLBOX}')); startup; catch e, disp(e.message); end; \
           baselines_mvgc('${WORKDIR}', ${N_COMP}, ${ALPHA}, ${MOMAX}); exit"

@@ -38,7 +38,7 @@ TIMESTAMP=$1
 N_COMP=${2:-10}
 WORKDIR=${WORKDIR:-baselines_work/$TIMESTAMP}
 RESULTS_ROOT=${RESULTS_ROOT:-fbirn_results_refactored}
-R_MODULE=${R_MODULE:-R}
+R_MODULE=${R_MODULE:-R/4.4.3}   # `module avail R` to list
 GIMME_AR=${GIMME_AR:-TRUE}
 GROUPCUTOFF=${GROUPCUTOFF:-0.75}
 SUBCUTOFF=${SUBCUTOFF:-0.50}
@@ -76,7 +76,24 @@ python baselines_fmri_experiment.py \
     --results_root $RESULTS_ROOT --workdir "$WORKDIR"
 
 # ---- 2) R: pooled gimme over the folder ----
-module load $R_MODULE 2>/dev/null || true
+# `module` is a shell function not always defined in non-interactive jobs.
+command -v module >/dev/null 2>&1 || { [ -f /etc/profile.d/modules.sh ] && source /etc/profile.d/modules.sh; }
+if ! command -v Rscript >/dev/null 2>&1; then
+    module load "$R_MODULE" 2>/dev/null || true
+fi
+if ! command -v Rscript >/dev/null 2>&1; then
+    echo "ERROR: 'Rscript' not on PATH and 'module load $R_MODULE' did not provide it." >&2
+    echo "       Run 'module avail R', then resubmit with e.g. R_MODULE=R/4.4.3" >&2
+    exit 2
+fi
+echo "Using Rscript: $(command -v Rscript)"
+if ! Rscript -e 'q(status=!requireNamespace("gimme", quietly=TRUE))' 2>/dev/null; then
+    echo "ERROR: R package 'gimme' is not installed for $(command -v Rscript)." >&2
+    echo "       Install it once with:" >&2
+    echo "         Rscript -e 'install.packages(\"gimme\", repos=\"https://cloud.r-project.org\")'" >&2
+    echo "       (or set R_LIBS_USER to a writable lib dir first)." >&2
+    exit 3
+fi
 Rscript baselines_run_gimme.R "$GIMME_IN" "$GIMME_OUT" "$GIMME_AR" "$GROUPCUTOFF" "$SUBCUTOFF"
 
 # ---- 3) collect gimme output into result.zkl ----

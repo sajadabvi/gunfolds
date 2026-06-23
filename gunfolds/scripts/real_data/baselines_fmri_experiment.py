@@ -194,30 +194,67 @@ def load_data(args):
 # ---------------------------------------------------------------------------
 
 import re
+import glob
 
 _FASK_NODE_RE = re.compile(r"Graph Nodes:\s*\n([^\n]+)")
 _FASK_EDGE_RE = re.compile(r"(\w+)\s*-->\s*(\w+)")
 
 
+def _find_tetrad_jar(tetrad_jar, pytetrad_path):
+    """
+    Resolve a usable tetrad jar, trying (in order):
+      1. the explicit --tetrad_jar / $TETRAD_JAR path,
+      2. jars bundled in the py-tetrad checkout (pytetrad_path/.../resources),
+      3. jars bundled in a pip-installed `pytetrad` package,
+      4. resources/tetrad*.jar next to cwd or this script.
+    Returns the first existing jar path, or None (with `tried` for the message).
+    """
+    tried = []
+    cand = []
+    if tetrad_jar:
+        cand.append(os.path.expanduser(tetrad_jar))
+    if pytetrad_path:
+        pt = os.path.expanduser(pytetrad_path)
+        cand += [os.path.join(pt, "pytetrad", "resources", "tetrad-current.jar"),
+                 os.path.join(pt, "resources", "tetrad-current.jar")]
+        cand += sorted(glob.glob(os.path.join(pt, "**", "tetrad*.jar"), recursive=True))
+    try:
+        import pytetrad  # type: ignore
+        base = os.path.dirname(pytetrad.__file__)
+        cand += sorted(glob.glob(os.path.join(base, "**", "tetrad*.jar"), recursive=True))
+    except Exception:
+        pass
+    for d in (os.getcwd(), _HERE):
+        cand.append(os.path.join(d, "resources", "tetrad-current.jar"))
+        cand += sorted(glob.glob(os.path.join(d, "resources", "tetrad*.jar")))
+    for c in cand:
+        if c and os.path.isfile(c):
+            return c, tried
+        tried.append(c)
+    return None, tried
+
+
 def _start_jvm(tetrad_jar, pytetrad_path):
     """Start the JVM once with the tetrad jar; add py-tetrad to sys.path."""
-    pytetrad_path = os.path.expanduser(pytetrad_path)
+    pytetrad_path = os.path.expanduser(pytetrad_path) if pytetrad_path else ""
     if pytetrad_path and pytetrad_path not in sys.path:
         sys.path.insert(0, pytetrad_path)
     import jpype
     if not jpype.isJVMStarted():
-        jar = os.path.expanduser(tetrad_jar)
-        if not os.path.isfile(jar):
+        jar, tried = _find_tetrad_jar(tetrad_jar, pytetrad_path)
+        if jar is None:
             raise FileNotFoundError(
-                f"tetrad jar not found at '{jar}'. Pass --tetrad_jar or set "
-                f"TETRAD_JAR (legacy default: resources/tetrad-current.jar).")
+                "tetrad jar not found. Pass --tetrad_jar / set TETRAD_JAR, or "
+                "point --pytetrad_path at the py-tetrad checkout. Looked in:\n  "
+                + "\n  ".join(t for t in tried if t))
+        print(f"  using tetrad jar: {jar}", flush=True)
         jpype.startJVM(classpath=[jar])
-    # py-tetrad exposes either `tools.TetradSearch` (legacy layout) or
-    # `pytetrad.tools.TetradSearch` (pip layout) -- try both.
+    # py-tetrad exposes either `pytetrad.tools.TetradSearch` (pip layout) or
+    # `tools.TetradSearch` (legacy checkout layout) -- try both.
     try:
-        import tools.TetradSearch as TetradSearch
-    except ImportError:
         from pytetrad.tools import TetradSearch  # type: ignore
+    except ImportError:
+        import tools.TetradSearch as TetradSearch  # type: ignore
     return TetradSearch
 
 
