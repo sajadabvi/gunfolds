@@ -33,22 +33,30 @@ out_dir     <- args[2]
 ar          <- ifelse(length(args) >= 3, as.logical(args[3]), TRUE)
 groupcutoff <- ifelse(length(args) >= 4, as.numeric(args[4]), 0.75)
 subcutoff   <- ifelse(length(args) >= 5, as.numeric(args[5]), 0.50)
+# plot MUST default TRUE: gimme 0.7.x has a bug where the individual-level step
+# (get.params) references `ind_plot_psi`, which is only created when plot=TRUE.
+# With plot=FALSE it dies "object 'ind_plot_psi' not found". We don't use the
+# PDFs it writes -- we only read indivPathEstimates.csv -- but plotting must be
+# ON to avoid the crash. Pass "FALSE" as the 6th arg only on a gimme version
+# that fixed this.
+do_plot     <- ifelse(length(args) >= 6, as.logical(args[6]), TRUE)
 
 if (is.na(ar)) ar <- TRUE
+if (is.na(do_plot)) do_plot <- TRUE
 
 suppressMessages(library(gimme))
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 
-cat(sprintf("GIMME pooled run\n  in : %s\n  out: %s\n  ar=%s groupcutoff=%.2f\n",
-            in_dir, out_dir, ar, groupcutoff))
+cat(sprintf("GIMME pooled run\n  in : %s\n  out: %s\n  ar=%s groupcutoff=%.2f plot=%s\n",
+            in_dir, out_dir, ar, groupcutoff, do_plot))
 
 fit <- gimme(
-  output_dir  = out_dir,
+  out         = out_dir,        # gimme's output-dir arg is `out` (not output_dir)
   data        = in_dir,
   sep         = ",",
   header      = TRUE,
   ar          = ar,
-  plot        = FALSE,
+  plot        = do_plot,        # TRUE to dodge the gimme 0.7.x ind_plot_psi bug
   subgroup    = FALSE,
   groupcutoff = groupcutoff,
   subcutoff   = subcutoff

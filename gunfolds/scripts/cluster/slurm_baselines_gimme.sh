@@ -27,8 +27,10 @@
 # Env overrides (optional):
 #   WORKDIR       (baselines_work/<TIMESTAMP>)
 #   RESULTS_ROOT  (fbirn_results_refactored)
-#   R_MODULE      (R)              GIMME_AR (TRUE)
-#   GROUPCUTOFF   (0.75)           SUBCUTOFF (0.50)
+#   RGIMME_ENV    (rgimme)   dedicated conda env with R+gimme; used if it exists,
+#                            else falls back to the R_MODULE below
+#   R_MODULE      (R/4.4.3)  fallback module if no RGIMME_ENV conda env
+#   GIMME_AR (TRUE)   GROUPCUTOFF (0.75)   SUBCUTOFF (0.50)
 #
 # Usage:
 #   sbatch slurm_baselines_gimme.sh <TIMESTAMP> <N_COMP>
@@ -76,25 +78,34 @@ python baselines_fmri_experiment.py \
     --results_root $RESULTS_ROOT --workdir "$WORKDIR"
 
 # ---- 2) R: pooled gimme over the folder ----
-# `module` is a shell function not always defined in non-interactive jobs.
-command -v module >/dev/null 2>&1 || { [ -f /etc/profile.d/modules.sh ] && source /etc/profile.d/modules.sh; }
-if ! command -v Rscript >/dev/null 2>&1; then
-    module load "$R_MODULE" 2>/dev/null || true
+# Prefer a DEDICATED conda R env (matched R + libgfortran + compilers; avoids the
+# system-R-vs-conda library clash). Fall back to an R module only if that env is
+# absent. We use `conda run -n <env>` so the shell stays in multi_v3 for the
+# Python export/collect steps (which need numpy/gunfolds).
+RGIMME_ENV=${RGIMME_ENV:-rgimme}
+if conda env list 2>/dev/null | awk '{print $1}' | grep -qx "$RGIMME_ENV"; then
+    R_RUN=(conda run --no-capture-output -n "$RGIMME_ENV" Rscript)
+    echo "Using R from conda env: $RGIMME_ENV"
+else
+    command -v module >/dev/null 2>&1 || { [ -f /etc/profile.d/modules.sh ] && source /etc/profile.d/modules.sh; }
+    command -v Rscript >/dev/null 2>&1 || module load "$R_MODULE" 2>/dev/null || true
+    if ! command -v Rscript >/dev/null 2>&1; then
+        echo "ERROR: no '$RGIMME_ENV' conda env and 'Rscript' not on PATH (tried module $R_MODULE)." >&2
+        echo "       Build a dedicated R env once (recommended on this cluster):" >&2
+        echo "         conda create -y -n rgimme -c conda-forge r-base r-igraph r-lavaan \\" >&2
+        echo "             r-lme4 r-car r-nloptr gfortran_linux-64 gcc_linux-64 gxx_linux-64 make" >&2
+        echo "         conda run -n rgimme Rscript -e 'install.packages(\"gimme\", repos=\"https://cloud.r-project.org\")'" >&2
+        exit 2
+    fi
+    R_RUN=(Rscript)
+    echo "Using Rscript: $(command -v Rscript)"
 fi
-if ! command -v Rscript >/dev/null 2>&1; then
-    echo "ERROR: 'Rscript' not on PATH and 'module load $R_MODULE' did not provide it." >&2
-    echo "       Run 'module avail R', then resubmit with e.g. R_MODULE=R/4.4.3" >&2
-    exit 2
-fi
-echo "Using Rscript: $(command -v Rscript)"
-if ! Rscript -e 'q(status=!requireNamespace("gimme", quietly=TRUE))' 2>/dev/null; then
-    echo "ERROR: R package 'gimme' is not installed for $(command -v Rscript)." >&2
-    echo "       Install it once with:" >&2
-    echo "         Rscript -e 'install.packages(\"gimme\", repos=\"https://cloud.r-project.org\")'" >&2
-    echo "       (or set R_LIBS_USER to a writable lib dir first)." >&2
+if ! "${R_RUN[@]}" -e 'q(status=!requireNamespace("gimme", quietly=TRUE))' 2>/dev/null; then
+    echo "ERROR: R package 'gimme' is not installed for the selected R." >&2
+    echo "       Install with:  ${R_RUN[*]} -e 'install.packages(\"gimme\", repos=\"https://cloud.r-project.org\")'" >&2
     exit 3
 fi
-Rscript baselines_run_gimme.R "$GIMME_IN" "$GIMME_OUT" "$GIMME_AR" "$GROUPCUTOFF" "$SUBCUTOFF"
+"${R_RUN[@]}" baselines_run_gimme.R "$GIMME_IN" "$GIMME_OUT" "$GIMME_AR" "$GROUPCUTOFF" "$SUBCUTOFF"
 
 # ---- 3) collect gimme output into result.zkl ----
 python baselines_fmri_experiment.py \
