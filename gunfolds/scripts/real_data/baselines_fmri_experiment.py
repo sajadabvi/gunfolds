@@ -249,6 +249,17 @@ def _start_jvm(tetrad_jar, pytetrad_path):
                 + "\n  ".join(t for t in tried if t))
         print(f"  using tetrad jar: {jar}", flush=True)
         jpype.startJVM(classpath=[jar])
+    # py-tetrad's translate.py calls importlib.resources.files(), added only in
+    # Python 3.9. multi_v3 is 3.8, so patch it in from the backport package.
+    import importlib.resources as _ir
+    if not hasattr(_ir, "files"):
+        try:
+            import importlib_resources as _irb
+        except ImportError as e:
+            raise ImportError(
+                "py-tetrad needs importlib.resources.files (Python>=3.9) or the "
+                "backport on Python 3.8. Run: pip install importlib_resources") from e
+        _ir.files = _irb.files
     # py-tetrad exposes either `pytetrad.tools.TetradSearch` (pip layout) or
     # `tools.TetradSearch` (legacy checkout layout) -- try both.
     try:
