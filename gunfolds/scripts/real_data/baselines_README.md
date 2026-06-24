@@ -103,6 +103,21 @@ python ../analysis/refactored_analyze_fmri_experiment.py \
 
 ## Dependency notes / caveats
 
+* **MATLAB on headless nodes (MVGC + MVAR)**: the compute nodes have no X11
+  client libs, and MATLAB R2023a loads a graphics-UI plugin at startup even
+  under `-batch`, failing on `libXt.so.6: cannot open shared object file`
+  (loading the matlab *module* does NOT fix this). One-time setup -- build a
+  tiny X-libs conda env:
+  ```bash
+  conda create -y -n xlibs -c conda-forge xorg-libxt xorg-libxext xorg-libxmu \
+    xorg-libxtst xorg-libxrandr xorg-libxfixes xorg-libxcursor xorg-libxinerama \
+    xorg-libxi xorg-libxrender xorg-libxcomposite xorg-libxdamage \
+    xorg-libxscrnsaver xorg-libsm xorg-libice libxcb
+  ```
+  `slurm_baselines_matlab.sh` then prepends `MATLAB_XLIB_DIR`
+  (default `~/anaconda3/envs/xlibs/lib`) to `LD_LIBRARY_PATH` and resolves the
+  matlab binary via `MATLAB_BIN` -> module -> `MATLAB_ABS`
+  (default `/sysapps/ubuntu-applications/matlab/MATLAB_R2023a/bin/matlab`).
 * **FASK** needs jpype + the tetrad jar + py-tetrad on the cluster (the legacy
   FASK pipeline used exactly this). The driver tries `import tools.TetradSearch`
   then `from pytetrad.tools import TetradSearch`. On any failure for a subject
