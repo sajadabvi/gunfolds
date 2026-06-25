@@ -182,7 +182,7 @@ def run_rasl_band(ts_2d, args, comp_indices, scc_members_override):
         urate=min(args.MAXU, (3 * n_nodes + 1)),
         dm=[DD], bdm=[BD], scc=use_scc, scc_members=members,
         GT_density=gt_density, edge_weights=priority, pnum=args.PNUM,
-        optim="optN", selfloop=None,
+        optim=args.optim, selfloop=None,
         density_mode=args.density_mode, tol=None,
         tol_low=args.tol_low, tol_high=args.tol_high,
     )
@@ -381,6 +381,14 @@ def parse_arguments():
                    help="Max undersampling rate to search (4 matches the "
                         "runtime_scaling benchmark; drops a u-level vs 5).")
     p.add_argument("-y", "--PRIORITY", default="11112", type=str)
+    p.add_argument("--optim", default="optN", choices=["opt", "optN"],
+                   help="clingo optimization mode. 'optN' (default) enumerates "
+                        "the whole near-optimal set -> the cost band/posterior "
+                        "needs it, but is combinatorially slow on dense graphs. "
+                        "'opt' proves a SINGLE optimum and stops -> fast, but "
+                        "yields ~1 solution/subject (degenerate band: no "
+                        "multi-solution posterior or under-determination "
+                        "biomarkers, like a 1-solution method).")
 
     # NEW: cost-band retention + posterior
     p.add_argument("--selection_mode", default="cost_band",

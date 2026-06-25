@@ -45,6 +45,7 @@ MAX_KEEP=${MAX_KEEP:-200}
 TAU=${TAU:-1.0}
 BOOTSTRAP=${BOOTSTRAP:-0}
 BLOCK_LEN=${BLOCK_LEN:-20}
+OPTIM=${OPTIM:-optN}     # 'opt' = single optimum (fast, 1 sol/subj); 'optN' = full near-optimal set
 
 if [ -z "$TIMESTAMP" ]; then
     echo "Error: TIMESTAMP not provided"
@@ -104,7 +105,7 @@ cd $SLURM_SUBMIT_DIR
 PNUM=${SLURM_CPUS_PER_TASK:-15}
 EXTRA_ARGS="--PNUM $PNUM"
 if [ "$METHOD" = "RASL" ]; then
-    EXTRA_ARGS="$EXTRA_ARGS --MAXU 4 --PRIORITY 11112 --tol_low 5 --tol_high 5"
+    EXTRA_ARGS="$EXTRA_ARGS --MAXU 4 --PRIORITY 11112 --tol_low 5 --tol_high 5 --optim ${OPTIM}"
     EXTRA_ARGS="$EXTRA_ARGS --selection_mode cost_band --delta_band ${DELTA_BAND} --max_keep ${MAX_KEEP} --tau ${TAU}"
     EXTRA_ARGS="$EXTRA_ARGS --bootstrap ${BOOTSTRAP} --block_len ${BLOCK_LEN}"
     EXTRA_ARGS="$EXTRA_ARGS --pcmci_method pcmci --pcmci_tau_max 1 --pcmci_alpha 0.05 --pcmci_fdr none"
