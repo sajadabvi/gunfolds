@@ -29,8 +29,21 @@ SLURM_SCRIPT="${SLURM_SCRIPT:-../cluster/refactored_slurm_fmri_large.sh}"
 PART="${PART:-qTRD}"                    # CPU partition; use qTRDGPU if qTRD is full
 CPUS="${CPUS:-8}"
 MEM="${MEM:-32g}"
-WALL="${WALL:-02:00:00}"
+WALL="${WALL:-1-00:00:00}"              # default 1 day (RASL is slow even in opt on dense graphs);
+                                        # set WALL=max for the partition's maximum, or WALL=02:00:00 for fast N10
 THROTTLE="${THROTTLE:-100}"
+
+# WALL=max -> query the partition's maximum time limit from SLURM and use it.
+if [ "$WALL" = "max" ]; then
+  PMAX=$(sinfo -h -p "$PART" -o "%l" 2>/dev/null | head -1)
+  if [ -z "$PMAX" ] || echo "$PMAX" | grep -qiE 'infinite|unlimited|n/a'; then
+    WALL="30-00:00:00"                 # partition has no finite cap -> request a very large wall
+    echo "WALL=max: partition $PART has no finite limit; requesting $WALL (SLURM will clamp if needed)."
+  else
+    WALL="$PMAX"
+    echo "WALL=max: partition $PART maximum walltime is $WALL."
+  fi
+fi
 
 CONFIG_TAG="N${N_COMP}_${SCC}_${METHOD}"
 DIR="fbirn_results_refactored/${TS}/${CONFIG_TAG}"
