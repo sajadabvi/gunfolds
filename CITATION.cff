@@ -1,0 +1,61 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "gunfolds: Causal Structure Learning from Undersampled Time Series"
+version: 0.0.7
+date-released: 2023-01-01
+license: MIT
+url: "https://neuroneural.github.io/gunfolds/"
+repository-code: "https://github.com/neuroneural/gunfolds"
+authors:
+  - family-names: Abavisani
+    given-names: Sajad
+    email: s.abavisani@gatech.edu
+    affiliation: "Georgia Institute of Technology"
+    orcid: "https://orcid.org/0009-0009-7702-2340"
+abstract: >
+  gunfolds is a Python toolkit for causal structure learning from undersampled
+  time series, with a focus on scalable constraint-based methods using Answer
+  Set Programming (ASP). It includes implementations of GRACE-C (rate-agnostic
+  causal estimation via constraints, achieving 1000x speedup over prior
+  methods), RnR (a meta-solver that refines any causal discovery algorithm for
+  undersampled data), dRASL, and ION-C.
+keywords:
+  - causal discovery
+  - time series
+  - undersampling
+  - answer set programming
+  - fMRI
+  - graphical models
+preferred-citation:
+  type: conference-paper
+  title: "GRACE-C: Generalized Rate Agnostic Causal Estimation via Constraints"
+  authors:
+    - family-names: Abavisani
+      given-names: Sajad
+      affiliation: "Georgia Institute of Technology"
+  collection-title: "International Conference on Learning Representations (ICLR 2023)"
+  year: 2023
+  url: "https://openreview.net/forum?id=B_pCIsX8KL_"
+references:
+  - type: conference-paper
+    title: "Causal Learning through Deliberate Undersampling"
+    authors:
+      - family-names: Solovyeva
+        given-names: Kseniya
+      - family-names: Danks
+        given-names: David
+      - family-names: Abavisani
+        given-names: Sajad
+      - family-names: Plis
+        given-names: Sergey
+    collection-title: "Causal Learning and Reasoning (CLeaR) / PMLR 2023"
+    year: 2023
+  - type: report
+    title: "ION-C: Integration of Overlapping Networks via Constraints"
+    authors:
+      - family-names: Nair
+        given-names: Vinod
+      - family-names: Abavisani
+        given-names: Sajad
+    year: 2024
+    url: "https://arxiv.org/abs/2024"
