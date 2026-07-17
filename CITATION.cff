@@ -1,41 +1,60 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite it as below."
-title: "gunfolds: Causal Structure Learning from Undersampled Time Series"
-version: 0.0.7
-date-released: 2023-01-01
-license: MIT
-url: "https://neuroneural.github.io/gunfolds/"
+message: "If you use this software, please cite both the software itself and the preferred citation below."
+title: "gunfolds: Tools for causal graphs under undersampling and latent variables"
+abstract: >
+  gunfolds is a Python package for working with compressed graphs and for solving
+  the forward and inverse problems that arise when time series are undersampled or
+  contain latent variables. It provides implementations of MSL, RASL, and dRASL,
+  along with ASP-based (Answer Set Programming, via clingo) and CSP-based solvers,
+  and utilities for simulating, converting, and visualizing dynamic causal graphs.
+type: software
+version: 0.0.32
+date-released: 2026-05-27
+license: GPL-3.0-or-later
 repository-code: "https://github.com/neuroneural/gunfolds"
+url: "https://neuroneural.github.io/gunfolds/"
 authors:
+  - family-names: Plis
+    given-names: Sergey
+    email: splis@mrn.org
+    affiliation: "TReNDS Center, Georgia State University"
   - family-names: Abavisani
-    given-names: Sajad
+    given-names: Mohammadsajad
     email: s.abavisani@gatech.edu
     affiliation: "Georgia Institute of Technology"
     orcid: "https://orcid.org/0009-0009-7702-2340"
-abstract: >
-  gunfolds is a Python toolkit for causal structure learning from undersampled
-  time series, with a focus on scalable constraint-based methods using Answer
-  Set Programming (ASP). It includes implementations of GRACE-C (rate-agnostic
-  causal estimation via constraints, achieving 1000x speedup over prior
-  methods), RnR (a meta-solver that refines any causal discovery algorithm for
-  undersampled data), dRASL, and ION-C.
+  - family-names: Mittapalle
+    given-names: Girish
+  - family-names: Freeman
+    given-names: Cynthia
+  - family-names: Beaver
+    given-names: Ian
 keywords:
   - causal discovery
+  - causal structure learning
   - time series
   - undersampling
+  - latent variables
   - answer set programming
-  - fMRI
   - graphical models
+  - fMRI
 preferred-citation:
   type: conference-paper
   title: "GRACE-C: Generalized Rate Agnostic Causal Estimation via Constraints"
   authors:
     - family-names: Abavisani
-      given-names: Sajad
-      affiliation: "Georgia Institute of Technology"
-  collection-title: "International Conference on Learning Representations (ICLR 2023)"
+      given-names: Mohammadsajad
+    - family-names: Danks
+      given-names: David
+    - family-names: Plis
+      given-names: Sergey
+  collection-title: "The Eleventh International Conference on Learning Representations (ICLR 2023)"
   year: 2023
   url: "https://openreview.net/forum?id=B_pCIsX8KL_"
+  identifiers:
+    - type: doi
+      value: 10.48550/arXiv.2205.09235
+      description: "arXiv preprint arXiv:2205.09235"
 references:
   - type: conference-paper
     title: "Causal Learning through Deliberate Undersampling"
@@ -45,17 +64,34 @@ references:
       - family-names: Danks
         given-names: David
       - family-names: Abavisani
-        given-names: Sajad
+        given-names: Mohammadsajad
       - family-names: Plis
         given-names: Sergey
-    collection-title: "Causal Learning and Reasoning (CLeaR) / PMLR 2023"
+    collection-title: "Proceedings of the Second Conference on Causal Learning and Reasoning (CLeaR)"
+    publisher:
+      name: PMLR
+    volume: 213
+    start: 518
+    end: 530
     year: 2023
-  - type: report
+    url: "https://proceedings.mlr.press/v213/solovyeva23a.html"
+  - type: article
     title: "ION-C: Integration of Overlapping Networks via Constraints"
     authors:
       - family-names: Nair
-        given-names: Vinod
+        given-names: Praveen
+      - family-names: Bhandari
+        given-names: Payal
       - family-names: Abavisani
-        given-names: Sajad
+        given-names: Mohammadsajad
+      - family-names: Plis
+        given-names: Sergey
+      - family-names: Danks
+        given-names: David
     year: 2024
-    url: "https://arxiv.org/abs/2024"
+    notes: "arXiv preprint"
+    url: "https://arxiv.org/abs/2411.04243"
+    identifiers:
+      - type: doi
+        value: 10.48550/arXiv.2411.04243
+        description: "arXiv preprint arXiv:2411.04243"
